@@ -111,10 +111,19 @@ class SkyCookerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             return self.async_abort(reason='unknown')
 
         _LOGGER.info("📡 Найдено %s устройств SkyCooker", len(mac_list))
+        # Пытаемся получить переводы, но если их нет - используем стандартный текст
+        description = "Выберите устройство SkyCooker из списка доступных Bluetooth устройств"
+        try:
+            if hasattr(self.hass, 'data') and DOMAIN in self.hass.data:
+                translations = self.hass.data[DOMAIN].get("translations", {})
+                description = translations.get("config", {}).get("step", {}).get("user", {}).get("description", description)
+        except Exception as e:
+            _LOGGER.debug("⚠️  Не удалось получить переводы: %s", e)
+        
         return self.async_show_form(
             step_id="scan",
             errors=errors,
-            description=self.hass.data[DOMAIN].get("translations", {}).get("config", {}).get("step", {}).get("user", {}).get("description", "Select SkyCooker device"),
+            description=description,
             data_schema=schema
         )
 
@@ -135,10 +144,19 @@ class SkyCookerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             vol.Optional(CONF_USE_BACKLIGHT, default=False): bool,
         })
 
+        # Пытаемся получить переводы для этапа параметров
+        description = "Настройте параметры подключения для выбранного устройства"
+        try:
+            if hasattr(self.hass, 'data') and DOMAIN in self.hass.data:
+                translations = self.hass.data[DOMAIN].get("translations", {})
+                description = translations.get("config", {}).get("step", {}).get("parameters", {}).get("description", description)
+        except Exception as e:
+            _LOGGER.debug("⚠️  Не удалось получить переводы для этапа параметров: %s", e)
+        
         return self.async_show_form(
             step_id="parameters",
             errors=errors,
-            description=self.hass.data[DOMAIN].get("translations", {}).get("config", {}).get("step", {}).get("parameters", {}).get("description", "Configure connection parameters for the selected device"),
+            description=description,
             data_schema=schema
         )
 
@@ -150,10 +168,19 @@ class SkyCookerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             _LOGGER.info("✅ Пользователь прочитал инструкции, переходим к подключению")
             return await self.async_step_connect()
 
+        # Пытаемся получить переводы для этапа инструкций
+        description = "Перед подключением переведите мультиварку в режим сопряжения:\n\n1. Убедитесь, что мультиварка выключена\n2. Удерживайте кнопку питания 3 секунды\n3. Дождитесь появления синего индикатора\n4. Нажмите 'Продолжить' для подключения"
+        try:
+            if hasattr(self.hass, 'data') and DOMAIN in self.hass.data:
+                translations = self.hass.data[DOMAIN].get("translations", {})
+                description = translations.get("config", {}).get("step", {}).get("instructions", {}).get("description", description)
+        except Exception as e:
+            _LOGGER.debug("⚠️  Не удалось получить переводы для этапа инструкций: %s", e)
+        
         return self.async_show_form(
             step_id="instructions",
             errors=errors,
-            description=self.hass.data[DOMAIN].get("translations", {}).get("config", {}).get("step", {}).get("instructions", {}).get("description", "Before connecting, switch the multicooker to pairing mode"),
+            description=description,
             data_schema=vol.Schema({
                 vol.Optional("continue", default=True): bool
             })
@@ -197,12 +224,21 @@ class SkyCookerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 _LOGGER.error("❌ Ошибка подключения к мультиварке: %s", ex)
                 errors["base"] = "connection_failed"
 
+        # Пытаемся получить переводы для этапа подключения
+        description = "Готовы к подключению? Убедитесь, что мультиварка в режиме сопряжения и нажмите 'Подключиться'"
+        try:
+            if hasattr(self.hass, 'data') and DOMAIN in self.hass.data:
+                translations = self.hass.data[DOMAIN].get("translations", {})
+                description = translations.get("config", {}).get("step", {}).get("connect", {}).get("description", description)
+        except Exception as e:
+            _LOGGER.debug("⚠️  Не удалось получить переводы для этапа подключения: %s", e)
+        
         # Показываем форму с кнопкой для подключения
         _LOGGER.debug("📡 Показываем форму подключения")
         return self.async_show_form(
             step_id="connect",
             errors=errors,
-            description=self.hass.data[DOMAIN].get("translations", {}).get("config", {}).get("step", {}).get("connect", {}).get("description", "Ready to connect? Make sure the multicooker is in pairing mode and click 'Connect'"),
+            description=description,
             data_schema=vol.Schema({
                 vol.Optional("continue", default=True): bool
             })
