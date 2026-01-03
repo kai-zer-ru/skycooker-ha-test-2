@@ -148,6 +148,7 @@ class SkyCookerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         # Если user_input is None, это означает переход на шаг без отправки формы
         # В этом случае просто показываем форму с сообщением
+        _LOGGER.debug("📡 Показываем форму подключения без отправки данных")
         return self.async_show_form(
             step_id="connect",
             errors=errors,
