@@ -229,8 +229,9 @@ class SkyCookerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         """Handle the connect step - непосредственно подключение к мультиварке."""
         errors = {}
         
-        # Если пользователь нажал кнопку "Продолжить", начинаем подключение
-        if user_input is not None and user_input.get("continue", False):
+        # Начинаем подключение сразу при входе на этап
+        if not hasattr(self, '_connection_attempted'):
+            self._connection_attempted = True
             _LOGGER.info("🔌 Начинаем подключение к мультиварке...")
             
             try:
