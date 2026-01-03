@@ -71,22 +71,38 @@ class SkyCookerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         _LOGGER.debug("📡 Начало сканирования устройств SkyCooker")
         errors = {}
         if user_input is not None:
-            spl = user_input[CONF_MAC].split(' ', maxsplit=1)
-            mac = spl[0]
-            name = spl[1][1:-1] if len(spl) >= 2 else None
-            if name not in SUPPORTED_DEVICES:
-                # Model is not supported
-                _LOGGER.error("❌ Устройство не поддерживается: %s", name)
-                return self.async_abort(reason='unsupported_device')
-            if not await self.init_mac(mac):
-                # This cooker already configured
-                _LOGGER.warning("⚠️  Устройство уже настроено: %s", mac)
-                return self.async_abort(reason='already_configured')
-            if name:
-                self.config[CONF_FRIENDLY_NAME] = name
-            # Continue to parameters step
-            _LOGGER.info("✅ Устройство %s выбрано для настройки", name)
-            return await self.async_step_parameters()
+            try:
+                spl = user_input[CONF_MAC].split(' ', maxsplit=1)
+                mac = spl[0]
+                name = None
+                
+                # Извлекаем имя устройства из скобок
+                if len(spl) >= 2:
+                    name_part = spl[1].strip()
+                    if name_part.startswith('(') and name_part.endswith(')'):
+                        name = name_part[1:-1]
+                    else:
+                        name = name_part
+                
+                _LOGGER.debug("🔍 Выбрано устройство: MAC=%s, Имя=%s", mac, name)
+                
+                if name and name not in SUPPORTED_DEVICES:
+                    # Model is not supported
+                    _LOGGER.error("❌ Устройство не поддерживается: %s", name)
+                    return self.async_abort(reason='unsupported_device')
+                if not await self.init_mac(mac):
+                    # This cooker already configured
+                    _LOGGER.warning("⚠️  Устройство уже настроено: %s", mac)
+                    return self.async_abort(reason='already_configured')
+                if name:
+                    self.config[CONF_FRIENDLY_NAME] = name
+                # Continue to parameters step
+                _LOGGER.info("✅ Устройство %s выбрано для настройки", name or mac)
+                return await self.async_step_parameters()
+            except Exception as ex:
+                _LOGGER.error("❌ Ошибка обработки выбора устройства: %s", ex)
+                _LOGGER.exception(ex)
+                return self.async_abort(reason='unknown')
 
         try:
             try:
