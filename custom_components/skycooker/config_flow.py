@@ -1,9 +1,6 @@
 #!/usr/local/bin/python3
 # coding: utf-8
 
-import logging
-from typing import Any, Dict, Optional
-
 from homeassistant import config_entries
 from homeassistant.const import CONF_MAC, CONF_PASSWORD, CONF_SCAN_INTERVAL
 from homeassistant.core import callback
@@ -11,9 +8,7 @@ from homeassistant.data_entry_flow import FlowResult
 
 from .const import SUPPORTED_DEVICES, MIN_TEMP, MAX_TEMP
 
-_LOGGER = logging.getLogger(__name__)
-
-CONF_USE_BACKLIGHT = 'use_backlight'
+DOMAIN = "skycooker"
 
 DATA_SCHEMA_USER = {
     CONF_MAC: str,
@@ -40,54 +35,42 @@ class SkyCookerConfigFlow(config_entries.ConfigFlow):
         self.device_mac = None
 
     async def async_step_user(
-        self, user_input: Optional[Dict[str, Any]] = None
+        self, user_input=None
     ) -> FlowResult:
         """Handle a flow initialized by the user."""
-        _LOGGER.info("🔧 Начало настройки интеграции SkyCooker")
         errors = {}
 
         if user_input is not None:
             mac = user_input[CONF_MAC].upper()
             password = user_input[CONF_PASSWORD]
             scan_interval = user_input[CONF_SCAN_INTERVAL]
-            use_backlight = user_input[CONF_USE_BACKLIGHT]
-
-            _LOGGER.debug("📝 Введены параметры: MAC=%s, Пароль=%s, Интервал=%s, Подсветка=%s",
-                         mac, password, scan_interval, use_backlight)
+            use_backlight = user_input.get('use_backlight', False)
 
             # Validate password format (8 hex characters)
             if len(password) != 16 or not all(c in '0123456789abcdefABCDEF' for c in password):
-                _LOGGER.error("❌ Неверный формат пароля")
                 errors["base"] = "wrong_password"
             else:
                 # Check if device is supported
                 try:
-                    _LOGGER.info("🔍 Проверка поддерживаемого устройства: %s", mac)
-                    
-                    # For now, we'll trust the user input and check if it's in supported devices
-                    # The actual device discovery will be done during integration setup
-                    device_name = f"RMC-M40S_{mac[-5:].replace(':', '')}"  # Generate a name
+                    device_name = f"RMC-M40S_{mac[-5:].replace(':', '')}"
                     
                     if device_name in SUPPORTED_DEVICES or any(mac.startswith(prefix) for prefix in ['AA', 'BB', 'CC', 'DD', 'EE', 'FF']):
                         # Check if already configured
                         await self.async_set_unique_id(device_name)
                         self._abort_if_unique_id_configured()
 
-                        _LOGGER.info("✅ Интеграция успешно настроена для устройства: %s", device_name)
                         return self.async_create_entry(
                             title=device_name,
                             data={
                                 CONF_MAC: mac,
                                 CONF_PASSWORD: password,
                                 CONF_SCAN_INTERVAL: scan_interval,
-                                CONF_USE_BACKLIGHT: use_backlight,
+                                'use_backlight': use_backlight,
                             }
                         )
                     else:
-                        _LOGGER.error("❌ Устройство не поддерживается: %s", device_name)
                         errors["base"] = "unsupported_device"
-                except Exception as ex:
-                    _LOGGER.error("❌ Ошибка настройки интеграции: %s", ex)
+                except Exception:
                     errors["base"] = "setup_failed"
 
         return self.async_show_form(
@@ -119,7 +102,7 @@ class SkyCookerConfigFlow(config_entries.ConfigFlow):
                 CONF_MAC: self.device_mac,
                 CONF_PASSWORD: user_input[CONF_PASSWORD],
                 CONF_SCAN_INTERVAL: 60,
-                CONF_USE_BACKLIGHT: False,
+                'use_backlight': False,
             })
 
         return self.async_show_form(
@@ -153,7 +136,7 @@ class SkyCookerOptionsFlowHandler(config_entries.OptionsFlow):
         options = self.config_entry.options
         data_schema = {
             CONF_SCAN_INTERVAL: int,
-            CONF_USE_BACKLIGHT: bool,
+            'use_backlight': bool,
         }
 
         return self.async_show_form(
