@@ -149,9 +149,7 @@ class SkyCookerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return self.async_show_form(
             step_id="connect",
             errors=errors,
-            description_placeholders={
-                "message": "✅ Устройство готово к подключению. Переведите мультиварку в режим сопряжения (удерживайте кнопку питания 3 секунды, пока не загорится синий индикатор)"
-            },
+            description="✅ Устройство готово к подключению. Переведите мультиварку в режим сопряжения (удерживайте кнопку питания 3 секунды, пока не загорится синий индикатор)",
             data_schema=vol.Schema({})
         )
 
