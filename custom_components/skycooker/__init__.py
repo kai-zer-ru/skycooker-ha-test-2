@@ -226,10 +226,26 @@ class SkyCooker:
         return True
 
     def responseAuth(self, arrayHex):
-        if self._type == 5 and arrayHex[3] == '01':
-            self._auth = True
+        _LOGGER.debug("📡 Ответ на аутентификацию: %s", arrayHex)
+        
+        if len(arrayHex) >= 4:
+            auth_result = arrayHex[3]
+            _LOGGER.debug("📡 Результат аутентификации: %s", auth_result)
+            
+            if self._type == 5:
+                if auth_result == '01':
+                    self._auth = True
+                    _LOGGER.info("✅ Аутентификация успешна для устройства типа %s", self._type)
+                else:
+                    self._auth = False
+                    _LOGGER.warning("⚠️  Аутентификация не удалась для устройства типа %s, код: %s", self._type, auth_result)
+            else:
+                # Для других типов устройств логика может быть другой
+                self._auth = False
+                _LOGGER.warning("⚠️  Неизвестный тип устройства: %s", self._type)
         else:
             self._auth = False
+            _LOGGER.error("❌ Некорректный ответ на аутентификацию: %s", arrayHex)
 
         return self._auth
 
