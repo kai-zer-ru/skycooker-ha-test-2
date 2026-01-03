@@ -16,6 +16,10 @@
             "bluetooth_confirm": {
                 "title": "Bluetooth device confirmation",
                 "description": "Found device {name} ({mac}). Please enter the password to connect."
+            },
+            "connect": {
+                "title": "Device connection",
+                "description": "✅ Device is ready to connect. Switch the cooker to pairing mode (hold the power button for 3 seconds until the blue indicator lights up)"
             }
         },
         "error": {
@@ -28,12 +32,6 @@
         },
         "abort": {
             "already_configured": "Integration for this device is already configured"
-        },
-        "step": {
-            "connect": {
-                "title": "Device connection",
-                "description": "✅ Device is ready to connect. Switch the cooker to pairing mode (hold the power button for 3 seconds until the blue indicator lights up)"
-            }
         }
     },
     "options": {
