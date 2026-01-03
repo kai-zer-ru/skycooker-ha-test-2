@@ -1,1 +1,150 @@
-# skycooker-ha-test-2
+# SkyCooker - Интеграция для HomeAssistant
+
+Интеграция для управления мультиваркой Redmond RMC-M40S через Bluetooth в HomeAssistant.
+
+## Возможности
+
+- Управление включением/выключением мультиварки
+- Выбор и запуск программ приготовления
+- Управление температурой приготовления
+- Управление временем приготовления
+- Управление временем поддержания температуры
+- Отображение текущего состояния мультиварки
+- Отображение текущей температуры
+- Отображение статистики использования
+
+## Поддерживаемые устройства
+
+- RMC-M40S
+- RMC-M800S
+- RMC-M223S
+- RMC-M92S
+- RMC-M92S-E
+
+## Требования
+
+- HomeAssistant 2025.12.5 или новее
+- Bluetooth адаптер на устройстве, где работает HomeAssistant
+- Мультиварка Redmond RMC-M40S (или другая поддерживаемая модель)
+
+## Установка
+
+1. Скопируйте папку `custom_components/skycooker` в папку `custom_components` вашего HomeAssistant
+2. Перезапустите HomeAssistant
+3. Перейдите в Настройки → Интеграции
+4. Нажмите "Добавить интеграцию" и выберите "SkyCooker"
+5. Следуйте инструкциям на экране
+
+## Настройка
+
+### Через интерфейс HomeAssistant
+
+1. Перейдите в Настройки → Интеграции
+2. Нажмите "Добавить интеграцию"
+3. Выберите "SkyCooker"
+4. Введите MAC-адрес вашей мультиварки
+5. Введите пароль (16 символов в HEX формате)
+6. Настройте интервал опроса (по умолчанию 60 секунд)
+7. Нажмите "Подтвердить"
+
+### Режим сопряжения
+
+Перед добавлением интеграции убедитесь, что ваша мультиварка находится в режиме сопряжения:
+1. Выключите мультиварку
+2. Удерживайте кнопку включения несколько секунд до появления мигающих индикаторов
+3. Добавьте интеграцию в HomeAssistant
+
+## Программы приготовления
+
+Интеграция поддерживает следующие программы:
+
+- Рис
+- Тушение
+- Плов
+- Жарка овощей
+- Жарка рыбы
+- Жарка мяса
+- Тушение овощей
+- Тушение рыбы
+- Тушение мяса
+- Макароны
+- Молочная каша
+- Суп
+- Йогурт
+- Выпечка
+- Приготовление на пару (овощи, рыба, мясо)
+- Подогрев
+
+## Сущности
+
+Интеграция создает следующие сущности:
+
+### Сенсоры
+- `sensor.skycooker_status` - Состояние мультиварки
+- `sensor.skycooker_mode` - Режим работы
+- `sensor.skycooker_temperature` - Текущая температура
+- `sensor.skycooker_target_temperature` - Целевая температура
+- `sensor.skycooker_program_hours` - Часы программы
+- `sensor.skycooker_program_minutes` - Минуты программы
+- `sensor.skycooker_timer_hours` - Часы таймера
+- `sensor.skycooker_timer_minutes` - Минуты таймера
+- `sensor.skycooker_power_consumption` - Потребление энергии
+- `sensor.skycooker_working_time` - Время работы
+- `sensor.skycooker_starts_count` - Количество включений
+- `sensor.skycooker_last_update` - Время последнего обновления
+
+### Переключатели
+- `switch.skycooker_power` - Питание мультиварки
+- `switch.skycooker_program` - Запуск программы
+
+### Числовые сущности
+- `number.skycooker_target_temperature` - Управление целевой температурой
+- `number.skycooker_program_hours` - Управление часами программы
+- `number.skycooker_program_minutes` - Управление минутами программы
+- `number.skycooker_timer_hours` - Управление часами таймера
+- `number.skycooker_timer_minutes` - Управление минутами таймера
+
+### Выбор программ
+- `select.skycooker_program` - Выбор программы приготовления
+
+## Автоматизация
+
+Пример автоматизации для запуска программы "Рис":
+
+```yaml
+automation:
+  - alias: "Запустить приготовление риса"
+    trigger:
+      - platform: state
+        entity_id: switch.skycooker_power
+        to: 'on'
+    action:
+      - service: select.select_option
+        target:
+          entity_id: select.skycooker_program
+        data:
+          option: rice
+```
+
+## Поддержка
+
+Если у вас возникли проблемы или вопросы:
+1. Проверьте логи HomeAssistant на наличие ошибок
+2. Убедитесь, что Bluetooth адаптер работает корректно
+3. Проверьте, что мультиварка находится в режиме сопряжения
+4. Создайте issue в репозитории: https://github.com/kai-zer-ru/skycooker-ha-test-2/issues
+
+## Лицензия
+
+Этот проект распространяется под лицензией MIT.
+
+## Благодарности
+
+Спасибо разработчикам существующих интеграций за вдохновение и примеры кода:
+- https://github.com/XNicON/hassio-r4s
+- https://github.com/mavrikkk/ha_kettler
+- https://github.com/ClusterM/skykettle-ha
+
+## English version
+
+[Read English documentation](README_EN.md)

@@ -1,0 +1,123 @@
+{
+    "config": {
+        "title": "SkyCooker",
+        "step": {
+            "user": {
+                "title": "Setup a new device",
+                "description": "Details can be found here:\nhttps://github.com/kai-zer-ru/skycooker-ha-test-2/blob/master/README.md",
+                "data": {
+                    "device": "Bluetooth device",
+                    "mac": "Device MAC address",
+                    "password": "Password (16 characters, HEX format)",
+                    "scan_interval": "Scan interval (from 10 to 300 seconds)",
+                    "use_backlight": "Use backlight in standby mode"
+                }
+            },
+            "bluetooth_confirm": {
+                "title": "Bluetooth device confirmation",
+                "description": "Found device {name} ({mac}). Please enter the password to connect."
+            }
+        },
+        "error": {
+            "wrong_password": "Password is incorrect (must be 16 characters in HEX format)",
+            "wrong_mac": "MAC address is incorrect",
+            "wrong_scan_interval": "Scan interval should be from 10 to 300 seconds",
+            "unsupported_device": "Device is not supported",
+            "device_not_found": "Device not found",
+            "device_discovery_failed": "Device discovery failed"
+        },
+        "abort": {
+            "already_configured": "Integration for this device is already configured"
+        }
+    },
+    "options": {
+        "title": "SkyCooker Options",
+        "data": {
+            "scan_interval": "Scan interval (seconds)",
+            "use_backlight": "Use backlight"
+        }
+    },
+    "entity": {
+        "sensor": {
+            "status": {
+                "name": "Status"
+            },
+            "mode": {
+                "name": "Mode"
+            },
+            "temperature": {
+                "name": "Current Temperature"
+            },
+            "target_temperature": {
+                "name": "Target Temperature"
+            },
+            "program_hours": {
+                "name": "Program Hours"
+            },
+            "program_minutes": {
+                "name": "Program Minutes"
+            },
+            "timer_hours": {
+                "name": "Timer Hours"
+            },
+            "timer_minutes": {
+                "name": "Timer Minutes"
+            },
+            "power_consumption": {
+                "name": "Power Consumption"
+            },
+            "working_time": {
+                "name": "Working Time"
+            },
+            "starts_count": {
+                "name": "Starts Count"
+            },
+            "last_update": {
+                "name": "Last Update"
+            }
+        },
+        "switch": {
+            "power": {
+                "name": "Power"
+            },
+            "program": {
+                "name": "Program"
+            }
+        },
+        "number": {
+            "target_temperature": {
+                "name": "Target Temperature"
+            },
+            "program_hours": {
+                "name": "Program Hours"
+            },
+            "program_minutes": {
+                "name": "Program Minutes"
+            },
+            "timer_hours": {
+                "name": "Timer Hours"
+            },
+            "timer_minutes": {
+                "name": "Timer Minutes"
+            }
+        },
+        "select": {
+            "program": {
+                "name": "Program"
+            }
+        }
+    },
+    "state": {
+        "status": {
+            "off": "Off",
+            "on": "On",
+            "program": "Program",
+            "keep_warm": "Keep Warm",
+            "delayed_start": "Delayed Start"
+        },
+        "mode": {
+            "manual": "Manual",
+            "auto": "Automatic"
+        }
+    }
+}

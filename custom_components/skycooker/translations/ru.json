@@ -1,0 +1,123 @@
+{
+    "config": {
+        "title": "SkyCooker",
+        "step": {
+            "user": {
+                "title": "Настройка нового устройства",
+                "description": "Подробную информацию можно найти здесь:\nhttps://github.com/kai-zer-ru/skycooker-ha-test-2/blob/master/README.md",
+                "data": {
+                    "device": "Bluetooth устройство",
+                    "mac": "MAC-адрес устройства",
+                    "password": "Пароль (16 символов, HEX формат)",
+                    "scan_interval": "Интервал опроса (от 10 до 300 секунд)",
+                    "use_backlight": "Использовать подсветку в режиме ожидания"
+                }
+            },
+            "bluetooth_confirm": {
+                "title": "Подтверждение Bluetooth устройства",
+                "description": "Найдено устройство {name} ({mac}). Пожалуйста, введите пароль для подключения."
+            }
+        },
+        "error": {
+            "wrong_password": "Пароль неверный (должен быть 16 символов в HEX формате)",
+            "wrong_mac": "MAC-адрес неверный",
+            "wrong_scan_interval": "Интервал опроса должен быть от 10 до 300 секунд",
+            "unsupported_device": "Устройство не поддерживается",
+            "device_not_found": "Устройство не найдено",
+            "device_discovery_failed": "Ошибка поиска устройства"
+        },
+        "abort": {
+            "already_configured": "Интеграция для этого устройства уже настроена"
+        }
+    },
+    "options": {
+        "title": "Настройки SkyCooker",
+        "data": {
+            "scan_interval": "Интервал опроса (секунды)",
+            "use_backlight": "Использовать подсветку"
+        }
+    },
+    "entity": {
+        "sensor": {
+            "status": {
+                "name": "Состояние"
+            },
+            "mode": {
+                "name": "Режим"
+            },
+            "temperature": {
+                "name": "Текущая температура"
+            },
+            "target_temperature": {
+                "name": "Целевая температура"
+            },
+            "program_hours": {
+                "name": "Часы программы"
+            },
+            "program_minutes": {
+                "name": "Минуты программы"
+            },
+            "timer_hours": {
+                "name": "Часы таймера"
+            },
+            "timer_minutes": {
+                "name": "Минуты таймера"
+            },
+            "power_consumption": {
+                "name": "Потребление энергии"
+            },
+            "working_time": {
+                "name": "Время работы"
+            },
+            "starts_count": {
+                "name": "Количество включений"
+            },
+            "last_update": {
+                "name": "Последнее обновление"
+            }
+        },
+        "switch": {
+            "power": {
+                "name": "Питание"
+            },
+            "program": {
+                "name": "Программа"
+            }
+        },
+        "number": {
+            "target_temperature": {
+                "name": "Целевая температура"
+            },
+            "program_hours": {
+                "name": "Часы программы"
+            },
+            "program_minutes": {
+                "name": "Минуты программы"
+            },
+            "timer_hours": {
+                "name": "Часы таймера"
+            },
+            "timer_minutes": {
+                "name": "Минуты таймера"
+            }
+        },
+        "select": {
+            "program": {
+                "name": "Программа"
+            }
+        }
+    },
+    "state": {
+        "status": {
+            "off": "Выключено",
+            "on": "Включено",
+            "program": "Программа",
+            "keep_warm": "Поддержание температуры",
+            "delayed_start": "Отложенный старт"
+        },
+        "mode": {
+            "manual": "Ручной",
+            "auto": "Автоматический"
+        }
+    }
+}
