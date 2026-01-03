@@ -164,6 +164,24 @@ class BTLEConnection:
                          command, self._mac, e)
             raise
 
+    async def sendRequest(self, command, data=None):
+        """Метод для совместимости с другими интеграциями - вызывает send_command."""
+        if isinstance(command, str):
+            # Если команда передана как строка в hex формате, конвертируем в int
+            command_int = int(command, 16)
+        else:
+            command_int = command
+        
+        # Конвертируем data из hex строки в список байтов, если это строка
+        if isinstance(data, str):
+            data_list = [int(data[i:i+2], 16) for i in range(0, len(data), 2)]
+        elif isinstance(data, list):
+            data_list = data
+        else:
+            data_list = []
+        
+        return await self.send_command(command_int, data_list)
+
     async def _discover_service_uuids(self):
         """Автоматическое определение UUID сервисов и характеристик."""
         try:
@@ -177,7 +195,9 @@ class BTLEConnection:
                 # Если get_services() не доступен, используем services напрямую
                 services = self._client.services
             
-            _LOGGER.debug("📦 Найдено сервисов: %s", len(services))
+            # Подсчитываем количество сервисов
+            service_count = len(list(services))
+            _LOGGER.debug("📦 Найдено сервисов: %s", service_count)
             
             for service in services:
                 _LOGGER.debug("📡 Сервис: %s", service.uuid)
