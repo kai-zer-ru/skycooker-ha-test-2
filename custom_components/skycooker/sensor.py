@@ -126,13 +126,26 @@ SENSOR_TYPES = {
 
 async def async_setup_entry(hass, config_entry, async_add_entities):
     """Set up the SkyCooker sensor platform."""
-    cooker = hass.data[DOMAIN][config_entry.entry_id]
-    
-    entities = []
-    for sensor_type in SENSOR_TYPES:
-        entities.append(SkyCookerSensor(cooker, sensor_type))
-    
-    async_add_entities(entities)
+    _LOGGER.info("🔧 Загрузка sensor платформы для %s", config_entry.entry_id)
+    try:
+        cooker = hass.data[DOMAIN][config_entry.entry_id]
+        _LOGGER.info("✅ Найден cooker: %s", cooker._name)
+        
+        entities = []
+        for sensor_type in SENSOR_TYPES:
+            _LOGGER.info("🔧 Создание sensor сущности: %s", sensor_type)
+            sensor = SkyCookerSensor(cooker, sensor_type)
+            entities.append(sensor)
+            _LOGGER.info("✅ Создана sensor сущность: %s", sensor.name)
+        
+        _LOGGER.info("🔧 Добавление %s sensor сущностей", len(entities))
+        async_add_entities(entities)
+        _LOGGER.info("✅ Загрузка sensor платформы завершена")
+        return True
+    except Exception as e:
+        _LOGGER.error("❌ Ошибка загрузки sensor платформы: %s", e)
+        _LOGGER.exception(e)
+        return False
 
 
 class SkyCookerSensor(SensorEntity):

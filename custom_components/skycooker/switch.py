@@ -38,13 +38,26 @@ SWITCH_TYPES = {
 
 async def async_setup_entry(hass, config_entry, async_add_entities):
     """Set up the SkyCooker switch platform."""
-    cooker = hass.data[DOMAIN][config_entry.entry_id]
-    
-    entities = []
-    for switch_type in SWITCH_TYPES:
-        entities.append(SkyCookerSwitch(cooker, switch_type))
-    
-    async_add_entities(entities)
+    _LOGGER.info("🔧 Загрузка switch платформы для %s", config_entry.entry_id)
+    try:
+        cooker = hass.data[DOMAIN][config_entry.entry_id]
+        _LOGGER.info("✅ Найден cooker: %s", cooker._name)
+        
+        entities = []
+        for switch_type in SWITCH_TYPES:
+            _LOGGER.info("🔧 Создание switch сущности: %s", switch_type)
+            switch = SkyCookerSwitch(cooker, switch_type)
+            entities.append(switch)
+            _LOGGER.info("✅ Создана switch сущность: %s", switch.name)
+        
+        _LOGGER.info("🔧 Добавление %s switch сущностей", len(entities))
+        async_add_entities(entities)
+        _LOGGER.info("✅ Загрузка switch платформы завершена")
+        return True
+    except Exception as e:
+        _LOGGER.error("❌ Ошибка загрузки switch платформы: %s", e)
+        _LOGGER.exception(e)
+        return False
 
 
 class SkyCookerSwitch(SwitchEntity):

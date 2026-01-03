@@ -30,13 +30,26 @@ SELECT_TYPES = {
 
 async def async_setup_entry(hass, config_entry, async_add_entities):
     """Set up the SkyCooker select platform."""
-    cooker = hass.data[DOMAIN][config_entry.entry_id]
-    
-    entities = []
-    for select_type in SELECT_TYPES:
-        entities.append(SkyCookerSelect(cooker, select_type))
-    
-    async_add_entities(entities)
+    _LOGGER.info("🔧 Загрузка select платформы для %s", config_entry.entry_id)
+    try:
+        cooker = hass.data[DOMAIN][config_entry.entry_id]
+        _LOGGER.info("✅ Найден cooker: %s", cooker._name)
+        
+        entities = []
+        for select_type in SELECT_TYPES:
+            _LOGGER.info("🔧 Создание select сущности: %s", select_type)
+            select = SkyCookerSelect(cooker, select_type)
+            entities.append(select)
+            _LOGGER.info("✅ Создана select сущность: %s", select.name)
+        
+        _LOGGER.info("🔧 Добавление %s select сущностей", len(entities))
+        async_add_entities(entities)
+        _LOGGER.info("✅ Загрузка select платформы завершена")
+        return True
+    except Exception as e:
+        _LOGGER.error("❌ Ошибка загрузки select платформы: %s", e)
+        _LOGGER.exception(e)
+        return False
 
 
 class SkyCookerSelect(SelectEntity):

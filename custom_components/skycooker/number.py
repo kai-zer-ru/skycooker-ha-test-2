@@ -81,13 +81,26 @@ NUMBER_TYPES = {
 
 async def async_setup_entry(hass, config_entry, async_add_entities):
     """Set up the SkyCooker number platform."""
-    cooker = hass.data[DOMAIN][config_entry.entry_id]
-    
-    entities = []
-    for number_type in NUMBER_TYPES:
-        entities.append(SkyCookerNumber(cooker, number_type))
-    
-    async_add_entities(entities)
+    _LOGGER.info("🔧 Загрузка number платформы для %s", config_entry.entry_id)
+    try:
+        cooker = hass.data[DOMAIN][config_entry.entry_id]
+        _LOGGER.info("✅ Найден cooker: %s", cooker._name)
+        
+        entities = []
+        for number_type in NUMBER_TYPES:
+            _LOGGER.info("🔧 Создание number сущности: %s", number_type)
+            number = SkyCookerNumber(cooker, number_type)
+            entities.append(number)
+            _LOGGER.info("✅ Создана number сущность: %s", number.name)
+        
+        _LOGGER.info("🔧 Добавление %s number сущностей", len(entities))
+        async_add_entities(entities)
+        _LOGGER.info("✅ Загрузка number платформы завершена")
+        return True
+    except Exception as e:
+        _LOGGER.error("❌ Ошибка загрузки number платформы: %s", e)
+        _LOGGER.exception(e)
+        return False
 
 
 class SkyCookerNumber(NumberEntity):
