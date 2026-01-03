@@ -102,18 +102,14 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry):
     async_track_time_interval(hass, hass.data[DOMAIN][config_entry.entry_id].update, scan_delta)
 
     _LOGGER.info("🔧 Начало загрузки компонентов: %s", SUPPORTED_DOMAINS)
-    for component in SUPPORTED_DOMAINS:
-        _LOGGER.info("🔧 Загрузка компонента: %s", component)
-        try:
-            task = hass.async_create_task(hass.config_entries.async_forward_entry_setup(config_entry, component))
-            _LOGGER.info("✅ Создана задача загрузки компонента %s: %s", component, task)
-        except Exception as e:
-            _LOGGER.error("❌ Ошибка создания задачи загрузки компонента %s: %s", component, e)
-            _LOGGER.exception(e)
-            return False
-
-    _LOGGER.info("✅ Все компоненты успешно загружены")
-    return True
+    try:
+        await hass.config_entries.async_forward_entry_setups(config_entry, SUPPORTED_DOMAINS)
+        _LOGGER.info("✅ Все компоненты успешно загружены")
+        return True
+    except Exception as e:
+        _LOGGER.error("❌ Ошибка загрузки компонентов: %s", e)
+        _LOGGER.exception(e)
+        return False
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry):

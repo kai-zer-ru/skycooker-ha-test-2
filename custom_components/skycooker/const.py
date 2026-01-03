@@ -59,6 +59,8 @@ MIN_MINUTES = 0
 MAX_MINUTES = 59
 
 # Конфигурация
+CONF_MAC = "mac"
+CONF_PASSWORD = "password"
 CONF_PERSISTENT_CONNECTION = "persistent_connection"
 DEFAULT_PERSISTENT_CONNECTION = True
 CONF_USE_BACKLIGHT = "use_backlight"
