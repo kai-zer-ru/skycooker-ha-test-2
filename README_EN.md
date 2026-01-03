@@ -29,6 +29,20 @@ Integration for managing Redmond RMC-M40S multicooker via Bluetooth in HomeAssis
 
 ## Installation
 
+### Through HACS (recommended)
+
+1. Install HACS if it's not already installed
+2. Go to HACS → Integrations
+3. Click the "+" button in the bottom right corner
+4. Find "SkyCooker" in the list of integrations
+5. Click "Install"
+6. Restart HomeAssistant
+7. Go to Settings → Integrations
+8. Click "Add Integration" and select "SkyCooker"
+9. Follow the on-screen instructions
+
+### Manually
+
 1. Copy the `custom_components/skycooker` folder to the `custom_components` folder of your HomeAssistant
 2. Restart HomeAssistant
 3. Go to Settings → Integrations
