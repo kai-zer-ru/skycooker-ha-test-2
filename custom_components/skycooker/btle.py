@@ -83,15 +83,14 @@ class BTLEConnection:
             _LOGGER.info("✅ Успешное подключение к %s", self._mac)
             
             # Find the correct characteristic for notifications
-            services = await self._client.get_services()
+            services = await self._client.get_service(SERVICE_UUID)
             characteristic_uuid = None
             
-            for service in services:
-                if service.uuid == SERVICE_UUID:
-                    for characteristic in service.characteristics:
-                        if "notify" in characteristic.properties:
-                            characteristic_uuid = characteristic.uuid
-                            break
+            if services:
+                for characteristic in services.characteristics:
+                    if "notify" in characteristic.properties:
+                        characteristic_uuid = characteristic.uuid
+                        break
             
             if characteristic_uuid:
                 # Start notification
@@ -155,15 +154,14 @@ class BTLEConnection:
                          command, self._mac, packet_bytes.hex())
             
             # Find the correct characteristic for writing
-            services = await self._client.get_services()
+            services = await self._client.get_service(SERVICE_UUID)
             write_characteristic_uuid = None
             
-            for service in services:
-                if service.uuid == SERVICE_UUID:
-                    for characteristic in service.characteristics:
-                        if "write" in characteristic.properties or "write_without_response" in characteristic.properties:
-                            write_characteristic_uuid = characteristic.uuid
-                            break
+            if services:
+                for characteristic in services.characteristics:
+                    if "write" in characteristic.properties or "write_without_response" in characteristic.properties:
+                        write_characteristic_uuid = characteristic.uuid
+                        break
             
             if write_characteristic_uuid:
                 await self._client.write_gatt_char(write_characteristic_uuid, packet_bytes)
