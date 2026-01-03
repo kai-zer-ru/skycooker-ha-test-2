@@ -83,20 +83,42 @@ class BTLEConnection:
             _LOGGER.info("✅ Успешное подключение к %s", self._mac)
             
             # Find the correct characteristic for notifications
-            services = await self._client.get_services()
-            characteristic_uuid = None
-            target_service = None
-            
-            for service in services:
-                if service.uuid == SERVICE_UUID:
-                    target_service = service
-                    break
-            
-            if target_service:
-                for characteristic in target_service.characteristics:
-                    if "notify" in characteristic.properties:
-                        characteristic_uuid = characteristic.uuid
+            try:
+                # Попробуем использовать get_services() как в оригинальном bleak
+                services = await self._client.get_services()
+                characteristic_uuid = None
+                target_service = None
+                
+                for service in services:
+                    if service.uuid == SERVICE_UUID:
+                        target_service = service
                         break
+                
+                if target_service:
+                    for characteristic in target_service.characteristics:
+                        if "notify" in characteristic.properties:
+                            characteristic_uuid = characteristic.uuid
+                            break
+            except AttributeError:
+                # Если get_services() не доступен, попробуем получить сервисы через service_collection
+                try:
+                    service_collection = self._client.services
+                    characteristic_uuid = None
+                    target_service = None
+                    
+                    for service in service_collection:
+                        if service.uuid == SERVICE_UUID:
+                            target_service = service
+                            break
+                    
+                    if target_service:
+                        for characteristic in target_service.characteristics:
+                            if "notify" in characteristic.properties:
+                                characteristic_uuid = characteristic.uuid
+                                break
+                except Exception as e:
+                    _LOGGER.warning("⚠️  Не удалось получить сервисы для уведомлений: %s", e)
+                    characteristic_uuid = None
             
             if characteristic_uuid:
                 # Start notification
@@ -160,20 +182,42 @@ class BTLEConnection:
                          command, self._mac, packet_bytes.hex())
             
             # Find the correct characteristic for writing
-            services = await self._client.get_services()
-            write_characteristic_uuid = None
-            target_service = None
-            
-            for service in services:
-                if service.uuid == SERVICE_UUID:
-                    target_service = service
-                    break
-            
-            if target_service:
-                for characteristic in target_service.characteristics:
-                    if "write" in characteristic.properties or "write_without_response" in characteristic.properties:
-                        write_characteristic_uuid = characteristic.uuid
+            try:
+                # Попробуем использовать get_services() как в оригинальном bleak
+                services = await self._client.get_services()
+                write_characteristic_uuid = None
+                target_service = None
+                
+                for service in services:
+                    if service.uuid == SERVICE_UUID:
+                        target_service = service
                         break
+                
+                if target_service:
+                    for characteristic in target_service.characteristics:
+                        if "write" in characteristic.properties or "write_without_response" in characteristic.properties:
+                            write_characteristic_uuid = characteristic.uuid
+                            break
+            except AttributeError:
+                # Если get_services() не доступен, попробуем получить сервисы через service_collection
+                try:
+                    service_collection = self._client.services
+                    write_characteristic_uuid = None
+                    target_service = None
+                    
+                    for service in service_collection:
+                        if service.uuid == SERVICE_UUID:
+                            target_service = service
+                            break
+                    
+                    if target_service:
+                        for characteristic in target_service.characteristics:
+                            if "write" in characteristic.properties or "write_without_response" in characteristic.properties:
+                                write_characteristic_uuid = characteristic.uuid
+                                break
+                except Exception as e:
+                    _LOGGER.warning("⚠️  Не удалось получить сервисы для записи: %s", e)
+                    write_characteristic_uuid = None
             
             if write_characteristic_uuid:
                 await self._client.write_gatt_char(write_characteristic_uuid, packet_bytes)
