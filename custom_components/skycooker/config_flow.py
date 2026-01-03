@@ -20,7 +20,7 @@ CONF_USE_BACKLIGHT = 'use_backlight'
 DATA_SCHEMA_USER = vol.Schema({
     vol.Required(CONF_MAC): str,
     vol.Required(CONF_PASSWORD): str,
-    vol.Optional(CONF_SCAN_INTERVAL, default=60): vol.All(vol.Coerce(int), vol.Range(min=10, max=300)),
+    vol.Optional(CONF_SCAN_INTERVAL, default=60): int,
     vol.Optional(CONF_USE_BACKLIGHT, default=False): bool,
 })
 
@@ -159,7 +159,7 @@ class SkyCookerOptionsFlowHandler(config_entries.OptionsFlow):
             vol.Optional(
                 CONF_SCAN_INTERVAL,
                 default=options.get(CONF_SCAN_INTERVAL, 60)
-            ): vol.All(vol.Coerce(int), vol.Range(min=10, max=300)),
+            ): int,
             vol.Optional(
                 CONF_USE_BACKLIGHT,
                 default=options.get(CONF_USE_BACKLIGHT, False)
