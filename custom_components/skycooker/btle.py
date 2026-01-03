@@ -95,7 +95,9 @@ class BTLEConnection:
                         break
                 
                 if target_service:
+                    _LOGGER.debug("📡 Найден сервис %s, доступные характеристики:", target_service.uuid)
                     for characteristic in target_service.characteristics:
+                        _LOGGER.debug("📡 Характеристика: %s, свойства: %s", characteristic.uuid, characteristic.properties)
                         if "notify" in characteristic.properties:
                             characteristic_uuid = characteristic.uuid
                             break
@@ -112,7 +114,9 @@ class BTLEConnection:
                             break
                     
                     if target_service:
+                        _LOGGER.debug("📡 Найден сервис %s, доступные характеристики:", target_service.uuid)
                         for characteristic in target_service.characteristics:
+                            _LOGGER.debug("📡 Характеристика: %s, свойства: %s", characteristic.uuid, characteristic.properties)
                             if "notify" in characteristic.properties:
                                 characteristic_uuid = characteristic.uuid
                                 break
@@ -194,7 +198,9 @@ class BTLEConnection:
                         break
                 
                 if target_service:
+                    _LOGGER.debug("📡 Найден сервис %s для записи, доступные характеристики:", target_service.uuid)
                     for characteristic in target_service.characteristics:
+                        _LOGGER.debug("📡 Характеристика: %s, свойства: %s", characteristic.uuid, characteristic.properties)
                         if "write" in characteristic.properties or "write_without_response" in characteristic.properties:
                             write_characteristic_uuid = characteristic.uuid
                             break
@@ -211,7 +217,9 @@ class BTLEConnection:
                             break
                     
                     if target_service:
+                        _LOGGER.debug("📡 Найден сервис %s для записи, доступные характеристики:", target_service.uuid)
                         for characteristic in target_service.characteristics:
+                            _LOGGER.debug("📡 Характеристика: %s, свойства: %s", characteristic.uuid, characteristic.properties)
                             if "write" in characteristic.properties or "write_without_response" in characteristic.properties:
                                 write_characteristic_uuid = characteristic.uuid
                                 break
