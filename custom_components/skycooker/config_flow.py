@@ -111,14 +111,6 @@ class SkyCookerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             return self.async_abort(reason='unknown')
 
         _LOGGER.info("📡 Найдено %s устройств SkyCooker", len(mac_list))
-        # Пытаемся получить переводы, но если их нет - используем стандартный текст
-        description = "Выберите устройство SkyCooker из списка доступных Bluetooth устройств"
-        try:
-            if hasattr(self.hass, 'data') and self.hass.data and DOMAIN in self.hass.data:
-                translations = self.hass.data[DOMAIN].get("translations", {})
-                description = translations.get("config", {}).get("step", {}).get("user", {}).get("description", description)
-        except Exception as e:
-            _LOGGER.debug("⚠️  Не удалось получить переводы: %s", e)
         
         return self.async_show_form(
             step_id="scan",
