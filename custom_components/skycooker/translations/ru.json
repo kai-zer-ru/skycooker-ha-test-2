@@ -33,8 +33,12 @@
     "options": {
         "title": "Настройки SkyCooker",
         "data": {
+            "persistent_connection": "Постоянное подключение",
+            "persistent_connection_description": "Сохранять постоянное подключение к мультиварке для более быстрого реагирования",
             "scan_interval": "Интервал опроса (секунды)",
-            "use_backlight": "Использовать подсветку"
+            "scan_interval_description": "Интервал опроса состояния мультиварки в секундах (10-300)",
+            "use_backlight": "Подсветка экрана",
+            "use_backlight_description": "Включать подсветку экрана мультиварки при управлении"
         }
     },
     "entity": {

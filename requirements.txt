@@ -1,3 +1,5 @@
 # Зависимости для интеграции SkyCooker
 bleak>=0.15.0
+bleak-retry-connector>=2.0.0
+voluptuous>=0.12.0
 voluptuous>=0.12.0

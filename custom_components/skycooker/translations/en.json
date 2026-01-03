@@ -33,8 +33,12 @@
     "options": {
         "title": "SkyCooker Options",
         "data": {
+            "persistent_connection": "Persistent connection",
+            "persistent_connection_description": "Keep persistent connection to cooker for faster response",
             "scan_interval": "Scan interval (seconds)",
-            "use_backlight": "Use backlight"
+            "scan_interval_description": "Interval for polling cooker status in seconds (10-300)",
+            "use_backlight": "Screen backlight",
+            "use_backlight_description": "Enable cooker screen backlight when controlling"
         }
     },
     "entity": {

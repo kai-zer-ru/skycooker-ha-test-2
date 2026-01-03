@@ -129,6 +129,9 @@ class SkyCookerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return self.async_show_form(
             step_id="connect",
             errors=errors,
+            description_placeholders={
+                "message": "✅ Устройство готово к подключению. Переведите мультиварку в режим сопряжения (удерживайте кнопку питания 3 секунды, пока не загорится синий индикатор)"
+            },
             data_schema=vol.Schema({})
         )
 
@@ -148,10 +151,16 @@ class SkyCookerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             )
 
         schema = vol.Schema({
-            vol.Required(CONF_PERSISTENT_CONNECTION, default=self.config.get(CONF_PERSISTENT_CONNECTION, DEFAULT_PERSISTENT_CONNECTION)): cv.boolean,
-            vol.Required(CONF_SCAN_INTERVAL, default=self.config.get(CONF_SCAN_INTERVAL, 60)):
+            vol.Required(CONF_PERSISTENT_CONNECTION, default=self.config.get(CONF_PERSISTENT_CONNECTION, DEFAULT_PERSISTENT_CONNECTION),
+                         description="Постоянное подключение",
+                         description_placeholders={"description": "Сохранять постоянное подключение к мультиварке для более быстрого реагирования"}): cv.boolean,
+            vol.Required(CONF_SCAN_INTERVAL, default=self.config.get(CONF_SCAN_INTERVAL, 60),
+                         description="Интервал опроса (секунды)",
+                         description_placeholders={"description": "Интервал опроса состояния мультиварки в секундах (10-300)"}):
                 vol.All(vol.Coerce(int), vol.Range(min=10, max=300)),
-            vol.Required(CONF_USE_BACKLIGHT, default=self.config.get(CONF_USE_BACKLIGHT, False)): bool,
+            vol.Required(CONF_USE_BACKLIGHT, default=self.config.get(CONF_USE_BACKLIGHT, False),
+                         description="Подсветка экрана",
+                         description_placeholders={"description": "Включать подсветку экрана мультиварки при управлении"}): bool,
         })
 
         return self.async_show_form(
@@ -178,15 +187,21 @@ class SkyCookerOptionsFlowHandler(config_entries.OptionsFlow):
         data_schema = vol.Schema({
             vol.Optional(
                 CONF_PERSISTENT_CONNECTION,
-                default=options.get(CONF_PERSISTENT_CONNECTION, DEFAULT_PERSISTENT_CONNECTION)
+                default=options.get(CONF_PERSISTENT_CONNECTION, DEFAULT_PERSISTENT_CONNECTION),
+                description="Постоянное подключение",
+                description_placeholders={"description": "Сохранять постоянное подключение к мультиварке для более быстрого реагирования"}
             ): cv.boolean,
             vol.Optional(
                 CONF_SCAN_INTERVAL,
-                default=options.get(CONF_SCAN_INTERVAL, 60)
+                default=options.get(CONF_SCAN_INTERVAL, 60),
+                description="Интервал опроса (секунды)",
+                description_placeholders={"description": "Интервал опроса состояния мультиварки в секундах (10-300)"}
             ): vol.All(vol.Coerce(int), vol.Range(min=10, max=300)),
             vol.Optional(
                 CONF_USE_BACKLIGHT,
-                default=options.get(CONF_USE_BACKLIGHT, False)
+                default=options.get(CONF_USE_BACKLIGHT, False),
+                description="Подсветка экрана",
+                description_placeholders={"description": "Включать подсветку экрана мультиварки при управлении"}
             ): bool,
         })
 

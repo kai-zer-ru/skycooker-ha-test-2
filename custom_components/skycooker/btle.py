@@ -9,6 +9,9 @@ from typing import Callable, Optional
 
 from bleak import BleakClient, BleakScanner
 from bleak.exc import BleakError
+from bleak_retry_connector import establish_connection, BleakClientWithServiceCache
+
+from homeassistant.components import bluetooth
 
 from .const import SUPPORTED_DEVICES
 
@@ -35,7 +38,7 @@ class BTLEConnection:
     async def setNameAndType(self):
         try:
             _LOGGER.debug("🔍 Поиск устройства по MAC-адресу: %s", self._mac)
-            device = await BleakScanner.find_device_by_address(self._mac)
+            device = bluetooth.async_ble_device_from_address(self.hass, self._mac)
             if device:
                 self._name = device.name
                 self._type = SUPPORTED_DEVICES.get(self._name, None)
@@ -67,71 +70,113 @@ class BTLEConnection:
 
         try:
             _LOGGER.info("🔌 Подключение к устройству: %s", self._mac)
-            self._client = BleakClient(self._mac)
-            await self._client.connect()
+            device = bluetooth.async_ble_device_from_address(self.hass, self._mac)
+            if not device:
+                raise BleakError(f"Device {self._mac} not found")
+            
+            self._client = await establish_connection(
+                BleakClientWithServiceCache,
+                device,
+                self._mac,
+                max_attempts=3
+            )
             _LOGGER.info("✅ Успешное подключение к %s", self._mac)
-
-            # Start notification handler
-            await self._client.start_notify(CHARACTERISTIC_UUID, self._notification_handler)
-            _LOGGER.debug("📡 Обработчик уведомлений запущен")
-
+            
+            # Start notification
+            await self._client.start_notify(CHARACTERISTIC_UUID_WRITE, self._notification_handler)
+            _LOGGER.info("📡 Уведомления включены для %s", self._mac)
+            
             if self._connect_after:
-                await self._connect_after(self)
-
-        except BleakError as e:
+                await self._connect_after()
+                
+        except Exception as e:
             _LOGGER.error("❌ Ошибка подключения к %s: %s", self._mac, e)
+            await self.disconnect()
             raise
 
     async def disconnect(self):
-        if self._client and self._client.is_connected:
-            await self._client.disconnect()
-            _LOGGER.debug("Disconnected from %s", self._mac)
-
-    async def sendRequest(self, command, data=""):
-        if not self._client or not self._client.is_connected:
-            await self.connect()
-
-        # Формируем пакет
-        hex_iter = self.getHexNextIter()
-        packet = f"55{hex_iter}{command}{data}aa"
-        _LOGGER.debug("Sending packet: %s", packet)
-
         try:
-            await self._client.write_gatt_char(CHARACTERISTIC_UUID_WRITE, bytes.fromhex(packet))
-            return True
-        except BleakError as e:
-            _LOGGER.error("Failed to send request to %s: %s", self._mac, e)
-            return False
+            if self._client:
+                if self._client.is_connected:
+                    await self._client.disconnect()
+                    _LOGGER.info("🔌 Отключение от устройства: %s", self._mac)
+                self._client = None
+        except Exception as e:
+            _LOGGER.error("❌ Ошибка отключения от %s: %s", self._mac, e)
 
     def _notification_handler(self, sender, data):
-        """Обработчик уведомлений от устройства"""
-        hex_data = data.hex()
-        _LOGGER.debug("📡 Получено уведомление: %s", hex_data)
+        """Обработчик уведомлений от устройства."""
+        try:
+            _LOGGER.debug("📡 Получены данные от %s: %s", self._mac, data.hex())
+            
+            # Обработка данных по протоколу R4S
+            if len(data) >= 4:
+                command = data[2]
+                if str(command) in self._callbacks:
+                    self._callbacks[str(command)](data)
+                else:
+                    _LOGGER.debug("📡 Неизвестная команда: 0x%02x", command)
+        except Exception as e:
+            _LOGGER.error("❌ Ошибка обработки уведомления от %s: %s", self._mac, e)
 
-        # Проверяем формат пакета
-        if len(hex_data) >= 6 and hex_data.startswith('55') and hex_data.endswith('aa'):
-            # Извлекаем команду
-            command = hex_data[4:6]
-            _LOGGER.debug("📋 Команда: %s", command)
+    async def send_command(self, command, data=None):
+        """Отправка команды устройству."""
+        if not self._client or not self._client.is_connected:
+            raise BleakError("Not connected to device")
+        
+        try:
+            # Формирование пакета по протоколу R4S
+            if data is None:
+                data = []
+            
+            # Инкрементируем итератор
+            self._hex_iter = (self._hex_iter + 1) % 256
+            
+            # Формируем пакет: [0x55, iter, command, data..., 0xAA]
+            packet = [0x55, self._hex_iter, command] + data + [0xAA]
+            packet_bytes = bytes(packet)
+            
+            _LOGGER.debug("📤 Отправка команды 0x%02x устройству %s: %s", 
+                         command, self._mac, packet_bytes.hex())
+            
+            await self._client.write_gatt_char(CHARACTERISTIC_UUID, packet_bytes)
+            _LOGGER.debug("✅ Команда отправлена успешно")
+            
+        except Exception as e:
+            _LOGGER.error("❌ Ошибка отправки команды 0x%02x устройству %s: %s", 
+                         command, self._mac, e)
+            raise
 
-            # Вызываем callback если он есть
-            if command in self._callbacks:
-                try:
-                    # Преобразуем hex строку в массив
-                    arr_hex = [hex_data[i:i+2] for i in range(0, len(hex_data), 2)]
-                    result = self._callbacks[command](arr_hex)
-                    _LOGGER.debug("✅ Результат callback для команды %s: %s", command, result)
-                except Exception as e:
-                    _LOGGER.error("❌ Ошибка в callback для команды %s: %s", command, e)
+    async def send_auth(self):
+        """Отправка команды аутентификации."""
+        try:
+            _LOGGER.info("🔑 Отправка команды аутентификации")
+            await self.send_command(0x01, self._key)
+        except Exception as e:
+            _LOGGER.error("❌ Ошибка аутентификации: %s", e)
+            raise
 
-    def getHexNextIter(self) -> str:
-        self._hex_iter = (self._hex_iter + 1) % 256
-        return f"{self._hex_iter:02x}"
+    async def send_status_request(self):
+        """Запрос статуса устройства."""
+        try:
+            _LOGGER.debug("📊 Запрос статуса устройства")
+            await self.send_command(0x02)
+        except Exception as e:
+            _LOGGER.error("❌ Ошибка запроса статуса: %s", e)
+            raise
 
-    @staticmethod
-    def hexToDec(hexChr: str) -> int:
-        return int(hexChr, 16)
+    @property
+    def available(self):
+        return self._available and self._client and self._client.is_connected
 
-    @staticmethod
-    def decToHex(num: int) -> str:
-        return f"{num:02x}"
+    @property
+    def name(self):
+        return self._name
+
+    @property
+    def type(self):
+        return self._type
+
+    @property
+    def mac(self):
+        return self._mac
