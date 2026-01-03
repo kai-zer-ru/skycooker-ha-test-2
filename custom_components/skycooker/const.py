@@ -1,6 +1,7 @@
 # Константы для интеграции SkyCooker
 
 DOMAIN = "skycooker"
+SIGNAL_UPDATE_DATA = 'skycooker_update'
 
 # Тип устройства - 5 для мультиварки
 DEVICE_TYPE_COOKER = 5

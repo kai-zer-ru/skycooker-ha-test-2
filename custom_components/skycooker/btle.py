@@ -163,6 +163,20 @@ class BTLEConnection:
             _LOGGER.error("❌ Ошибка отправки команды 0x%02x устройству %s: %s",
                          command, self._mac, e)
             raise
+    
+    @staticmethod
+    def hexToDec(hexChr: str) -> int:
+        """Конвертация hex строки в десятичное число."""
+        return int(hexChr, 16)
+    
+    @staticmethod
+    def decToHex(num: int) -> str:
+        """Конвертация десятичного числа в hex строку."""
+        return f"{num:02x}"
+    
+    def getHexNextIter(self) -> str:
+        """Получение следующего итератора в hex формате."""
+        return f"{self._hex_iter:02x}"
 
     async def sendRequest(self, command, data=None):
         """Метод для совместимости с другими интеграциями - вызывает send_command."""
