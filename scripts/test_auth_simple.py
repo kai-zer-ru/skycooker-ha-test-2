@@ -124,21 +124,81 @@ class SimpleBTLEConnection:
         # Ждём ответа
         await asyncio.sleep(1)
     
+    async def send_status_request(self):
+        """Запрос статуса устройства."""
+        logger.info("📊 Запрос статуса устройства")
+        
+        # Формируем пакет: [0x55, iter, 0x02, 0xAA] - запрос статуса
+        self._hex_iter = (self._hex_iter + 1) % 256
+        packet = [0x55, self._hex_iter, 0x02, 0xAA]
+        packet_bytes = bytes(packet)
+        
+        logger.debug("📤 Отправка запроса статуса: %s", packet_bytes.hex())
+        await self._client.write_gatt_char(WRITE_UUID, packet_bytes)
+        logger.debug("✅ Запрос статуса отправлен")
+        
+        # Ждём ответа
+        await asyncio.sleep(1)
+    
+    async def send_power_on(self):
+        """Включение мультиварки."""
+        logger.info("🔌 Включение мультиварки")
+        
+        # Формируем пакет: [0x55, iter, 0x03, 0xAA] - включение
+        self._hex_iter = (self._hex_iter + 1) % 256
+        packet = [0x55, self._hex_iter, 0x03, 0xAA]
+        packet_bytes = bytes(packet)
+        
+        logger.debug("📤 Отправка команды включения: %s", packet_bytes.hex())
+        await self._client.write_gatt_char(WRITE_UUID, packet_bytes)
+        logger.debug("✅ Команда включения отправлена")
+        
+        # Ждём ответа
+        await asyncio.sleep(1)
+    
+    async def send_power_off(self):
+        """Выключение мультиварки."""
+        logger.info("🔌 Выключение мультиварки")
+        
+        # Формируем пакет: [0x55, iter, 0x04, 0xAA] - выключение
+        self._hex_iter = (self._hex_iter + 1) % 256
+        packet = [0x55, self._hex_iter, 0x04, 0xAA]
+        packet_bytes = bytes(packet)
+        
+        logger.debug("📤 Отправка команды выключения: %s", packet_bytes.hex())
+        await self._client.write_gatt_char(WRITE_UUID, packet_bytes)
+        logger.debug("✅ Команда выключения отправлена")
+        
+        # Ждём ответа
+        await asyncio.sleep(1)
+    
     async def test_authentication(self):
-        """Тестирование аутентификации."""
+        """Тестирование аутентификации и управления мультиваркой."""
         try:
             await self.connect()
             
             # Отправляем команду аутентификации
             await self.send_auth()
             
-            # Отправляем тестовую команду для проверки работоспособности
-            await self.send_test_command()
+            # Запрашиваем статус устройства
+            await self.send_status_request()
+            
+            # Включаем мультиварку
+            await self.send_power_on()
+            
+            # Запрашиваем статус после включения
+            await self.send_status_request()
+            
+            # Выключаем мультиварку
+            await self.send_power_off()
+            
+            # Запрашиваем статус после выключения
+            await self.send_status_request()
             
             # Ждём немного для получения ответов
             await asyncio.sleep(1)
             
-            logger.info("🎉 Аутентификация и тестовая команда отправлены успешно!")
+            logger.info("🎉 Аутентификация и управление мультиваркой прошли успешно!")
             return True
                 
         except Exception as e:
