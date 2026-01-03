@@ -163,7 +163,7 @@ class SkyCookerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return self.async_show_form(
             step_id="connect",
             errors=errors,
-            description=self.hass.data[DOMAIN].get("translations", {}).get("config", {}).get("step", {}).get("connect", {}).get("description", "Device is ready to connect"),
+            description="Device is ready to connect",
             data_schema=vol.Schema({
                 vol.Optional("continue", default=True): bool
             })

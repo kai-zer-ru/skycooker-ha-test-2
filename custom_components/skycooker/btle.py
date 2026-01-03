@@ -19,7 +19,7 @@ _LOGGER = logging.getLogger(__name__)
 
 SERVICE_UUID = "0000fff0-0000-1000-8000-00805f9b34fb"
 CHARACTERISTIC_UUID = "0000fff1-0000-1000-8000-00805f9b34fb"
-CHARACTERISTIC_UUID_WRITE = "0000fff2-0000-1000-8000-00805f9b34fb"
+CHARACTERISTIC_UUID_WRITE = "0000fff1-0000-1000-8000-00805f9b34fb"
 
 
 class BTLEConnection:
@@ -82,9 +82,24 @@ class BTLEConnection:
             )
             _LOGGER.info("✅ Успешное подключение к %s", self._mac)
             
-            # Start notification
-            await self._client.start_notify(CHARACTERISTIC_UUID_WRITE, self._notification_handler)
-            _LOGGER.info("📡 Уведомления включены для %s", self._mac)
+            # Find the correct characteristic for notifications
+            services = await self._client.get_services()
+            characteristic_uuid = None
+            
+            for service in services:
+                if service.uuid == SERVICE_UUID:
+                    for characteristic in service.characteristics:
+                        if "notify" in characteristic.properties:
+                            characteristic_uuid = characteristic.uuid
+                            break
+            
+            if characteristic_uuid:
+                # Start notification
+                await self._client.start_notify(characteristic_uuid, self._notification_handler)
+                _LOGGER.info("📡 Уведомления включены для %s через характеристику %s", self._mac, characteristic_uuid)
+            else:
+                _LOGGER.warning("⚠️  Не найдена характеристика для уведомлений, используем стандартную")
+                await self._client.start_notify(CHARACTERISTIC_UUID, self._notification_handler)
             
             if self._connect_after:
                 await self._connect_after()
@@ -136,14 +151,30 @@ class BTLEConnection:
             packet = [0x55, self._hex_iter, command] + data + [0xAA]
             packet_bytes = bytes(packet)
             
-            _LOGGER.debug("📤 Отправка команды 0x%02x устройству %s: %s", 
+            _LOGGER.debug("📤 Отправка команды 0x%02x устройству %s: %s",
                          command, self._mac, packet_bytes.hex())
             
-            await self._client.write_gatt_char(CHARACTERISTIC_UUID, packet_bytes)
-            _LOGGER.debug("✅ Команда отправлена успешно")
+            # Find the correct characteristic for writing
+            services = await self._client.get_services()
+            write_characteristic_uuid = None
+            
+            for service in services:
+                if service.uuid == SERVICE_UUID:
+                    for characteristic in service.characteristics:
+                        if "write" in characteristic.properties or "write_without_response" in characteristic.properties:
+                            write_characteristic_uuid = characteristic.uuid
+                            break
+            
+            if write_characteristic_uuid:
+                await self._client.write_gatt_char(write_characteristic_uuid, packet_bytes)
+                _LOGGER.debug("✅ Команда отправлена успешно через характеристику %s", write_characteristic_uuid)
+            else:
+                _LOGGER.warning("⚠️  Не найдена характеристика для записи, используем стандартную")
+                await self._client.write_gatt_char(CHARACTERISTIC_UUID, packet_bytes)
+                _LOGGER.debug("✅ Команда отправлена успешно")
             
         except Exception as e:
-            _LOGGER.error("❌ Ошибка отправки команды 0x%02x устройству %s: %s", 
+            _LOGGER.error("❌ Ошибка отправки команды 0x%02x устройству %s: %s",
                          command, self._mac, e)
             raise
 
