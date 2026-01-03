@@ -46,6 +46,7 @@ class SkyCookerConfigFlow(config_entries.ConfigFlow, domain="skycooker"):
         self, user_input: Optional[Dict[str, Any]] = None
     ) -> FlowResult:
         """Handle a flow initialized by the user."""
+        _LOGGER.info("🔧 Начало настройки интеграции SkyCooker")
         errors = {}
 
         if user_input is not None:
@@ -54,20 +55,28 @@ class SkyCookerConfigFlow(config_entries.ConfigFlow, domain="skycooker"):
             scan_interval = user_input[CONF_SCAN_INTERVAL]
             use_backlight = user_input[CONF_USE_BACKLIGHT]
 
+            _LOGGER.debug("📝 Введены параметры: MAC=%s, Пароль=%s, Интервал=%s, Подсветка=%s",
+                         mac, password, scan_interval, use_backlight)
+
             # Validate password format (8 hex characters)
             if len(password) != 16 or not all(c in '0123456789abcdefABCDEF' for c in password):
+                _LOGGER.error("❌ Неверный формат пароля")
                 errors["base"] = "wrong_password"
             else:
                 # Check if device is supported
                 try:
+                    _LOGGER.info("🔍 Поиск устройства по MAC-адресу: %s", mac)
                     device = await BleakScanner.find_device_by_address(mac)
                     if device:
                         device_name = device.name
+                        _LOGGER.info("✅ Устройство найдено: %s", device_name)
+                        
                         if device_name in SUPPORTED_DEVICES:
                             # Check if already configured
                             await self.async_set_unique_id(device_name)
                             self._abort_if_unique_id_configured()
 
+                            _LOGGER.info("✅ Интеграция успешно настроена для устройства: %s", device_name)
                             return self.async_create_entry(
                                 title=device_name,
                                 data={
@@ -78,11 +87,13 @@ class SkyCookerConfigFlow(config_entries.ConfigFlow, domain="skycooker"):
                                 }
                             )
                         else:
+                            _LOGGER.error("❌ Устройство не поддерживается: %s", device_name)
                             errors["base"] = "unsupported_device"
                     else:
+                        _LOGGER.error("❌ Устройство не найдено по MAC-адресу: %s", mac)
                         errors["base"] = "device_not_found"
                 except Exception as ex:
-                    _LOGGER.error("Error during device discovery: %s", ex)
+                    _LOGGER.error("❌ Ошибка поиска устройства: %s", ex)
                     errors["base"] = "device_discovery_failed"
 
         return self.async_show_form(

@@ -63,9 +63,11 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry):
     await cooker.setNameAndType()
 
     try:
+        _LOGGER.info("🔧 Попытка подключения к мультиварке %s...", mac)
         await cooker.firstConnect()
+        _LOGGER.info("✅ Успешное подключение к мультиварке %s", mac)
     except BaseException as ex:
-        _LOGGER.error("Connect to %s failed", mac)
+        _LOGGER.error("❌ Ошибка подключения к мультиварке %s: %s", mac, ex)
         _LOGGER.exception(ex)
         return False
 
@@ -161,10 +163,12 @@ class SkyCooker:
         self.initCallbacks()
 
     async def setNameAndType(self):
+        _LOGGER.debug("🔍 Определение типа устройства и имени...")
         await self._conn.setNameAndType()
         self._type = self._conn._type
         self._name = self._conn._name
         self._available = self._conn._available
+        _LOGGER.info("🏷️  Устройство: %s, Тип: %s, Доступность: %s", self._name, self._type, self._available)
 
     def initCallbacks(self):
         self._conn.setConnectAfter(self.sendAuth)
@@ -290,26 +294,34 @@ class SkyCooker:
 
     async def modeOnCook(self, prog, sprog, temp, hours, minutes, dhours='00', dminutes='00', heat='01'):
         try:
+            _LOGGER.info("🍲 Запуск программы приготовления: %s, Температура: %s°C, Время: %s:%s",
+                        prog, temp, hours, minutes)
             async with self._conn as conn:
                 if self._status != STATUS_OFF:
+                    _LOGGER.debug("🔌 Мультиварка включена, выключаем перед запуском программы...")
                     await self.sendOff(conn)
 
                 if await self.sendModeCook(conn, prog, sprog, temp, hours, minutes, dhours, dminutes, heat):
+                    _LOGGER.debug("⚙️  Отправка команды запуска программы...")
                     if await self.sendOn(conn):
+                        _LOGGER.debug("📡 Запрос состояния после запуска...")
                         if await self.sendStatus(conn):
+                            _LOGGER.info("✅ Программа приготовления успешно запущена")
                             return True
-        except:
-            pass
+        except Exception as e:
+            _LOGGER.error("❌ Ошибка запуска программы приготовления: %s", e)
 
         return False
 
     async def modeTempCook(self, temp):
         try:
+            _LOGGER.info("🌡️  Установка температуры: %s°C", temp)
             async with self._conn as conn:
                 if await self.sendTemperature(conn, temp) and await self.sendStatus(conn):
+                    _LOGGER.info("✅ Температура успешно установлена")
                     return True
-        except:
-            pass
+        except Exception as e:
+            _LOGGER.error("❌ Ошибка установки температуры: %s", e)
 
         return False
 
@@ -325,12 +337,15 @@ class SkyCooker:
 
     async def modeOff(self):
         try:
+            _LOGGER.info("🔌 Выключение мультиварки...")
             async with self._conn as conn:
                 if await self.sendOff(conn):
+                    _LOGGER.debug("📡 Запрос состояния после выключения...")
                     if await self.sendStatus(conn):
+                        _LOGGER.info("✅ Мультиварка успешно выключена")
                         return True
-        except:
-            pass
+        except Exception as e:
+            _LOGGER.error("❌ Ошибка выключения мультиварки: %s", e)
 
         return False
 
@@ -350,11 +365,13 @@ class SkyCooker:
 
     async def update(self, now, **kwargs) -> bool:
         try:
+            _LOGGER.debug("🔄 Обновление данных с мультиварки...")
             async with self._conn as conn:
                 if await self.sendSyncDateTime(conn) and await self.sendStatus(conn) and await self.sendStat(conn):
+                    _LOGGER.debug("📊 Данные успешно обновлены")
                     return True
-        except:
-            pass
+        except Exception as e:
+            _LOGGER.error("❌ Ошибка обновления данных: %s", e)
 
         return False
 

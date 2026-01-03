@@ -34,15 +34,18 @@ class BTLEConnection:
 
     async def setNameAndType(self):
         try:
+            _LOGGER.debug("🔍 Поиск устройства по MAC-адресу: %s", self._mac)
             device = await BleakScanner.find_device_by_address(self._mac)
             if device:
                 self._name = device.name
                 self._type = SUPPORTED_DEVICES.get(self._name, None)
                 self._available = True
+                _LOGGER.info("✅ Устройство найдено: %s, Тип: %s", self._name, self._type)
             else:
                 self._available = False
+                _LOGGER.warning("⚠️  Устройство не найдено по MAC-адресу: %s", self._mac)
         except Exception as e:
-            _LOGGER.error("Error finding device %s: %s", self._mac, e)
+            _LOGGER.error("❌ Ошибка поиска устройства %s: %s", self._mac, e)
             self._available = False
 
     def setConnectAfter(self, callback: Callable):
@@ -63,18 +66,20 @@ class BTLEConnection:
             return
 
         try:
+            _LOGGER.info("🔌 Подключение к устройству: %s", self._mac)
             self._client = BleakClient(self._mac)
             await self._client.connect()
-            _LOGGER.debug("Connected to %s", self._mac)
+            _LOGGER.info("✅ Успешное подключение к %s", self._mac)
 
             # Start notification handler
             await self._client.start_notify(CHARACTERISTIC_UUID, self._notification_handler)
+            _LOGGER.debug("📡 Обработчик уведомлений запущен")
 
             if self._connect_after:
                 await self._connect_after(self)
 
         except BleakError as e:
-            _LOGGER.error("Failed to connect to %s: %s", self._mac, e)
+            _LOGGER.error("❌ Ошибка подключения к %s: %s", self._mac, e)
             raise
 
     async def disconnect(self):
@@ -101,12 +106,13 @@ class BTLEConnection:
     def _notification_handler(self, sender, data):
         """Обработчик уведомлений от устройства"""
         hex_data = data.hex()
-        _LOGGER.debug("Received notification: %s", hex_data)
+        _LOGGER.debug("📡 Получено уведомление: %s", hex_data)
 
         # Проверяем формат пакета
         if len(hex_data) >= 6 and hex_data.startswith('55') and hex_data.endswith('aa'):
             # Извлекаем команду
             command = hex_data[4:6]
+            _LOGGER.debug("📋 Команда: %s", command)
 
             # Вызываем callback если он есть
             if command in self._callbacks:
@@ -114,9 +120,9 @@ class BTLEConnection:
                     # Преобразуем hex строку в массив
                     arr_hex = [hex_data[i:i+2] for i in range(0, len(hex_data), 2)]
                     result = self._callbacks[command](arr_hex)
-                    _LOGGER.debug("Callback result for command %s: %s", command, result)
+                    _LOGGER.debug("✅ Результат callback для команды %s: %s", command, result)
                 except Exception as e:
-                    _LOGGER.error("Error in callback for command %s: %s", command, e)
+                    _LOGGER.error("❌ Ошибка в callback для команды %s: %s", command, e)
 
     def getHexNextIter(self) -> str:
         self._hex_iter = (self._hex_iter + 1) % 256

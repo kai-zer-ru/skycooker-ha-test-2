@@ -69,6 +69,7 @@ class SkyCookerSwitch(SwitchEntity):
     @callback
     def _async_update(self):
         """Update switch."""
+        _LOGGER.debug("🔌 Обновление переключателя: %s", self._attr_name)
         self.async_write_ha_state()
 
     @property
@@ -84,19 +85,25 @@ class SkyCookerSwitch(SwitchEntity):
     async def async_turn_on(self, **kwargs):
         """Turn the switch on."""
         if self._switch_type == "power":
+            _LOGGER.info("🔌 Включение питания мультиварки")
             await self._cooker.modeOff()  # Сначала выключаем
             await self._cooker.modeOnCook(
                 '01', '00', '64', '00', '23', '00', '00', '01'
             )  # Запускаем программу "Рис"
+            _LOGGER.info("✅ Питание мультиварки включено")
         elif self._switch_type == "program":
+            _LOGGER.info("🍲 Запуск программы приготовления")
             await self._cooker.modeOnCook(
                 '01', '00', '64', '00', '23', '00', '00', '01'
             )  # Запускаем программу "Рис"
+            _LOGGER.info("✅ Программа приготовления запущена")
 
     async def async_turn_off(self, **kwargs):
         """Turn the switch off."""
         if self._switch_type in ["power", "program"]:
+            _LOGGER.info("🔌 Выключение мультиварки")
             await self._cooker.modeOff()
+            _LOGGER.info("✅ Мультиварка выключена")
 
     @property
     def device_info(self):
