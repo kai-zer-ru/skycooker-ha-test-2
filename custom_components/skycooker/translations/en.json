@@ -53,6 +53,24 @@
                 "title": "Settings",
                 "description": "Configure integration parameters"
             }
+        },
+        "data": {
+            "scan_interval": {
+                "name": "Scan interval",
+                "description": "Device scan interval in seconds (10-300)"
+            },
+            "use_backlight": {
+                "name": "Use backlight",
+                "description": "Enable backlight on device"
+            },
+            "persistent_connection": {
+                "name": "Persistent connection",
+                "description": "Maintain persistent connection with device"
+            },
+            "continue": {
+                "name": "Continue",
+                "description": "Continue setup"
+            }
         }
     },
     "options_title": "SkyCooker Settings",
