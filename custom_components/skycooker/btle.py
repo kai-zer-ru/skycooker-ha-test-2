@@ -89,18 +89,22 @@ class BTLEConnection:
                 characteristic_uuid = None
                 target_service = None
                 
+                _LOGGER.debug("📡 Всего найдено сервисов: %s", len(services))
                 for service in services:
+                    _LOGGER.debug("📡 Сервис: %s", service.uuid)
                     if service.uuid == SERVICE_UUID:
                         target_service = service
-                        break
+                        _LOGGER.debug("📡 Найден целевой сервис %s, доступные характеристики:", target_service.uuid)
+                        for characteristic in target_service.characteristics:
+                            _LOGGER.debug("📡 Характеристика: %s, свойства: %s", characteristic.uuid, characteristic.properties)
+                            if "notify" in characteristic.properties:
+                                characteristic_uuid = characteristic.uuid
+                                break
                 
-                if target_service:
-                    _LOGGER.debug("📡 Найден сервис %s, доступные характеристики:", target_service.uuid)
-                    for characteristic in target_service.characteristics:
-                        _LOGGER.debug("📡 Характеристика: %s, свойства: %s", characteristic.uuid, characteristic.properties)
-                        if "notify" in characteristic.properties:
-                            characteristic_uuid = characteristic.uuid
-                            break
+                if not target_service:
+                    _LOGGER.warning("⚠️  Целевой сервис %s не найден", SERVICE_UUID)
+                    _LOGGER.debug("📡 Попробуем использовать стандартную характеристику")
+                    
             except AttributeError:
                 # Если get_services() не доступен, попробуем получить сервисы через service_collection
                 try:
@@ -108,18 +112,22 @@ class BTLEConnection:
                     characteristic_uuid = None
                     target_service = None
                     
+                    _LOGGER.debug("📡 Всего найдено сервисов (через services): %s", len(service_collection))
                     for service in service_collection:
+                        _LOGGER.debug("📡 Сервис: %s", service.uuid)
                         if service.uuid == SERVICE_UUID:
                             target_service = service
-                            break
+                            _LOGGER.debug("📡 Найден целевой сервис %s, доступные характеристики:", target_service.uuid)
+                            for characteristic in target_service.characteristics:
+                                _LOGGER.debug("📡 Характеристика: %s, свойства: %s", characteristic.uuid, characteristic.properties)
+                                if "notify" in characteristic.properties:
+                                    characteristic_uuid = characteristic.uuid
+                                    break
                     
-                    if target_service:
-                        _LOGGER.debug("📡 Найден сервис %s, доступные характеристики:", target_service.uuid)
-                        for characteristic in target_service.characteristics:
-                            _LOGGER.debug("📡 Характеристика: %s, свойства: %s", characteristic.uuid, characteristic.properties)
-                            if "notify" in characteristic.properties:
-                                characteristic_uuid = characteristic.uuid
-                                break
+                    if not target_service:
+                        _LOGGER.warning("⚠️  Целевой сервис %s не найден", SERVICE_UUID)
+                        _LOGGER.debug("📡 Попробуем использовать стандартную характеристику")
+                        
                 except Exception as e:
                     _LOGGER.warning("⚠️  Не удалось получить сервисы для уведомлений: %s", e)
                     characteristic_uuid = None
@@ -204,6 +212,10 @@ class BTLEConnection:
                         if "write" in characteristic.properties or "write_without_response" in characteristic.properties:
                             write_characteristic_uuid = characteristic.uuid
                             break
+                else:
+                    _LOGGER.warning("⚠️  Целевой сервис %s для записи не найден", SERVICE_UUID)
+                    _LOGGER.debug("📡 Попробуем использовать стандартную характеристику")
+                    
             except AttributeError:
                 # Если get_services() не доступен, попробуем получить сервисы через service_collection
                 try:
@@ -223,6 +235,10 @@ class BTLEConnection:
                             if "write" in characteristic.properties or "write_without_response" in characteristic.properties:
                                 write_characteristic_uuid = characteristic.uuid
                                 break
+                    else:
+                        _LOGGER.warning("⚠️  Целевой сервис %s для записи не найден", SERVICE_UUID)
+                        _LOGGER.debug("📡 Попробуем использовать стандартную характеристику")
+                        
                 except Exception as e:
                     _LOGGER.warning("⚠️  Не удалось получить сервисы для записи: %s", e)
                     write_characteristic_uuid = None
