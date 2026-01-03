@@ -56,8 +56,8 @@ class SkyCookerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         id = f"{DOMAIN}-{mac}"
         self._abort_if_unique_id_configured()
         self.config[CONF_MAC] = mac
-        # Generate random password
-        self.config[CONF_PASSWORD] = list(secrets.token_bytes(8))
+        # Generate random password as hex string
+        self.config[CONF_PASSWORD] = secrets.token_hex(8)
         return True
 
     async def async_step_user(self, user_input=None):
