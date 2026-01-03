@@ -134,8 +134,8 @@ class SkyCookerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 # Устанавливаем имя и тип устройства
                 await connection.setNameAndType()
                 
-                # Проверяем доступность устройства
-                if connection.available and connection.name and connection.type:
+                # Проверяем доступность устройства по имени и типу
+                if connection.name and connection.type:
                     _LOGGER.info("✅ Устройство найдено и готово к подключению: %s", connection.name)
                     return await self.async_step_init()
                 else:
