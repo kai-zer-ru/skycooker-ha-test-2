@@ -83,11 +83,17 @@ class BTLEConnection:
             _LOGGER.info("✅ Успешное подключение к %s", self._mac)
             
             # Find the correct characteristic for notifications
-            services = await self._client.get_service(SERVICE_UUID)
+            services = await self._client.get_services()
             characteristic_uuid = None
+            target_service = None
             
-            if services:
-                for characteristic in services.characteristics:
+            for service in services:
+                if service.uuid == SERVICE_UUID:
+                    target_service = service
+                    break
+            
+            if target_service:
+                for characteristic in target_service.characteristics:
                     if "notify" in characteristic.properties:
                         characteristic_uuid = characteristic.uuid
                         break
@@ -154,11 +160,17 @@ class BTLEConnection:
                          command, self._mac, packet_bytes.hex())
             
             # Find the correct characteristic for writing
-            services = await self._client.get_service(SERVICE_UUID)
+            services = await self._client.get_services()
             write_characteristic_uuid = None
+            target_service = None
             
-            if services:
-                for characteristic in services.characteristics:
+            for service in services:
+                if service.uuid == SERVICE_UUID:
+                    target_service = service
+                    break
+            
+            if target_service:
+                for characteristic in target_service.characteristics:
                     if "write" in characteristic.properties or "write_without_response" in characteristic.properties:
                         write_characteristic_uuid = characteristic.uuid
                         break
