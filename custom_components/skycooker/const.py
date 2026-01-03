@@ -62,3 +62,10 @@ MAX_MINUTES = 59
 CONF_PERSISTENT_CONNECTION = "persistent_connection"
 DEFAULT_PERSISTENT_CONNECTION = True
 CONF_USE_BACKLIGHT = "use_backlight"
+
+# Поддерживаемые домены
+SUPPORTED_DOMAINS = ['sensor', 'switch', 'number', 'select']
+
+# Интервал сканирования
+CONF_SCAN_INTERVAL = "scan_interval"
+DEFAULT_SCAN_INTERVAL = 30
