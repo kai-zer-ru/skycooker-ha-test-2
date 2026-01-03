@@ -222,9 +222,7 @@ class SkyCookerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return self.async_show_form(
             step_id="instructions",
             errors=errors,
-            data_schema=vol.Schema({
-                vol.Optional("continue", default=True): bool
-            })
+            data_schema=vol.Schema({})
         )
 
     async def async_step_connect(self, user_input=None):
@@ -281,9 +279,7 @@ class SkyCookerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return self.async_show_form(
             step_id="connect",
             errors=errors,
-            data_schema=vol.Schema({
-                vol.Optional("continue", default=True): bool
-            })
+            data_schema=vol.Schema({})
         )
 
     async def async_step_init(self, user_input=None):
