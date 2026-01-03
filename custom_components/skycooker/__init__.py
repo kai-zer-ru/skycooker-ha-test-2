@@ -189,7 +189,7 @@ class SkyCooker:
         _LOGGER.info("🏷️  Устройство: %s, Тип: %s, Доступность: %s", self._name, self._type, self._available)
 
     def initCallbacks(self):
-        self._conn.setConnectAfter(self.sendAuth)
+        self._conn.setConnectAfter(lambda: self.sendAuth(self._conn))
         self._conn.setCallback(RedmondCommand.AUTH, self.responseAuth)
         self._conn.setCallback(RedmondCommand.VERSION, self.responseGetVersion)
         self._conn.setCallback(RedmondCommand.GET_STATUS_MODE, self.responseStatus)

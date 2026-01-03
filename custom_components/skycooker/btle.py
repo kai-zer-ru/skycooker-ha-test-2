@@ -170,7 +170,13 @@ class BTLEConnection:
             _LOGGER.debug("🔍 Поиск сервисов и характеристик для %s", self._mac)
             
             # Получаем все сервисы
-            services = await self._client.get_services()
+            try:
+                # Попробуем использовать get_services() как в оригинальном bleak
+                services = await self._client.get_services()
+            except AttributeError:
+                # Если get_services() не доступен, используем services напрямую
+                services = self._client.services
+            
             _LOGGER.debug("📦 Найдено сервисов: %s", len(services))
             
             for service in services:
