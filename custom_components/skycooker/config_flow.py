@@ -2,10 +2,8 @@
 # coding: utf-8
 
 import logging
-import voluptuous as vol
 from typing import Any, Dict, Optional
 
-import homeassistant.helpers.config_validation as cv
 from homeassistant import config_entries
 from homeassistant.const import CONF_MAC, CONF_PASSWORD, CONF_SCAN_INTERVAL
 from homeassistant.core import callback
@@ -17,16 +15,16 @@ _LOGGER = logging.getLogger(__name__)
 
 CONF_USE_BACKLIGHT = 'use_backlight'
 
-DATA_SCHEMA_USER = vol.Schema({
-    vol.Required(CONF_MAC): str,
-    vol.Required(CONF_PASSWORD): str,
-    vol.Optional(CONF_SCAN_INTERVAL, default=60): int,
-    vol.Optional(CONF_USE_BACKLIGHT, default=False): bool,
-})
+DATA_SCHEMA_USER = {
+    CONF_MAC: str,
+    CONF_PASSWORD: str,
+    CONF_SCAN_INTERVAL: int,
+    CONF_USE_BACKLIGHT: bool,
+}
 
-DATA_SCHEMA_BLUETOOTH = vol.Schema({
-    vol.Required(CONF_MAC): cv.string,
-})
+DATA_SCHEMA_BLUETOOTH = {
+    CONF_MAC: str,
+}
 
 
 class SkyCookerConfigFlow(config_entries.ConfigFlow):
@@ -126,9 +124,7 @@ class SkyCookerConfigFlow(config_entries.ConfigFlow):
 
         return self.async_show_form(
             step_id="bluetooth_confirm",
-            data_schema=vol.Schema({
-                vol.Required(CONF_PASSWORD): str,
-            }),
+            data_schema={CONF_PASSWORD: str},
             description_placeholders={
                 "name": self.device_name,
                 "mac": self.device_mac,
@@ -155,16 +151,10 @@ class SkyCookerOptionsFlowHandler(config_entries.OptionsFlow):
             return self.async_create_entry(title="", data=user_input)
 
         options = self.config_entry.options
-        data_schema = vol.Schema({
-            vol.Optional(
-                CONF_SCAN_INTERVAL,
-                default=options.get(CONF_SCAN_INTERVAL, 60)
-            ): int,
-            vol.Optional(
-                CONF_USE_BACKLIGHT,
-                default=options.get(CONF_USE_BACKLIGHT, False)
-            ): bool,
-        })
+        data_schema = {
+            CONF_SCAN_INTERVAL: int,
+            CONF_USE_BACKLIGHT: bool,
+        }
 
         return self.async_show_form(
             step_id="init",
