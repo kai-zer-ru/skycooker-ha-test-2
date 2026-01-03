@@ -216,13 +216,21 @@ class SkyCooker:
     async def sendAuth(self, conn):
         self._type = conn._type
         self._name = conn._name
+        
+        _LOGGER.debug("🔑 Отправка команды аутентификации с паролем: %s", self._key)
+        _LOGGER.debug("🔍 Тип устройства: %s, Имя: %s", self._type, self._name)
 
         await conn.sendRequest(RedmondCommand.AUTH, self._key)
         await asyncio.sleep(1.5)
 
+        _LOGGER.debug("⏳ Ожидание результата аутентификации...")
+        _LOGGER.debug("📊 Текущий статус аутентификации: %s", self._auth)
+
         if self._auth is False:
+            _LOGGER.error("❌ Аутентификация не удалась после ожидания")
             raise Exception('error auth')
 
+        _LOGGER.info("✅ Аутентификация прошла успешно")
         return True
 
     def responseAuth(self, arrayHex):
@@ -236,9 +244,12 @@ class SkyCooker:
                 if auth_result == '01':
                     self._auth = True
                     _LOGGER.info("✅ Аутентификация успешна для устройства типа %s", self._type)
-                else:
+                elif auth_result == '00':
                     self._auth = False
                     _LOGGER.warning("⚠️  Аутентификация не удалась для устройства типа %s, код: %s", self._type, auth_result)
+                else:
+                    self._auth = False
+                    _LOGGER.warning("⚠️  Неожиданный код аутентификации для устройства типа %s: %s", self._type, auth_result)
             else:
                 # Для других типов устройств логика может быть другой
                 self._auth = False
