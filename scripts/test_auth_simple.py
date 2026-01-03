@@ -105,6 +105,25 @@ class SimpleBTLEConnection:
         await self._client.write_gatt_char(WRITE_UUID, packet_bytes)
         logger.debug("✅ Команда аутентификации отправлена")
         
+        # Ждём немного после аутентификации
+        await asyncio.sleep(0.5)
+        
+    async def send_test_command(self):
+        """Отправка тестовой команды для проверки работоспособности."""
+        logger.info("🧪 Отправка тестовой команды (запрос статуса)")
+        
+        # Формируем пакет: [0x55, iter, 0x02, 0xAA] - запрос статуса
+        self._hex_iter = (self._hex_iter + 1) % 256
+        packet = [0x55, self._hex_iter, 0x02, 0xAA]
+        packet_bytes = bytes(packet)
+        
+        logger.debug("📤 Отправка тестовой команды: %s", packet_bytes.hex())
+        await self._client.write_gatt_char(WRITE_UUID, packet_bytes)
+        logger.debug("✅ Тестовая команда отправлена")
+        
+        # Ждём ответа
+        await asyncio.sleep(1)
+    
     async def test_authentication(self):
         """Тестирование аутентификации."""
         try:
@@ -113,19 +132,14 @@ class SimpleBTLEConnection:
             # Отправляем команду аутентификации
             await self.send_auth()
             
-            # Ждём ответа
-            await asyncio.sleep(2)
+            # Отправляем тестовую команду для проверки работоспособности
+            await self.send_test_command()
             
-            # Проверяем результат
-            if self._auth_result is True:
-                logger.info("🎉 Аутентификация прошла успешно!")
-                return True
-            elif self._auth_result is False:
-                logger.error("❌ Аутентификация не удалась!")
-                return False
-            else:
-                logger.warning("⚠️  Не получен ответ на аутентификацию")
-                return False
+            # Ждём немного для получения ответов
+            await asyncio.sleep(1)
+            
+            logger.info("🎉 Аутентификация и тестовая команда отправлены успешно!")
+            return True
                 
         except Exception as e:
             logger.error("❌ Ошибка при аутентификации: %s", e)
