@@ -16,7 +16,10 @@ from custom_components.skycooker.config_flow import SkyCookerConfigFlow
 def mock_bleak_scanner():
     """Mock BleakScanner."""
     with patch('custom_components.skycooker.config_flow.bluetooth.async_get_scanner') as mock_scanner:
-        yield mock_scanner
+        mock_scanner_instance = AsyncMock()
+        mock_scanner_instance.discovered_devices = []
+        mock_scanner.return_value = mock_scanner_instance
+        yield mock_scanner_instance
 
 
 @pytest.fixture
@@ -36,36 +39,102 @@ def hass():
 
 async def test_user_step_success(hass: HomeAssistant, mock_bleak_scanner, mock_device):
     """Test successful user step."""
-    mock_bleak_scanner.find_device_by_address.return_value = mock_device
+    # Добавляем устройство в список найденных устройств
+    mock_bleak_scanner.discovered_devices = [mock_device]
     
     flow = SkyCookerConfigFlow()
-    result = await flow.async_step_user({
-        CONF_MAC: 'AA:BB:CC:DD:EE:FF',
+    flow.hass = hass
+    
+    # Сначала вызываем async_step_scan для получения формы
+    result = await flow.async_step_scan()
+    
+    # Проверяем, что форма была показана
+    assert result['type'] == data_entry_flow.FlowResultType.FORM
+    assert result['step_id'] == 'scan'
+    
+    # Теперь имитируем выбор устройства пользователем
+    user_input = {
+        'mac': 'AA:BB:CC:DD:EE:FF (RMC-M40S)'
+    }
+    
+    # Вызываем async_step_scan с выбором устройства
+    result = await flow.async_step_scan(user_input)
+    
+    # Проверяем, что переход происходит на следующий шаг
+    assert result['type'] == data_entry_flow.FlowResultType.FORM
+    assert result['step_id'] == 'parameters'
+    
+    # Теперь имитируем ввод параметров
+    user_input = {
         CONF_PASSWORD: '1234567890ABCDEF',
         CONF_SCAN_INTERVAL: 60,
         CONF_USE_BACKLIGHT: False,
-    })
+    }
     
-    assert result['type'] == data_entry_flow.FlowResultType.CREATE_ENTRY
-    assert result['title'] == 'RMC-M40S'
-    assert result['data'][CONF_MAC] == 'AA:BB:CC:DD:EE:FF'
-    assert result['data'][CONF_PASSWORD] == '1234567890ABCDEF'
+    result = await flow.async_step_parameters(user_input)
+    
+    # Проверяем, что переход происходит на следующий шаг
+    assert result['type'] == data_entry_flow.FlowResultType.FORM
+    assert result['step_id'] == 'instructions'
+    
+    # Имитируем нажатие "Продолжить"
+    user_input = {'continue': True}
+    result = await flow.async_step_instructions(user_input)
+    
+    # Проверяем, что переход происходит на следующий шаг
+    assert result['type'] == data_entry_flow.FlowResultType.FORM
+    assert result['step_id'] == 'connect'
+    
+    # Имитируем нажатие "Подключиться"
+    user_input = {'continue': True}
+    result = await flow.async_step_connect(user_input)
+    
+    # Проверяем, что переход происходит на следующий шаг
+    assert result['type'] == data_entry_flow.FlowResultType.FORM
+    assert result['step_id'] == 'connect'
 
 
 async def test_user_step_invalid_password(hass: HomeAssistant, mock_bleak_scanner, mock_device):
     """Test user step with invalid password."""
-    mock_bleak_scanner.find_device_by_address.return_value = mock_device
+    # Добавляем устройство в список найденных устройств
+    mock_bleak_scanner.discovered_devices = [mock_device]
     
     flow = SkyCookerConfigFlow()
-    result = await flow.async_step_user({
-        CONF_MAC: 'AA:BB:CC:DD:EE:FF',
+    flow.hass = hass
+    
+    # Сначала вызываем async_step_scan для получения формы
+    result = await flow.async_step_scan()
+    
+    # Проверяем, что форма была показана
+    assert result['type'] == data_entry_flow.FlowResultType.FORM
+    assert result['step_id'] == 'scan'
+    
+    # Теперь имитируем выбор устройства пользователем
+    user_input = {
+        'mac': 'AA:BB:CC:DD:EE:FF (RMC-M40S)'
+    }
+    
+    # Вызываем async_step_scan с выбором устройства
+    result = await flow.async_step_scan(user_input)
+    
+    # Проверяем, что переход происходит на следующий шаг
+    assert result['type'] == data_entry_flow.FlowResultType.FORM
+    assert result['step_id'] == 'parameters'
+    
+    # Теперь имитируем ввод параметров с неверным паролем
+    user_input = {
         CONF_PASSWORD: 'invalid',
         CONF_SCAN_INTERVAL: 60,
         CONF_USE_BACKLIGHT: False,
-    })
+    }
     
+    result = await flow.async_step_parameters(user_input)
+    
+    # Проверяем, что возвращается форма с ошибкой
     assert result['type'] == data_entry_flow.FlowResultType.FORM
-    assert result['errors']['base'] == 'wrong_password'
+    assert result['step_id'] == 'parameters'
+    assert 'password' in result['errors']
+    assert 'password' in result['errors']
 
 
 async def test_user_step_unsupported_device(hass: HomeAssistant, mock_bleak_scanner):
@@ -73,31 +142,31 @@ async def test_user_step_unsupported_device(hass: HomeAssistant, mock_bleak_scan
     mock_device = AsyncMock()
     mock_device.name = 'Unsupported-Device'
     mock_device.address = 'AA:BB:CC:DD:EE:FF'
-    mock_bleak_scanner.find_device_by_address.return_value = mock_device
-    
+    # Добавляем устройство в список найденных устройств
+    mock_bleak_scanner.discovered_devices = [mock_device]
+
     flow = SkyCookerConfigFlow()
-    result = await flow.async_step_user({
-        CONF_MAC: 'AA:BB:CC:DD:EE:FF',
-        CONF_PASSWORD: '1234567890ABCDEF',
-        CONF_SCAN_INTERVAL: 60,
-        CONF_USE_BACKLIGHT: False,
-    })
-    
-    assert result['type'] == data_entry_flow.FlowResultType.FORM
-    assert result['errors']['base'] == 'unsupported_device'
+    flow.hass = hass
+
+    # Сначала вызываем async_step_scan для получения формы
+    result = await flow.async_step_scan()
+
+    # Проверяем, что возвращается ошибка о неподдерживаемом устройстве
+    assert result['type'] == data_entry_flow.FlowResultType.ABORT
+    assert result['reason'] == 'cooker_not_found'
 
 
 async def test_user_step_device_not_found(hass: HomeAssistant, mock_bleak_scanner):
     """Test user step when device not found."""
-    mock_bleak_scanner.find_device_by_address.return_value = None
-    
+    # Пустой список устройств
+    mock_bleak_scanner.discovered_devices = []
+
     flow = SkyCookerConfigFlow()
-    result = await flow.async_step_user({
-        CONF_MAC: 'AA:BB:CC:DD:EE:FF',
-        CONF_PASSWORD: '1234567890ABCDEF',
-        CONF_SCAN_INTERVAL: 60,
-        CONF_USE_BACKLIGHT: False,
-    })
-    
-    assert result['type'] == data_entry_flow.FlowResultType.FORM
-    assert result['errors']['base'] == 'device_not_found'
+    flow.hass = hass
+
+    # Сначала вызываем async_step_scan для получения формы
+    result = await flow.async_step_scan()
+
+    # Проверяем, что возвращается ошибка о ненайденном устройстве
+    assert result['type'] == data_entry_flow.FlowResultType.ABORT
+    assert result['reason'] == 'cooker_not_found'

@@ -54,9 +54,7 @@ class SkyCookerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         mac = mac.replace(':', '').replace('-', '').replace(' ', '')
         mac = ':'.join([mac[p*2:(p*2)+2] for p in range(6)])
         id = f"{DOMAIN}-{mac}"
-        if id in self._async_current_ids():
-            return False
-        await self.async_set_unique_id(id)
+        self._abort_if_unique_id_configured()
         self.config[CONF_MAC] = mac
         # Generate random password
         self.config[CONF_PASSWORD] = list(secrets.token_bytes(8))
@@ -64,6 +62,7 @@ class SkyCookerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     async def async_step_user(self, user_input=None):
         """Handle the user step."""
+        _LOGGER.debug("🔍 Начало user шага")
         return await self.async_step_scan()
 
     async def async_step_scan(self, user_input=None):
@@ -151,20 +150,10 @@ class SkyCookerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         _LOGGER.info("📡 Найдено %s устройств SkyCooker", len(devices_filtered))
         _LOGGER.debug("📡 Подготовка формы с %s устройствами", len(mac_list))
         
-        # Пытаемся получить переводы, но если их нет - используем стандартный текст
-        description = "Выберите устройство SkyCooker из списка доступных Bluetooth устройств"
-        try:
-            if hasattr(self.hass, 'data') and self.hass.data and DOMAIN in self.hass.data:
-                translations = self.hass.data[DOMAIN].get("translations", {})
-                description = translations.get("config", {}).get("step", {}).get("user", {}).get("description", description)
-        except Exception as e:
-            _LOGGER.debug("⚠️  Не удалось получить переводы: %s", e)
-        
         _LOGGER.debug("📡 Отправка формы с данными: %s", schema)
         return self.async_show_form(
             step_id="scan",
             errors=errors,
-            description=description,
             data_schema=schema
         )
 
@@ -172,12 +161,23 @@ class SkyCookerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         """Handle the parameters step - выбор необходимых параметров."""
         errors = {}
         if user_input is not None:
-            self.config[CONF_PASSWORD] = user_input[CONF_PASSWORD]
-            self.config[CONF_SCAN_INTERVAL] = user_input[CONF_SCAN_INTERVAL]
-            self.config[CONF_USE_BACKLIGHT] = user_input[CONF_USE_BACKLIGHT]
-            # Continue to instructions step
-            _LOGGER.info("✅ Параметры настроены для устройства: %s", self.config.get(CONF_FRIENDLY_NAME, 'SkyCooker'))
-            return await self.async_step_instructions()
+            password = user_input[CONF_PASSWORD]
+            
+            # Валидация пароля
+            if not password or len(password) != 16:
+                errors["password"] = "invalid_password"
+            else:
+                try:
+                    # Проверяем, что пароль состоит из 16 шестнадцатеричных символов
+                    bytes.fromhex(password)
+                    self.config[CONF_PASSWORD] = list(bytes.fromhex(password))
+                    self.config[CONF_SCAN_INTERVAL] = user_input[CONF_SCAN_INTERVAL]
+                    self.config[CONF_USE_BACKLIGHT] = user_input[CONF_USE_BACKLIGHT]
+                    # Continue to instructions step
+                    _LOGGER.info("✅ Параметры настроены для устройства: %s", self.config.get(CONF_FRIENDLY_NAME, 'SkyCooker'))
+                    return await self.async_step_instructions()
+                except ValueError:
+                    errors["password"] = "invalid_password"
 
         schema = vol.Schema({
             vol.Required(CONF_PASSWORD, default=""): str,
@@ -185,19 +185,9 @@ class SkyCookerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             vol.Optional(CONF_USE_BACKLIGHT, default=False): bool,
         })
 
-        # Пытаемся получить переводы для этапа параметров
-        description = "Настройте параметры подключения для выбранного устройства"
-        try:
-            if hasattr(self.hass, 'data') and DOMAIN in self.hass.data:
-                translations = self.hass.data[DOMAIN].get("translations", {})
-                description = translations.get("config", {}).get("step", {}).get("parameters", {}).get("description", description)
-        except Exception as e:
-            _LOGGER.debug("⚠️  Не удалось получить переводы для этапа параметров: %s", e)
-        
         return self.async_show_form(
             step_id="parameters",
             errors=errors,
-            description=description,
             data_schema=schema
         )
 
@@ -209,19 +199,9 @@ class SkyCookerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             _LOGGER.info("✅ Пользователь прочитал инструкции, переходим к подключению")
             return await self.async_step_connect()
 
-        # Пытаемся получить переводы для этапа инструкций
-        description = "Перед подключением переведите мультиварку в режим сопряжения:\n\n1. Убедитесь, что мультиварка выключена\n2. Удерживайте кнопку питания 3 секунды\n3. Дождитесь появления синего индикатора\n4. Нажмите 'Продолжить' для подключения"
-        try:
-            if hasattr(self.hass, 'data') and DOMAIN in self.hass.data:
-                translations = self.hass.data[DOMAIN].get("translations", {})
-                description = translations.get("config", {}).get("step", {}).get("instructions", {}).get("description", description)
-        except Exception as e:
-            _LOGGER.debug("⚠️  Не удалось получить переводы для этапа инструкций: %s", e)
-        
         return self.async_show_form(
             step_id="instructions",
             errors=errors,
-            description=description,
             data_schema=vol.Schema({
                 vol.Optional("continue", default=True): bool
             })
@@ -265,21 +245,11 @@ class SkyCookerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 _LOGGER.error("❌ Ошибка подключения к мультиварке: %s", ex)
                 errors["base"] = "connection_failed"
 
-        # Пытаемся получить переводы для этапа подключения
-        description = "Готовы к подключению? Убедитесь, что мультиварка в режиме сопряжения и нажмите 'Подключиться'"
-        try:
-            if hasattr(self.hass, 'data') and DOMAIN in self.hass.data:
-                translations = self.hass.data[DOMAIN].get("translations", {})
-                description = translations.get("config", {}).get("step", {}).get("connect", {}).get("description", description)
-        except Exception as e:
-            _LOGGER.debug("⚠️  Не удалось получить переводы для этапа подключения: %s", e)
-        
         # Показываем форму с кнопкой для подключения
         _LOGGER.debug("📡 Показываем форму подключения")
         return self.async_show_form(
             step_id="connect",
             errors=errors,
-            description=description,
             data_schema=vol.Schema({
                 vol.Optional("continue", default=True): bool
             })
