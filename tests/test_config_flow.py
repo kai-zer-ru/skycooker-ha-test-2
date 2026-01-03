@@ -5,6 +5,7 @@ import pytest
 from unittest.mock import patch, AsyncMock
 from homeassistant import data_entry_flow
 from homeassistant.const import CONF_MAC, CONF_PASSWORD, CONF_SCAN_INTERVAL
+from custom_components.skycooker.const import CONF_USE_BACKLIGHT
 from homeassistant.core import HomeAssistant
 
 from custom_components.skycooker.const import SUPPORTED_DEVICES
@@ -14,7 +15,7 @@ from custom_components.skycooker.config_flow import SkyCookerConfigFlow
 @pytest.fixture
 def mock_bleak_scanner():
     """Mock BleakScanner."""
-    with patch('custom_components.skycooker.config_flow.BleakScanner') as mock_scanner:
+    with patch('custom_components.skycooker.config_flow.bluetooth.async_get_scanner') as mock_scanner:
         yield mock_scanner
 
 
@@ -25,6 +26,12 @@ def mock_device():
     device.name = 'RMC-M40S'
     device.address = 'AA:BB:CC:DD:EE:FF'
     return device
+
+
+@pytest.fixture
+def hass():
+    """Mock HomeAssistant."""
+    return AsyncMock()
 
 
 async def test_user_step_success(hass: HomeAssistant, mock_bleak_scanner, mock_device):

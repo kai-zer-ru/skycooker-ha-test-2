@@ -2,6 +2,8 @@
 # coding: utf-8
 
 import logging
+import secrets
+import traceback
 
 import voluptuous as vol
 
@@ -12,7 +14,7 @@ from homeassistant.const import (CONF_DEVICE, CONF_FRIENDLY_NAME, CONF_MAC,
                                  CONF_PASSWORD, CONF_SCAN_INTERVAL)
 from homeassistant.core import callback
 
-from .const import SUPPORTED_DEVICES, MIN_TEMP, MAX_TEMP
+from .const import DOMAIN, SUPPORTED_DEVICES, MIN_TEMP, MAX_TEMP, CONF_PERSISTENT_CONNECTION, DEFAULT_PERSISTENT_CONNECTION
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -30,12 +32,11 @@ DATA_SCHEMA_BLUETOOTH = vol.Schema({
 })
 
 
-class SkyCookerConfigFlow(config_entries.ConfigFlow):
+class SkyCookerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Config flow for SkyCooker."""
 
     VERSION = 1
-    CONNECTION_CLASS = config_entries.CONN_CLASS_LOCAL_POLLING
-    DOMAIN = "skycooker"
+    CONNECTION_CLASS = config_entries.CONN_CLASS_LOCAL_POLL
 
     @staticmethod
     @callback
@@ -57,8 +58,8 @@ class SkyCookerConfigFlow(config_entries.ConfigFlow):
             return False
         await self.async_set_unique_id(id)
         self.config[CONF_MAC] = mac
-        # Generate simple password
-        self.config[CONF_PASSWORD] = "1234567890ABCDEF"
+        # Generate random password
+        self.config[CONF_PASSWORD] = list(secrets.token_bytes(8))
         return True
 
     async def async_step_user(self, user_input=None):
@@ -95,7 +96,7 @@ class SkyCookerConfigFlow(config_entries.ConfigFlow):
                 _LOGGER.error("❌ Bluetooth интеграция не работает: %s", ex)
                 return self.async_abort(reason='no_bluetooth')
             
-            devices_filtered = [device for device in scanner.discovered_devices 
+            devices_filtered = [device for device in scanner.discovered_devices
                               if device.name and device.name in SUPPORTED_DEVICES]
             if len(devices_filtered) == 0:
                 _LOGGER.warning("⚠️  Устройства SkyCooker не найдены")
@@ -106,7 +107,7 @@ class SkyCookerConfigFlow(config_entries.ConfigFlow):
                 vol.Required(CONF_MAC): vol.In(mac_list)
             })
         except Exception as ex:
-            _LOGGER.error("❌ Ошибка сканирования: %s", ex)
+            _LOGGER.error("❌ Ошибка сканирования: %s", traceback.format_exc())
             return self.async_abort(reason='unknown')
 
         _LOGGER.info("📡 Найдено %s устройств SkyCooker", len(mac_list))
@@ -135,6 +136,7 @@ class SkyCookerConfigFlow(config_entries.ConfigFlow):
         """Handle the options step."""
         errors = {}
         if user_input is not None:
+            self.config[CONF_PERSISTENT_CONNECTION] = user_input[CONF_PERSISTENT_CONNECTION]
             self.config[CONF_SCAN_INTERVAL] = user_input[CONF_SCAN_INTERVAL]
             self.config[CONF_USE_BACKLIGHT] = user_input[CONF_USE_BACKLIGHT]
             fname = f"{self.config.get(CONF_FRIENDLY_NAME, 'SkyCooker')} ({self.config[CONF_MAC]})"
@@ -146,7 +148,8 @@ class SkyCookerConfigFlow(config_entries.ConfigFlow):
             )
 
         schema = vol.Schema({
-            vol.Required(CONF_SCAN_INTERVAL, default=self.config.get(CONF_SCAN_INTERVAL, 60)): 
+            vol.Required(CONF_PERSISTENT_CONNECTION, default=self.config.get(CONF_PERSISTENT_CONNECTION, DEFAULT_PERSISTENT_CONNECTION)): cv.boolean,
+            vol.Required(CONF_SCAN_INTERVAL, default=self.config.get(CONF_SCAN_INTERVAL, 60)):
                 vol.All(vol.Coerce(int), vol.Range(min=10, max=300)),
             vol.Required(CONF_USE_BACKLIGHT, default=self.config.get(CONF_USE_BACKLIGHT, False)): bool,
         })
@@ -173,6 +176,10 @@ class SkyCookerOptionsFlowHandler(config_entries.OptionsFlow):
 
         options = self.entry.options
         data_schema = vol.Schema({
+            vol.Optional(
+                CONF_PERSISTENT_CONNECTION,
+                default=options.get(CONF_PERSISTENT_CONNECTION, DEFAULT_PERSISTENT_CONNECTION)
+            ): cv.boolean,
             vol.Optional(
                 CONF_SCAN_INTERVAL,
                 default=options.get(CONF_SCAN_INTERVAL, 60)

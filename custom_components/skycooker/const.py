@@ -1,5 +1,7 @@
 # Константы для интеграции SkyCooker
 
+DOMAIN = "skycooker"
+
 # Тип устройства - 5 для мультиварки
 DEVICE_TYPE_COOKER = 5
 
@@ -54,3 +56,8 @@ MIN_HOURS = 0
 MAX_HOURS = 23
 MIN_MINUTES = 0
 MAX_MINUTES = 59
+
+# Конфигурация
+CONF_PERSISTENT_CONNECTION = "persistent_connection"
+DEFAULT_PERSISTENT_CONNECTION = True
+CONF_USE_BACKLIGHT = "use_backlight"
