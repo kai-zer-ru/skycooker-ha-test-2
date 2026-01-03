@@ -68,6 +68,7 @@ class SkyCookerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     async def async_step_scan(self, user_input=None):
         """Handle the scan step - выбор из списка устройств."""
+        _LOGGER.debug("📡 Начало сканирования устройств SkyCooker")
         errors = {}
         if user_input is not None:
             spl = user_input[CONF_MAC].split(' ', maxsplit=1)
@@ -90,19 +91,40 @@ class SkyCookerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         try:
             try:
                 scanner = bluetooth.async_get_scanner(self.hass)
-                for device in scanner.discovered_devices:
+                _LOGGER.debug("🔍 Сканер Bluetooth инициализирован")
+                
+                # Проверяем, есть ли вообще устройства
+                discovered_devices = scanner.discovered_devices
+                _LOGGER.debug("🔍 Всего найдено устройств: %s", len(discovered_devices))
+                
+                for device in discovered_devices:
                     _LOGGER.debug("🔍 Найдено устройство: %s - %s", device.address, device.name)
+                    if device.name:
+                        _LOGGER.debug("🔍 Устройство %s (%s) - проверка на поддержку: %s",
+                                    device.name, device.address, device.name in SUPPORTED_DEVICES)
+                    
             except Exception as ex:
                 _LOGGER.error("❌ Bluetooth интеграция не работает: %s", ex)
                 return self.async_abort(reason='no_bluetooth')
             
-            devices_filtered = [device for device in scanner.discovered_devices
+            # Фильтруем устройства по поддерживаемым моделям
+            _LOGGER.debug("🔍 Поддерживаемые модели: %s", list(SUPPORTED_DEVICES.keys()))
+            devices_filtered = [device for device in discovered_devices
                               if device.name and device.name in SUPPORTED_DEVICES]
+            _LOGGER.debug("🔍 Отфильтровано устройств SkyCooker: %s", len(devices_filtered))
+            
+            # Логируем все найденные устройства для отладки
+            for device in devices_filtered:
+                _LOGGER.debug("✅ Поддерживаемое устройство: %s - %s", device.address, device.name)
+            
             if len(devices_filtered) == 0:
                 _LOGGER.warning("⚠️  Устройства SkyCooker не найдены")
                 return self.async_abort(reason='cooker_not_found')
             
+            # Создаем список для выбора
             mac_list = [f"{r.address} ({r.name})" for r in devices_filtered]
+            _LOGGER.debug("🔍 Список доступных устройств: %s", mac_list)
+            
             schema = vol.Schema({
                 vol.Required(CONF_MAC): vol.In(mac_list)
             })
@@ -110,7 +132,9 @@ class SkyCookerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             _LOGGER.error("❌ Ошибка сканирования: %s", traceback.format_exc())
             return self.async_abort(reason='unknown')
 
-        _LOGGER.info("📡 Найдено %s устройств SkyCooker", len(mac_list))
+        _LOGGER.info("📡 Найдено %s устройств SkyCooker", len(devices_filtered))
+        _LOGGER.debug("📡 Подготовка формы с %s устройствами", len(mac_list))
+        
         # Пытаемся получить переводы, но если их нет - используем стандартный текст
         description = "Выберите устройство SkyCooker из списка доступных Bluetooth устройств"
         try:
@@ -120,6 +144,7 @@ class SkyCookerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         except Exception as e:
             _LOGGER.debug("⚠️  Не удалось получить переводы: %s", e)
         
+        _LOGGER.debug("📡 Отправка формы с данными: %s", schema)
         return self.async_show_form(
             step_id="scan",
             errors=errors,
