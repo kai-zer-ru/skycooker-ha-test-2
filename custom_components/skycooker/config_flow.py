@@ -31,11 +31,12 @@ DATA_SCHEMA_BLUETOOTH = vol.Schema({
 })
 
 
-class SkyCookerConfigFlow(config_entries.ConfigFlow, domain="skycooker"):
+class SkyCookerConfigFlow(config_entries.ConfigFlow):
     """Config flow for SkyCooker."""
 
     VERSION = 1
     CONNECTION_CLASS = config_entries.CONN_CLASS_LOCAL_POLLING
+    DOMAIN = "skycooker"
 
     def __init__(self):
         """Initialize."""
