@@ -67,7 +67,7 @@ class SkyCookerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return await self.async_step_scan()
 
     async def async_step_scan(self, user_input=None):
-        """Handle the scan step."""
+        """Handle the scan step - выбор из списка устройств."""
         errors = {}
         if user_input is not None:
             spl = user_input[CONF_MAC].split(' ', maxsplit=1)
@@ -83,9 +83,9 @@ class SkyCookerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 return self.async_abort(reason='already_configured')
             if name:
                 self.config[CONF_FRIENDLY_NAME] = name
-            # Continue to connect step
-            _LOGGER.info("✅ Устройство %s готово к подключению", name)
-            return await self.async_step_connect()
+            # Continue to parameters step
+            _LOGGER.info("✅ Устройство %s выбрано для настройки", name)
+            return await self.async_step_parameters()
 
         try:
             try:
@@ -114,56 +114,95 @@ class SkyCookerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return self.async_show_form(
             step_id="scan",
             errors=errors,
+            description=self.hass.data[DOMAIN].get("translations", {}).get("config", {}).get("step", {}).get("user", {}).get("description", "Select SkyCooker device"),
             data_schema=schema
         )
 
+    async def async_step_parameters(self, user_input=None):
+        """Handle the parameters step - выбор необходимых параметров."""
+        errors = {}
+        if user_input is not None:
+            self.config[CONF_PASSWORD] = user_input[CONF_PASSWORD]
+            self.config[CONF_SCAN_INTERVAL] = user_input[CONF_SCAN_INTERVAL]
+            self.config[CONF_USE_BACKLIGHT] = user_input[CONF_USE_BACKLIGHT]
+            # Continue to instructions step
+            _LOGGER.info("✅ Параметры настроены для устройства: %s", self.config.get(CONF_FRIENDLY_NAME, 'SkyCooker'))
+            return await self.async_step_instructions()
+
+        schema = vol.Schema({
+            vol.Required(CONF_PASSWORD, default=""): str,
+            vol.Required(CONF_SCAN_INTERVAL, default=60): vol.All(vol.Coerce(int), vol.Range(min=10, max=300)),
+            vol.Optional(CONF_USE_BACKLIGHT, default=False): bool,
+        })
+
+        return self.async_show_form(
+            step_id="parameters",
+            errors=errors,
+            description=self.hass.data[DOMAIN].get("translations", {}).get("config", {}).get("step", {}).get("parameters", {}).get("description", "Configure connection parameters for the selected device"),
+            data_schema=schema
+        )
+
+    async def async_step_instructions(self, user_input=None):
+        """Handle the instructions step - инструкции по переводу мультиварки в режим сопряжения."""
+        errors = {}
+        if user_input is not None:
+            # Continue to connect step
+            _LOGGER.info("✅ Пользователь прочитал инструкции, переходим к подключению")
+            return await self.async_step_connect()
+
+        return self.async_show_form(
+            step_id="instructions",
+            errors=errors,
+            description=self.hass.data[DOMAIN].get("translations", {}).get("config", {}).get("step", {}).get("instructions", {}).get("description", "Before connecting, switch the multicooker to pairing mode"),
+            data_schema=vol.Schema({
+                vol.Optional("continue", default=True): bool
+            })
+        )
+
     async def async_step_connect(self, user_input=None):
-        """Handle the connect step."""
+        """Handle the connect step - непосредственно подключение к мультиварке."""
         errors = {}
         
-        # Если пользователь нажал кнопку "Продолжить", переходим к следующему шагу
+        # Если пользователь нажал кнопку "Продолжить", начинаем подключение
         if user_input is not None and user_input.get("continue", False):
-            _LOGGER.info("✅ Пользователь подтвердил подключение, переходим к настройке")
-            return await self.async_step_init()
-        
-        # Попытка подключения к мультиварке
-        _LOGGER.info("🔌 Подключение к мультиварке...")
-        
-        try:
-            # Импортируем BTLEConnection для подключения
-            from .btle import BTLEConnection
+            _LOGGER.info("🔌 Начинаем подключение к мультиварке...")
             
-            # Создаем соединение
-            connection = BTLEConnection(self.hass, self.config[CONF_MAC], self.config[CONF_PASSWORD])
-            
-            # Подключаемся к устройству
-            await connection.connect()
-            
-            # Отправляем команду аутентификации
-            await connection.send_auth()
-            
-            # Устанавливаем имя и тип устройства
-            await connection.setNameAndType()
-            
-            # Проверяем доступность устройства по имени и типу
-            if connection.name and connection.type:
-                _LOGGER.info("✅ Устройство найдено и готово к подключению: %s", connection.name)
-                # Автоматически переходим к следующему шагу
-                return await self.async_step_init()
-            else:
-                errors["base"] = "device_not_found"
-                _LOGGER.error("❌ Устройство не найдено или не поддерживается: %s", self.config[CONF_MAC])
+            try:
+                # Импортируем BTLEConnection для подключения
+                from .btle import BTLEConnection
                 
-        except Exception as ex:
-            _LOGGER.error("❌ Ошибка подключения к мультиварке: %s", ex)
-            errors["base"] = "connection_failed"
+                # Создаем соединение
+                connection = BTLEConnection(self.hass, self.config[CONF_MAC], self.config[CONF_PASSWORD])
+                
+                # Подключаемся к устройству
+                await connection.connect()
+                
+                # Отправляем команду аутентификации
+                await connection.send_auth()
+                
+                # Устанавливаем имя и тип устройства
+                await connection.setNameAndType()
+                
+                # Проверяем доступность устройства по имени и типу
+                if connection.name and connection.type:
+                    _LOGGER.info("✅ Устройство найдено и готово к подключению: %s", connection.name)
+                    # Сохраняем MAC-адрес для последующего использования
+                    self.config['mac_address'] = self.config[CONF_MAC]
+                    return await self.async_step_init()
+                else:
+                    errors["base"] = "device_not_found"
+                    _LOGGER.error("❌ Устройство не найдено или не поддерживается: %s", self.config[CONF_MAC])
+                    
+            except Exception as ex:
+                _LOGGER.error("❌ Ошибка подключения к мультиварке: %s", ex)
+                errors["base"] = "connection_failed"
 
-        # Показываем форму с кнопкой для продолжения
-        _LOGGER.debug("📡 Показываем форму подключения с кнопкой продолжения")
+        # Показываем форму с кнопкой для подключения
+        _LOGGER.debug("📡 Показываем форму подключения")
         return self.async_show_form(
             step_id="connect",
             errors=errors,
-            description="Device is ready to connect",
+            description=self.hass.data[DOMAIN].get("translations", {}).get("config", {}).get("step", {}).get("connect", {}).get("description", "Ready to connect? Make sure the multicooker is in pairing mode and click 'Connect'"),
             data_schema=vol.Schema({
                 vol.Optional("continue", default=True): bool
             })

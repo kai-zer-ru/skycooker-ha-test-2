@@ -17,9 +17,17 @@
                 "title": "Bluetooth device confirmation",
                 "description": "Found device {name} ({mac}). Please enter the password to connect."
             },
+            "parameters": {
+                "title": "Parameters Setup",
+                "description": "Configure connection parameters for the selected device"
+            },
+            "instructions": {
+                "title": "Connection Instructions",
+                "description": "Before connecting, switch the multicooker to pairing mode:\n\n1. Make sure the multicooker is turned off\n2. Hold the power button for 3 seconds\n3. Wait for the blue indicator to appear\n4. Click 'Continue' to connect"
+            },
             "connect": {
                 "title": "Device connection",
-                "description": "✅ Device is ready to connect. Switch the cooker to pairing mode (hold the power button for 3 seconds until the blue indicator lights up)"
+                "description": "Ready to connect? Make sure the multicooker is in pairing mode and click 'Connect'"
             }
         },
         "error": {
