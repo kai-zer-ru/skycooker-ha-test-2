@@ -2,8 +2,6 @@
 # coding: utf-8
 
 import logging
-import secrets
-import traceback
 
 import voluptuous as vol
 
@@ -59,8 +57,8 @@ class SkyCookerConfigFlow(config_entries.ConfigFlow):
             return False
         await self.async_set_unique_id(id)
         self.config[CONF_MAC] = mac
-        # It's time to create random password
-        self.config[CONF_PASSWORD] = list(secrets.token_bytes(8))
+        # Generate simple password
+        self.config[CONF_PASSWORD] = "1234567890ABCDEF"
         return True
 
     async def async_step_user(self, user_input=None):
@@ -109,7 +107,6 @@ class SkyCookerConfigFlow(config_entries.ConfigFlow):
             })
         except Exception as ex:
             _LOGGER.error("❌ Ошибка сканирования: %s", ex)
-            _LOGGER.error(traceback.format_exc())
             return self.async_abort(reason='unknown')
 
         _LOGGER.info("📡 Найдено %s устройств SkyCooker", len(mac_list))
