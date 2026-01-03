@@ -121,10 +121,29 @@ class SkyCookerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         """Handle the connect step."""
         errors = {}
         if user_input is not None:
-            # Here we would try to connect to the cooker
-            # For now, we'll just proceed to init step
-            _LOGGER.info("🔌 Подключение к мультиварке...")
-            return await self.async_step_init()
+            try:
+                # Попытка подключения к мультиварке
+                _LOGGER.info("🔌 Подключение к мультиварке...")
+                
+                # Импортируем BTLEConnection для подключения
+                from .btle import BTLEConnection
+                
+                # Создаем соединение
+                connection = BTLEConnection(self.hass, self.config[CONF_MAC], self.config[CONF_PASSWORD])
+                
+                # Устанавливаем имя и тип устройства
+                await connection.setNameAndType()
+                
+                if not connection.available:
+                    errors["base"] = "device_not_found"
+                    _LOGGER.error("❌ Устройство не найдено: %s", self.config[CONF_MAC])
+                else:
+                    _LOGGER.info("✅ Устройство найдено и готово к подключению: %s", connection.name)
+                    return await self.async_step_init()
+                    
+            except Exception as ex:
+                _LOGGER.error("❌ Ошибка подключения к мультиварке: %s", ex)
+                errors["base"] = "connection_failed"
 
         return self.async_show_form(
             step_id="connect",
@@ -151,16 +170,10 @@ class SkyCookerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             )
 
         schema = vol.Schema({
-            vol.Required(CONF_PERSISTENT_CONNECTION, default=self.config.get(CONF_PERSISTENT_CONNECTION, DEFAULT_PERSISTENT_CONNECTION),
-                         description="Постоянное подключение",
-                         description_placeholders={"description": "Сохранять постоянное подключение к мультиварке для более быстрого реагирования"}): cv.boolean,
-            vol.Required(CONF_SCAN_INTERVAL, default=self.config.get(CONF_SCAN_INTERVAL, 60),
-                         description="Интервал опроса (секунды)",
-                         description_placeholders={"description": "Интервал опроса состояния мультиварки в секундах (10-300)"}):
+            vol.Required(CONF_PERSISTENT_CONNECTION, default=self.config.get(CONF_PERSISTENT_CONNECTION, DEFAULT_PERSISTENT_CONNECTION)): cv.boolean,
+            vol.Required(CONF_SCAN_INTERVAL, default=self.config.get(CONF_SCAN_INTERVAL, 60)):
                 vol.All(vol.Coerce(int), vol.Range(min=10, max=300)),
-            vol.Required(CONF_USE_BACKLIGHT, default=self.config.get(CONF_USE_BACKLIGHT, False),
-                         description="Подсветка экрана",
-                         description_placeholders={"description": "Включать подсветку экрана мультиварки при управлении"}): bool,
+            vol.Required(CONF_USE_BACKLIGHT, default=self.config.get(CONF_USE_BACKLIGHT, False)): bool,
         })
 
         return self.async_show_form(
@@ -187,21 +200,15 @@ class SkyCookerOptionsFlowHandler(config_entries.OptionsFlow):
         data_schema = vol.Schema({
             vol.Optional(
                 CONF_PERSISTENT_CONNECTION,
-                default=options.get(CONF_PERSISTENT_CONNECTION, DEFAULT_PERSISTENT_CONNECTION),
-                description="Постоянное подключение",
-                description_placeholders={"description": "Сохранять постоянное подключение к мультиварке для более быстрого реагирования"}
+                default=options.get(CONF_PERSISTENT_CONNECTION, DEFAULT_PERSISTENT_CONNECTION)
             ): cv.boolean,
             vol.Optional(
                 CONF_SCAN_INTERVAL,
-                default=options.get(CONF_SCAN_INTERVAL, 60),
-                description="Интервал опроса (секунды)",
-                description_placeholders={"description": "Интервал опроса состояния мультиварки в секундах (10-300)"}
+                default=options.get(CONF_SCAN_INTERVAL, 60)
             ): vol.All(vol.Coerce(int), vol.Range(min=10, max=300)),
             vol.Optional(
                 CONF_USE_BACKLIGHT,
-                default=options.get(CONF_USE_BACKLIGHT, False),
-                description="Подсветка экрана",
-                description_placeholders={"description": "Включать подсветку экрана мультиварки при управлении"}
+                default=options.get(CONF_USE_BACKLIGHT, False)
             ): bool,
         })
 
