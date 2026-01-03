@@ -123,7 +123,7 @@ class SkyCookerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return self.async_show_form(
             step_id="scan",
             errors=errors,
-            description_placeholders={"description": description},
+            description=description,
             data_schema=schema
         )
 
