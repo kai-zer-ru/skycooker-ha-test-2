@@ -134,12 +134,13 @@ class SkyCookerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 # Устанавливаем имя и тип устройства
                 await connection.setNameAndType()
                 
-                if not connection.available:
-                    errors["base"] = "device_not_found"
-                    _LOGGER.error("❌ Устройство не найдено: %s", self.config[CONF_MAC])
-                else:
+                # Проверяем доступность устройства
+                if connection.available and connection.name and connection.type:
                     _LOGGER.info("✅ Устройство найдено и готово к подключению: %s", connection.name)
                     return await self.async_step_init()
+                else:
+                    errors["base"] = "device_not_found"
+                    _LOGGER.error("❌ Устройство не найдено или не поддерживается: %s", self.config[CONF_MAC])
                     
             except Exception as ex:
                 _LOGGER.error("❌ Ошибка подключения к мультиварке: %s", ex)
