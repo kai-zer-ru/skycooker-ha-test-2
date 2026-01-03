@@ -114,7 +114,7 @@ class SkyCookerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         # Пытаемся получить переводы, но если их нет - используем стандартный текст
         description = "Выберите устройство SkyCooker из списка доступных Bluetooth устройств"
         try:
-            if hasattr(self.hass, 'data') and DOMAIN in self.hass.data:
+            if hasattr(self.hass, 'data') and self.hass.data and DOMAIN in self.hass.data:
                 translations = self.hass.data[DOMAIN].get("translations", {})
                 description = translations.get("config", {}).get("step", {}).get("user", {}).get("description", description)
         except Exception as e:
