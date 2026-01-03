@@ -120,40 +120,53 @@ class SkyCookerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def async_step_connect(self, user_input=None):
         """Handle the connect step."""
         errors = {}
-        if user_input is not None:
-            try:
-                # Попытка подключения к мультиварке
-                _LOGGER.info("🔌 Подключение к мультиварке...")
+        
+        # Если пользователь нажал кнопку "Продолжить", переходим к следующему шагу
+        if user_input is not None and user_input.get("continue", False):
+            _LOGGER.info("✅ Пользователь подтвердил подключение, переходим к настройке")
+            return await self.async_step_init()
+        
+        # Попытка подключения к мультиварке
+        _LOGGER.info("🔌 Подключение к мультиварке...")
+        
+        try:
+            # Импортируем BTLEConnection для подключения
+            from .btle import BTLEConnection
+            
+            # Создаем соединение
+            connection = BTLEConnection(self.hass, self.config[CONF_MAC], self.config[CONF_PASSWORD])
+            
+            # Подключаемся к устройству
+            await connection.connect()
+            
+            # Отправляем команду аутентификации
+            await connection.send_auth()
+            
+            # Устанавливаем имя и тип устройства
+            await connection.setNameAndType()
+            
+            # Проверяем доступность устройства по имени и типу
+            if connection.name and connection.type:
+                _LOGGER.info("✅ Устройство найдено и готово к подключению: %s", connection.name)
+                # Автоматически переходим к следующему шагу
+                return await self.async_step_init()
+            else:
+                errors["base"] = "device_not_found"
+                _LOGGER.error("❌ Устройство не найдено или не поддерживается: %s", self.config[CONF_MAC])
                 
-                # Импортируем BTLEConnection для подключения
-                from .btle import BTLEConnection
-                
-                # Создаем соединение
-                connection = BTLEConnection(self.hass, self.config[CONF_MAC], self.config[CONF_PASSWORD])
-                
-                # Устанавливаем имя и тип устройства
-                await connection.setNameAndType()
-                
-                # Проверяем доступность устройства по имени и типу
-                if connection.name and connection.type:
-                    _LOGGER.info("✅ Устройство найдено и готово к подключению: %s", connection.name)
-                    return await self.async_step_init()
-                else:
-                    errors["base"] = "device_not_found"
-                    _LOGGER.error("❌ Устройство не найдено или не поддерживается: %s", self.config[CONF_MAC])
-                    
-            except Exception as ex:
-                _LOGGER.error("❌ Ошибка подключения к мультиварке: %s", ex)
-                errors["base"] = "connection_failed"
+        except Exception as ex:
+            _LOGGER.error("❌ Ошибка подключения к мультиварке: %s", ex)
+            errors["base"] = "connection_failed"
 
-        # Если user_input is None, это означает переход на шаг без отправки формы
-        # В этом случае просто показываем форму с сообщением
-        _LOGGER.debug("📡 Показываем форму подключения без отправки данных")
+        # Показываем форму с кнопкой для продолжения
+        _LOGGER.debug("📡 Показываем форму подключения с кнопкой продолжения")
         return self.async_show_form(
             step_id="connect",
             errors=errors,
             description=self.hass.data[DOMAIN].get("translations", {}).get("config", {}).get("step", {}).get("connect", {}).get("description", "Device is ready to connect"),
-            data_schema=vol.Schema({})
+            data_schema=vol.Schema({
+                vol.Optional("continue", default=True): bool
+            })
         )
 
     async def async_step_init(self, user_input=None):
