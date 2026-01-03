@@ -166,7 +166,11 @@ class BTLEConnection:
 
     async def sendRequest(self, command, data=None):
         """Метод для совместимости с другими интеграциями - вызывает send_command."""
-        if isinstance(command, str):
+        # Конвертируем command в int
+        if hasattr(command, 'value'):
+            # Если это Enum (RedmondCommand), используем value
+            command_int = int(str(command.value), 16)
+        elif isinstance(command, str):
             # Если команда передана как строка в hex формате, конвертируем в int
             command_int = int(command, 16)
         else:
