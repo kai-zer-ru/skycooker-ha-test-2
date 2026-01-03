@@ -3,56 +3,62 @@
         "title": "SkyCooker",
         "step": {
             "user": {
-                "title": "Настройка нового устройства",
-                "description": "Подробную информацию можно найти здесь:\nhttps://github.com/kai-zer-ru/skycooker-ha-test-2/blob/master/README.md",
-                "data": {
-                    "device": "Bluetooth устройство",
-                    "mac": "MAC-адрес устройства",
-                    "password": "Пароль (16 символов, HEX формат)",
-                    "scan_interval": "Интервал опроса (от 10 до 300 секунд)",
-                    "use_backlight": "Использовать подсветку в режиме ожидания"
-                }
+                "title": "SkyCooker",
+                "description": "Настройка интеграции SkyCooker для управления мультиваркой через Bluetooth"
             },
-            "bluetooth_confirm": {
-                "title": "Подтверждение Bluetooth устройства",
-                "description": "Найдено устройство {name} ({mac}). Пожалуйста, введите пароль для подключения."
+            "scan": {
+                "title": "Выбор устройства",
+                "description": "Выберите мультиварку из списка найденных Bluetooth-устройств"
             },
             "parameters": {
-                "title": "Настройка параметров",
+                "title": "Параметры подключения",
                 "description": "Настройте параметры подключения для выбранного устройства"
             },
             "instructions": {
-                "title": "Инструкции по подключению",
+                "title": "Инструкции",
                 "description": "Перед подключением переведите мультиварку в режим сопряжения:\n\n1. Убедитесь, что мультиварка выключена\n2. Удерживайте кнопку питания 3 секунды\n3. Дождитесь появления синего индикатора\n4. Нажмите 'Продолжить' для подключения"
             },
             "connect": {
-                "title": "Подключение к устройству",
+                "title": "Подключение",
                 "description": "Готовы к подключению? Убедитесь, что мультиварка в режиме сопряжения и нажмите 'Подключиться'"
+            },
+            "init": {
+                "title": "Финальные настройки",
+                "description": "Настройте дополнительные параметры интеграции"
             }
         },
         "error": {
-            "wrong_password": "Пароль неверный (должен быть 16 символов в HEX формате)",
-            "wrong_mac": "MAC-адрес неверный",
-            "wrong_scan_interval": "Интервал опроса должен быть от 10 до 300 секунд",
-            "unsupported_device": "Устройство не поддерживается",
+            "no_bluetooth": "Bluetooth не доступен на этом устройстве",
+            "cooker_not_found": "Устройства SkyCooker не найдены",
             "device_not_found": "Устройство не найдено",
-            "device_discovery_failed": "Ошибка поиска устройства"
+            "unsupported_device": "Устройство не поддерживается",
+            "connection_failed": "Не удалось подключиться к устройству",
+            "unknown": "Неизвестная ошибка",
+            "invalid_password": "Неверный формат пароля"
         },
         "abort": {
-            "already_configured": "Интеграция для этого устройства уже настроена"
+            "already_configured": "Устройство уже настроено",
+            "no_bluetooth": "Bluetooth не доступен",
+            "cooker_not_found": "Устройства SkyCooker не найдены",
+            "device_not_found": "Устройство не найдено",
+            "unsupported_device": "Устройство не поддерживается",
+            "connection_failed": "Не удалось подключиться к устройству",
+            "unknown": "Неизвестная ошибка"
         }
     },
     "options": {
         "title": "Настройки SkyCooker",
-        "data": {
-            "persistent_connection": "Постоянное подключение",
-            "persistent_connection_description": "Сохранять постоянное подключение к мультиварке для более быстрого реагирования",
-            "scan_interval": "Интервал опроса (секунды)",
-            "scan_interval_description": "Интервал опроса состояния мультиварки в секундах (10-300)",
-            "use_backlight": "Подсветка экрана",
-            "use_backlight_description": "Включать подсветку экрана мультиварки при управлении"
+        "step": {
+            "init": {
+                "title": "Настройки",
+                "description": "Настройте параметры интеграции"
+            }
         }
     },
+    "options_title": "Настройки SkyCooker",
+    "options_persistent_connection": "Постоянное подключение",
+    "options_scan_interval": "Интервал опроса",
+    "options_use_backlight": "Использовать подсветку",
     "entity": {
         "sensor": {
             "status": {
