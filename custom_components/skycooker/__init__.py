@@ -17,6 +17,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.event import async_track_time_interval
+from homeassistant.config_entries import async_forward_entry_setup
 
 from .btle import BTLEConnection
 
@@ -105,7 +106,7 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry):
     for component in SUPPORTED_DOMAINS:
         _LOGGER.info("🔧 Загрузка компонента: %s", component)
         try:
-            task = hass.async_create_task(hass.config_entries.async_forward_entry_setup(config_entry, component))
+            task = hass.async_create_task(async_forward_entry_setup(hass, config_entry, component))
             _LOGGER.info("✅ Создана задача загрузки компонента %s: %s", component, task)
         except Exception as e:
             _LOGGER.error("❌ Ошибка создания задачи загрузки компонента %s: %s", component, e)
