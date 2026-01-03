@@ -17,9 +17,10 @@ from .const import SUPPORTED_DEVICES
 
 _LOGGER = logging.getLogger(__name__)
 
-SERVICE_UUID = "0000fff0-0000-1000-8000-00805f9b34fb"
-CHARACTERISTIC_UUID = "0000fff1-0000-1000-8000-00805f9b34fb"
-CHARACTERISTIC_UUID_WRITE = "0000fff1-0000-1000-8000-00805f9b34fb"
+# Стандартные UUID для R4S устройств (резервные)
+DEFAULT_SERVICE_UUID = "6e400001-b5a3-f393-e0a9-e50e24dcca9e"
+DEFAULT_NOTIFY_UUID = "6e400003-b5a3-f393-e0a9-e50e24dcca9e"
+DEFAULT_WRITE_UUID = "6e400002-b5a3-f393-e0a9-e50e24dcca9e"
 
 
 class BTLEConnection:
@@ -34,6 +35,10 @@ class BTLEConnection:
         self._name = None
         self._available = False
         self._hex_iter = 0
+        # Динамически определённые UUID
+        self._service_uuid = None
+        self._notify_uuid = None
+        self._write_uuid = None
 
     async def setNameAndType(self):
         try:
@@ -82,63 +87,16 @@ class BTLEConnection:
             )
             _LOGGER.info("✅ Успешное подключение к %s", self._mac)
             
-            # Find the correct characteristic for notifications
-            try:
-                # Попробуем использовать get_services() как в оригинальном bleak
-                services = await self._client.get_services()
-                characteristic_uuid = None
-                target_service = None
-                
-                _LOGGER.debug("📡 Всего найдено сервисов: %s", len(services))
-                for service in services:
-                    _LOGGER.debug("📡 Сервис: %s", service.uuid)
-                    if service.uuid == SERVICE_UUID:
-                        target_service = service
-                        _LOGGER.debug("📡 Найден целевой сервис %s, доступные характеристики:", target_service.uuid)
-                        for characteristic in target_service.characteristics:
-                            _LOGGER.debug("📡 Характеристика: %s, свойства: %s", characteristic.uuid, characteristic.properties)
-                            if "notify" in characteristic.properties:
-                                characteristic_uuid = characteristic.uuid
-                                break
-                
-                if not target_service:
-                    _LOGGER.warning("⚠️  Целевой сервис %s не найден", SERVICE_UUID)
-                    _LOGGER.debug("📡 Попробуем использовать стандартную характеристику")
-                    
-            except AttributeError:
-                # Если get_services() не доступен, попробуем получить сервисы через service_collection
-                try:
-                    service_collection = self._client.services
-                    characteristic_uuid = None
-                    target_service = None
-                    
-                    _LOGGER.debug("📡 Всего найдено сервисов (через services): %s", len(service_collection))
-                    for service in service_collection:
-                        _LOGGER.debug("📡 Сервис: %s", service.uuid)
-                        if service.uuid == SERVICE_UUID:
-                            target_service = service
-                            _LOGGER.debug("📡 Найден целевой сервис %s, доступные характеристики:", target_service.uuid)
-                            for characteristic in target_service.characteristics:
-                                _LOGGER.debug("📡 Характеристика: %s, свойства: %s", characteristic.uuid, characteristic.properties)
-                                if "notify" in characteristic.properties:
-                                    characteristic_uuid = characteristic.uuid
-                                    break
-                    
-                    if not target_service:
-                        _LOGGER.warning("⚠️  Целевой сервис %s не найден", SERVICE_UUID)
-                        _LOGGER.debug("📡 Попробуем использовать стандартную характеристику")
-                        
-                except Exception as e:
-                    _LOGGER.warning("⚠️  Не удалось получить сервисы для уведомлений: %s", e)
-                    characteristic_uuid = None
+            # Автоматическое определение UUID сервисов и характеристик
+            await self._discover_service_uuids()
             
-            if characteristic_uuid:
-                # Start notification
-                await self._client.start_notify(characteristic_uuid, self._notification_handler)
-                _LOGGER.info("📡 Уведомления включены для %s через характеристику %s", self._mac, characteristic_uuid)
+            # Start notification с найденной характеристикой
+            if self._notify_uuid:
+                await self._client.start_notify(self._notify_uuid, self._notification_handler)
+                _LOGGER.info("📡 Уведомления включены для %s через характеристику %s", self._mac, self._notify_uuid)
             else:
-                _LOGGER.warning("⚠️  Не найдена характеристика для уведомлений, используем стандартную")
-                await self._client.start_notify(CHARACTERISTIC_UUID, self._notification_handler)
+                _LOGGER.error("❌ Не удалось определить характеристику для уведомлений")
+                raise BleakError("Notification characteristic not found")
             
             if self._connect_after:
                 await self._connect_after()
@@ -193,68 +151,70 @@ class BTLEConnection:
             _LOGGER.debug("📤 Отправка команды 0x%02x устройству %s: %s",
                          command, self._mac, packet_bytes.hex())
             
-            # Find the correct characteristic for writing
-            try:
-                # Попробуем использовать get_services() как в оригинальном bleak
-                services = await self._client.get_services()
-                write_characteristic_uuid = None
-                target_service = None
-                
-                for service in services:
-                    if service.uuid == SERVICE_UUID:
-                        target_service = service
-                        break
-                
-                if target_service:
-                    _LOGGER.debug("📡 Найден сервис %s для записи, доступные характеристики:", target_service.uuid)
-                    for characteristic in target_service.characteristics:
-                        _LOGGER.debug("📡 Характеристика: %s, свойства: %s", characteristic.uuid, characteristic.properties)
-                        if "write" in characteristic.properties or "write_without_response" in characteristic.properties:
-                            write_characteristic_uuid = characteristic.uuid
-                            break
-                else:
-                    _LOGGER.warning("⚠️  Целевой сервис %s для записи не найден", SERVICE_UUID)
-                    _LOGGER.debug("📡 Попробуем использовать стандартную характеристику")
-                    
-            except AttributeError:
-                # Если get_services() не доступен, попробуем получить сервисы через service_collection
-                try:
-                    service_collection = self._client.services
-                    write_characteristic_uuid = None
-                    target_service = None
-                    
-                    for service in service_collection:
-                        if service.uuid == SERVICE_UUID:
-                            target_service = service
-                            break
-                    
-                    if target_service:
-                        _LOGGER.debug("📡 Найден сервис %s для записи, доступные характеристики:", target_service.uuid)
-                        for characteristic in target_service.characteristics:
-                            _LOGGER.debug("📡 Характеристика: %s, свойства: %s", characteristic.uuid, characteristic.properties)
-                            if "write" in characteristic.properties or "write_without_response" in characteristic.properties:
-                                write_characteristic_uuid = characteristic.uuid
-                                break
-                    else:
-                        _LOGGER.warning("⚠️  Целевой сервис %s для записи не найден", SERVICE_UUID)
-                        _LOGGER.debug("📡 Попробуем использовать стандартную характеристику")
-                        
-                except Exception as e:
-                    _LOGGER.warning("⚠️  Не удалось получить сервисы для записи: %s", e)
-                    write_characteristic_uuid = None
-            
-            if write_characteristic_uuid:
-                await self._client.write_gatt_char(write_characteristic_uuid, packet_bytes)
-                _LOGGER.debug("✅ Команда отправлена успешно через характеристику %s", write_characteristic_uuid)
+            # Используем найденную характеристику для записи
+            if self._write_uuid:
+                await self._client.write_gatt_char(self._write_uuid, packet_bytes)
+                _LOGGER.debug("✅ Команда отправлена успешно через характеристику %s", self._write_uuid)
             else:
-                _LOGGER.warning("⚠️  Не найдена характеристика для записи, используем стандартную")
-                await self._client.write_gatt_char(CHARACTERISTIC_UUID, packet_bytes)
-                _LOGGER.debug("✅ Команда отправлена успешно")
+                _LOGGER.error("❌ Не удалось определить характеристику для записи")
+                raise BleakError("Write characteristic not found")
             
         except Exception as e:
             _LOGGER.error("❌ Ошибка отправки команды 0x%02x устройству %s: %s",
                          command, self._mac, e)
             raise
+
+    async def _discover_service_uuids(self):
+        """Автоматическое определение UUID сервисов и характеристик."""
+        try:
+            _LOGGER.debug("🔍 Поиск сервисов и характеристик для %s", self._mac)
+            
+            # Получаем все сервисы
+            services = await self._client.get_services()
+            _LOGGER.debug("📦 Найдено сервисов: %s", len(services))
+            
+            for service in services:
+                _LOGGER.debug("📡 Сервис: %s", service.uuid)
+                
+                # Проверяем, является ли это Nordic UART Service
+                if service.uuid.lower() == DEFAULT_SERVICE_UUID.lower():
+                    self._service_uuid = service.uuid
+                    _LOGGER.info("✅ Найден Nordic UART Service: %s", self._service_uuid)
+                    
+                    # Ищем характеристики для уведомлений и записи
+                    for characteristic in service.characteristics:
+                        _LOGGER.debug("📡 Характеристика: %s, свойства: %s",
+                                    characteristic.uuid, characteristic.properties)
+                        
+                        if 'notify' in characteristic.properties:
+                            self._notify_uuid = characteristic.uuid
+                            _LOGGER.info("📢 Найдена характеристика для уведомлений: %s", self._notify_uuid)
+                        
+                        if 'write' in characteristic.properties or 'write-without-response' in characteristic.properties:
+                            self._write_uuid = characteristic.uuid
+                            _LOGGER.info("✏️  Найдена характеристика для записи: %s", self._write_uuid)
+                    
+                    # Если нашли все необходимые характеристики, выходим
+                    if self._notify_uuid and self._write_uuid:
+                        _LOGGER.info("✅ Все необходимые характеристики найдены для %s", self._mac)
+                        return True
+            
+            # Если не нашли NUS, используем резервные UUID
+            if not self._service_uuid:
+                _LOGGER.warning("⚠️  Nordic UART Service не найден, используем резервные UUID")
+                self._service_uuid = DEFAULT_SERVICE_UUID
+                self._notify_uuid = DEFAULT_NOTIFY_UUID
+                self._write_uuid = DEFAULT_WRITE_UUID
+            
+            return True
+            
+        except Exception as e:
+            _LOGGER.error("❌ Ошибка определения UUID для %s: %s", self._mac, e)
+            # В случае ошибки используем резервные UUID
+            self._service_uuid = DEFAULT_SERVICE_UUID
+            self._notify_uuid = DEFAULT_NOTIFY_UUID
+            self._write_uuid = DEFAULT_WRITE_UUID
+            return False
 
     async def send_auth(self):
         """Отправка команды аутентификации."""
