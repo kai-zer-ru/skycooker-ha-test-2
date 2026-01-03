@@ -48,7 +48,19 @@ _LOGGER = logging.getLogger(__name__)
 
 
 async def async_setup(hass, config):
+    """Set up the SkyCooker component."""
+    # Проверка минимальной версии HomeAssistant
+    from homeassistant.const import __version__ as HA_VERSION
+    from packaging import version
+    
+    min_ha_version = "2025.12.5"
+    if version.parse(HA_VERSION) < version.parse(min_ha_version):
+        _LOGGER.error("❌ Требуется HomeAssistant версии %s или выше. У вас установлена версия %s",
+                     min_ha_version, HA_VERSION)
+        return False
+    
     hass.data.setdefault(DOMAIN, {})
+    _LOGGER.info("✅ SkyCooker интеграция загружена. Версия HA: %s", HA_VERSION)
     return True
 
 
@@ -160,6 +172,12 @@ class SkyCooker:
         self._auth = False
         self._conn = BTLEConnection(self.hass, self._mac, self._key)
         self._available = False
+        
+        # Счетчики для отслеживания успешности команд
+        self._total_commands = 0
+        self._successful_commands = 0
+        self._success_rate = 100.0
+        
         self.initCallbacks()
 
     async def setNameAndType(self):
@@ -280,6 +298,15 @@ class SkyCooker:
         else:
             return True
 
+    async def sendKeepWarmTime(self, conn, hours, minutes):
+        """Отправка команды установки времени поддержания температуры."""
+        if self._type == 5:
+            # Команда для установки времени поддержания температуры
+            # Формат: часы + минуты
+            return await conn.sendRequest(RedmondCommand.SET_TIME_COOKER, hours + minutes)
+        else:
+            return True
+
     async def sendTimerCook(self, conn, hours, minutes):
         if self._type == 5:
             return await conn.sendRequest(RedmondCommand.SET_TIME_COOKER, hours + minutes)
@@ -335,6 +362,19 @@ class SkyCooker:
 
         return False
 
+    async def modeKeepWarmTime(self, hours, minutes):
+        """Установка времени поддержания температуры после приготовления."""
+        try:
+            _LOGGER.info("⏰ Установка времени поддержания температуры: %s:%s", hours, minutes)
+            async with self._conn as conn:
+                if await self.sendKeepWarmTime(conn, hours, minutes) and await self.sendStatus(conn):
+                    _LOGGER.info("✅ Время поддержания температуры успешно установлено")
+                    return True
+        except Exception as e:
+            _LOGGER.error("❌ Ошибка установки времени поддержания температуры: %s", e)
+
+        return False
+
     async def modeOff(self):
         try:
             _LOGGER.info("🔌 Выключение мультиварки...")
@@ -375,6 +415,18 @@ class SkyCooker:
 
         return False
 
+    def update_success_rate(self, success: bool):
+        """Обновление процента успешных команд."""
+        self._total_commands += 1
+        if success:
+            self._successful_commands += 1
+        
+        if self._total_commands > 0:
+            self._success_rate = round((self._successful_commands / self._total_commands) * 100, 1)
+        
+        _LOGGER.debug("📈 Статистика команд: %s/%s (%.1f%%)",
+                     self._successful_commands, self._total_commands, self._success_rate)
+
     async def firstConnect(self):
         _LOGGER.debug('FIRST CONNECT')
 
@@ -386,3 +438,18 @@ class SkyCooker:
         self._available = False
 
         return False
+
+    @property
+    def success_rate(self):
+        """Процент успешных команд."""
+        return self._success_rate
+
+    @property
+    def total_commands(self):
+        """Общее количество отправленных команд."""
+        return self._total_commands
+
+    @property
+    def successful_commands(self):
+        """Количество успешных команд."""
+        return self._successful_commands
