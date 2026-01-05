@@ -1,5 +1,5 @@
 """
-Модуль логгирования для интеграции SkyCooker с иконками
+Модуль логгирования для интеграции SkyCooker
 """
 
 import logging
@@ -9,27 +9,8 @@ from datetime import datetime
 # Настройка уровня логгирования
 LOG_LEVEL = logging.DEBUG
 
-# Иконки для разных типов сообщений
-ICONS = {
-    "DEBUG": "🐛",
-    "INFO": "ℹ️",
-    "WARNING": "⚠️",
-    "ERROR": "❌",
-    "CRITICAL": "🚨",
-    "SUCCESS": "✅",
-    "CONNECT": "🔌",
-    "DISCONNECT": "🔌",
-    "AUTH": "🔑",
-    "BLUETOOTH": "📡",
-    "STATUS": "📊",
-    "COMMAND": "📤",
-    "RESPONSE": "📥",
-    "SENSOR": "🌡️",
-    "DEVICE": "📱"
-}
-
 class SkyCookerLogger:
-    """Логгер с иконками для SkyCooker"""
+    """Логгер для SkyCooker"""
     
     def __init__(self):
         # self.logger = logging.getLogger("custom_components.skycooker")
@@ -54,107 +35,66 @@ class SkyCookerLogger:
         
         # Добавляем обработчик к логгеру
         self.logger.addHandler(console_handler)
-    
-    def _add_icon(self, level, message):
-        """Добавляет иконку к сообщению в зависимости от уровня"""
-        icon = ICONS.get(level, "ℹ️")
-        if level == "CONNECT":
-            icon = "🔌"
-        elif level == "DISCONNECT":
-            icon = "🔌"
-        elif level == "AUTH":
-            icon = "🔑"
-        elif level == "BLUETOOTH":
-            icon = "📡"
-        elif level == "STATUS":
-            icon = "📊"
-        elif level == "COMMAND":
-            icon = "📤"
-        elif level == "RESPONSE":
-            icon = "📥"
-        elif level == "SENSOR":
-            icon = "🌡️"
-        elif level == "DEVICE":
-            icon = "📱"
-        elif level == "SUCCESS":
-            icon = "✅"
-            
-        return f"{icon} {message}"
-    
+
     def debug(self, message):
         """Вывод отладочного сообщения"""
-        message_with_icon = self._add_icon("DEBUG", message)
-        self.logger.debug(message_with_icon)
+        self.logger.debug(message)
     
     def info(self, message):
         """Вывод информационного сообщения"""
-        message_with_icon = self._add_icon("INFO", message)
-        self.logger.debug(message_with_icon)
+        self.logger.debug(message)
     
     def warning(self, message):
         """Вывод предупреждения"""
-        message_with_icon = self._add_icon("WARNING", message)
-        self.logger.warning(message_with_icon)
+        self.logger.warning(message)
     
     def error(self, message):
         """Вывод ошибки"""
-        message_with_icon = self._add_icon("ERROR", message)
-        self.logger.error(message_with_icon)
+        self.logger.error(message)
     
     def critical(self, message):
         """Вывод критической ошибки"""
-        message_with_icon = self._add_icon("CRITICAL", message)
-        self.logger.critical(message_with_icon)
+        self.logger.critical(message)
     
     def success(self, message):
         """Вывод сообщения об успехе"""
-        message_with_icon = self._add_icon("SUCCESS", message)
-        self.logger.debug(message_with_icon)
+        self.logger.debug(message)
     
     def connect(self, message):
         """Вывод сообщения о подключении"""
-        message_with_icon = self._add_icon("CONNECT", message)
-        self.logger.debug(message_with_icon)
+        self.logger.debug(message)
     
     def disconnect(self, message):
         """Вывод сообщения об отключении"""
-        message_with_icon = self._add_icon("DISCONNECT", message)
-        self.logger.debug(message_with_icon)
+        self.logger.debug(message)
     
     def auth(self, message):
         """Вывод сообщения об аутентификации"""
-        message_with_icon = self._add_icon("AUTH", message)
-        self.logger.debug(message_with_icon)
+        self.logger.debug(message)
     
     def bluetooth(self, message):
         """Вывод сообщения о Bluetooth"""
-        message_with_icon = self._add_icon("BLUETOOTH", message)
-        self.logger.debug(message_with_icon)
+        self.logger.debug(message)
     
     def status(self, message):
         """Вывод сообщения о статусе"""
-        message_with_icon = self._add_icon("STATUS", message)
-        self.logger.debug(message_with_icon)
+        self.logger.debug(message)
     
     def command(self, message):
         """Вывод сообщения о команде"""
-        message_with_icon = self._add_icon("COMMAND", message)
-        self.logger.debug(message_with_icon)
+        self.logger.debug(message)
     
     def response(self, message):
         """Вывод сообщения о ответе"""
-        message_with_icon = self._add_icon("RESPONSE", message)
-        self.logger.debug(message_with_icon)
+        self.logger.debug(message)
     
     def sensor(self, message):
         """Вывод сообщения о сенсоре"""
-        message_with_icon = self._add_icon("SENSOR", message)
-        self.logger.debug(message_with_icon)
+        self.logger.debug(message)
     
     def device(self, message):
         """Вывод сообщения об устройстве"""
-        message_with_icon = self._add_icon("DEVICE", message)
-        self.logger.debug(message_with_icon)
+        self.logger.debug(message)
 
 # Глобальный логгер
 logger = SkyCookerLogger()

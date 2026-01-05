@@ -54,11 +54,11 @@ class SkyCookerDevice:
             
         except BleakError as e:
             logger.error(f"❌ Не удалось подключиться к {self.device_name}: {e}")
-            self.connected = False
+            await self.disconnect()
             return False
         except Exception as e:
             logger.error(f"❌ Неожиданная ошибка подключения к {self.device_name}: {e}")
-            self.connected = False
+            await self.disconnect()
             return False
     
     async def _discover_services(self):
@@ -100,75 +100,75 @@ class SkyCookerDevice:
             return False
     
     async def _authenticate(self):
-        """Authenticate with the device."""
-        logger.auth(f"🔑 Authenticating with {self.device_name}...")
+        """Аутентификация устройства."""
+        logger.auth(f"🔑 Аутентификация с {self.device_name}...")
         
         try:
-            # Create authentication packet
+            # Создаем пакет аутентификации
             auth_packet = self._create_packet(self.constants["COMMAND_AUTH"])
             
-            # Write authentication command
+            # Отправляем команду аутентификации
             await self.client.write_gatt_char(self.rx_char.uuid, auth_packet)
-            logger.command(f"📤 Sent authentication command: {auth_packet.hex()}")
+            logger.command(f"📤 Отправлена команда аутентификации: {auth_packet.hex()}")
             
-            # Wait for response
+            # Ждем ответ
             await asyncio.sleep(1.0)
             
-            # Read response
+            # Читаем ответ
             response = await self.client.read_gatt_char(self.tx_char.uuid)
-            logger.response(f"📥 Received authentication response: {response.hex()}")
+            logger.response(f"📥 Получен ответ аутентификации: {response.hex()}")
             
-            # Check if authentication was successful
+            # Проверяем успешность аутентификации
             if response and len(response) >= 4 and response[0] == 0x55 and response[-1] == 0xAA:
                 if response[2] == self.constants["COMMAND_AUTH"] and response[3] == 0x01:
-                    logger.auth("🔑 Authentication successful!")
+                    logger.auth("🔑 Аутентификация успешна!")
                     return True
             
-            logger.warning("⚠️ Authentication may have failed")
+            logger.warning("⚠️ Аутентификация не удалась")
             return False
             
         except Exception as e:
-            logger.error(f"❌ Authentication error: {e}")
+            logger.error(f"❌ Ошибка аутентификации: {e}")
             return False
     
     def _create_packet(self, command, data=None, iteration=0):
-        """Create R4S protocol packet."""
+        """Создание пакета по протоколу R4S."""
         packet = bytearray()
-        packet.append(0x55)  # Start byte
-        packet.append(iteration & 0xFF)  # Iteration counter
-        packet.append(command & 0xFF)  # Command
+        packet.append(0x55)  # Стартовый байт
+        packet.append(iteration & 0xFF)  # Счетчик итераций
+        packet.append(command & 0xFF)  # Команда
         
         if data:
             packet.extend(data)
         
-        packet.append(0xAA)  # End byte
+        packet.append(0xAA)  # Конечный байт
         return bytes(packet)
     
     async def get_status(self):
-        """Get current status from the multicooker."""
-        logger.status(f"📊 Requesting status from {self.device_name}...")
+        """Получение текущего статуса мультиварки."""
+        logger.status(f"📊 Запрос статуса от {self.device_name}...")
         
         if not self.connected:
-            logger.error("❌ Device not connected")
+            logger.error("❌ Устройство не подключено")
             return None
         
         try:
-            # Create status request packet
+            # Создаем пакет запроса статуса
             status_packet = self._create_packet(self.constants["COMMAND_GET_STATUS"])
             
-            # Send command
+            # Отправляем команду
             await self.client.write_gatt_char(self.rx_char.uuid, status_packet)
-            logger.command(f"📤 Sent status request: {status_packet.hex()}")
+            logger.command(f"📤 Отправлен запрос статуса: {status_packet.hex()}")
             self.total_commands += 1
             
-            # Wait for response
+            # Ждем ответ
             await asyncio.sleep(1.0)
             
-            # Read response
+            # Читаем ответ
             response = await self.client.read_gatt_char(self.tx_char.uuid)
-            logger.response(f"📥 Received status response: {response.hex()}")
+            logger.response(f"📥 Получен ответ статуса: {response.hex()}")
             
-            # Parse response
+            # Парсим ответ
             status_data = self._parse_status_response(response)
             if status_data:
                 self.successful_commands += 1
@@ -179,22 +179,22 @@ class SkyCookerDevice:
             return None
             
         except Exception as e:
-            logger.error(f"❌ Error getting status: {e}")
+            logger.error(f"❌ Ошибка получения статуса: {e}")
             self._update_success_rate()
             return None
     
     def _parse_status_response(self, response):
-        """Parse status response from device."""
+        """Парсинг ответа статуса от устройства."""
         if not response or len(response) < 15:
-            logger.warning(f"⚠️ Invalid status response length: {len(response)}")
+            logger.warning(f"⚠️ Некорректная длина ответа статуса: {len(response)}")
             return None
         
-        # Check packet format
+        # Проверка формата пакета
         if response[0] != 0x55 or response[-1] != 0xAA:
-            logger.warning(f"⚠️ Invalid packet format: {response.hex()}")
+            logger.warning(f"⚠️ Некорректный формат пакета: {response.hex()}")
             return None
         
-        # Extract data
+        # Извлечение данных
         mode = response[3]
         status = response[11]
         temperature = response[5]
@@ -220,63 +220,63 @@ class SkyCookerDevice:
         }
     
     async def set_mode(self, mode):
-        """Set cooking mode."""
-        logger.command(f"🍲 Setting mode to {mode} ({self.constants['MODES'].get(mode, 'Unknown')})")
+        """Установка режима готовки."""
+        logger.command(f"🍲 Установка режима {mode} ({self.constants['MODES'].get(mode, 'Unknown')})")
         
         if not self.connected:
-            logger.error("❌ Device not connected")
+            logger.error("❌ Устройство не подключено")
             return False
         
         try:
-            # Create mode set packet
+            # Создаем пакет установки режима
             mode_packet = self._create_packet(self.constants["COMMAND_SET_MODE"], bytes([mode]))
             
-            # Send command
+            # Отправляем команду
             await self.client.write_gatt_char(self.rx_char.uuid, mode_packet)
-            logger.command(f"📤 Sent mode set command: {mode_packet.hex()}")
+            logger.command(f"📤 Отправлена команда установки режима: {mode_packet.hex()}")
             self.total_commands += 1
             
-            # Wait for response
+            # Ждем ответ
             await asyncio.sleep(1.0)
             
-            # Read response
+            # Читаем ответ
             response = await self.client.read_gatt_char(self.tx_char.uuid)
-            logger.response(f"📥 Received mode set response: {response.hex()}")
+            logger.response(f"📥 Получен ответ установки режима: {response.hex()}")
             
-            # Check if successful
+            # Проверяем успешность
             if response and len(response) >= 4 and response[3] == 0x01:
                 self.successful_commands += 1
                 self._update_success_rate()
                 return True
             
-            logger.warning("⚠️ Mode set may have failed")
+            logger.warning("⚠️ Установка режима может быть неудачной")
             self._update_success_rate()
             return False
             
         except Exception as e:
-            logger.error(f"❌ Error setting mode: {e}")
+            logger.error(f"❌ Ошибка установки режима: {e}")
             self._update_success_rate()
             return False
     
     async def start(self):
-        """Start cooking program."""
-        logger.command(f"🚀 Starting cooking program on {self.device_name}")
+        """Запуск программы готовки."""
+        logger.command(f"🚀 Запуск программы готовки на {self.device_name}")
         
         if not self.connected:
-            logger.error("❌ Device not connected")
+            logger.error("❌ Устройство не подключено")
             return False
         
         try:
-            # Create start packet
+            # Создаем пакет запуска
             start_packet = self._create_packet(self.constants["COMMAND_START"])
             
-            # Send command
+            # Отправляем команду
             await self.client.write_gatt_char(self.rx_char.uuid, start_packet)
-            logger.command(f"📤 Sent start command: {start_packet.hex()}")
+            logger.command(f"📤 Отправлена команда запуска: {start_packet.hex()}")
             self.total_commands += 1
             
-            # For start command, there might be no response or it might be different
-            # So we consider it successful if no exception was raised
+            # Для команды запуска может не быть ответа или он может быть другим
+            # Поэтому считаем успешным, если не было исключений
             self.successful_commands += 1
             self._update_success_rate()
             return True
@@ -287,36 +287,36 @@ class SkyCookerDevice:
             return False
     
     async def stop(self):
-        """Stop cooking program."""
-        logger.command(f"🛑 Stopping cooking program on {self.device_name}")
+        """Остановка программы готовки."""
+        logger.command(f"🛑 Остановка программы готовки на {self.device_name}")
         
         if not self.connected:
-            logger.error("❌ Device not connected")
+            logger.error("❌ Устройство не подключено")
             return False
         
         try:
-            # Create stop packet
+            # Создаем пакет остановки
             stop_packet = self._create_packet(self.constants["COMMAND_STOP"])
             
-            # Send command
+            # Отправляем команду
             await self.client.write_gatt_char(self.rx_char.uuid, stop_packet)
-            logger.command(f"📤 Sent stop command: {stop_packet.hex()}")
+            logger.command(f"📤 Отправлена команда остановки: {stop_packet.hex()}")
             self.total_commands += 1
             
-            # Wait for response
+            # Ждем ответ
             await asyncio.sleep(1.0)
             
-            # Read response
+            # Читаем ответ
             response = await self.client.read_gatt_char(self.tx_char.uuid)
-            logger.response(f"📥 Received stop response: {response.hex()}")
+            logger.response(f"📥 Получен ответ остановки: {response.hex()}")
             
-            # Check if successful
+            # Проверяем успешность
             if response and len(response) >= 4 and response[3] == 0x01:
                 self.successful_commands += 1
                 self._update_success_rate()
                 return True
             
-            logger.warning("⚠️ Stop command may have failed")
+            logger.warning("⚠️ Команда остановки может быть неудачной")
             self._update_success_rate()
             return False
             
@@ -326,22 +326,22 @@ class SkyCookerDevice:
             return False
     
     def _update_success_rate(self):
-        """Update command success rate."""
+        """Обновление процента успешных команд."""
         if self.total_commands > 0:
             self.command_success_rate = (self.successful_commands / self.total_commands) * 100.0
-            logger.status(f"📊 Command success rate: {self.command_success_rate:.1f}%")
+            logger.status(f"📊 Процент успешных команд: {self.command_success_rate:.1f}%")
     
     async def disconnect(self):
-        """Disconnect from the device."""
-        logger.disconnect(f"🔌 Disconnecting from {self.device_name}...")
+        """Отключение от мультиварки."""
+        logger.disconnect(f"🔌 Отключение от {self.device_name}...")
         
         try:
             if self.client and self.connected:
                 await self.client.disconnect()
                 self.connected = False
-                logger.disconnect(f"🔌 Disconnected from {self.device_name}")
+                logger.disconnect(f"🔌 Отключено от {self.device_name}")
         except Exception as e:
-            logger.error(f"❌ Error disconnecting: {e}")
+            logger.error(f"❌ Ошибка отключения: {e}")
         finally:
             self.client = None
             self.rx_char = None
