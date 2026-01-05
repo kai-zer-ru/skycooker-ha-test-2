@@ -18,7 +18,8 @@
     "error": {
       "bluetooth_error": "Bluetooth discovery error",
       "discovery_error": "Device discovery error",
-      "no_devices": "No SkyCooker devices found"
+      "no_devices": "No SkyCooker devices found",
+      "no_devices_found": "No compatible devices found. Please make sure your multicooker is powered on and in discoverable mode."
     }
   },
   "device_type": "Device Type",
