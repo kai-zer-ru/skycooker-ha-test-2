@@ -1,6 +1,4 @@
 """
-Multicooker device implementation for SkyCooker integration.
-
 Реализация устройства мультиварки для интеграции SkyCooker.
 """
 
@@ -12,10 +10,10 @@ from .logger import logger
 from .const import get_device_constants, SERVICE_UUID, CHAR_RX_UUID, CHAR_TX_UUID
 
 class SkyCookerDevice:
-    """Main device class for Redmond multicooker. / Основной класс устройства для мультиварки Redmond."""
+    """Основной класс устройства для мультиварки Redmond."""
     
     def __init__(self, device_type, device_address, device_name):
-        """Initialize the device. / Инициализация устройства."""
+        """Инициализация устройства."""
         self.device_type = device_type
         self.device_address = device_address
         self.device_name = device_name
@@ -30,11 +28,11 @@ class SkyCookerDevice:
         self.successful_commands = 0
     
     async def connect(self):
-        """Connect to the multicooker device."""
-        logger.bluetooth(f"📡 Connecting to {self.device_name} ({self.device_address})...")
+        """Подключение к мультиварке."""
+        logger.bluetooth(f"📡 Подключение к {self.device_name} ({self.device_address})...")
         
         try:
-            # Establish connection with retry
+            # Установка соединения с повторными попытками
             self.client = await establish_connection(
                 BleakClient,
                 self.device_address,
@@ -43,35 +41,35 @@ class SkyCookerDevice:
                 timeout=10.0
             )
             
-            logger.connect(f"🔌 Connected to {self.device_name}")
+            logger.connect(f"🔌 Подключено к {self.device_name}")
             self.connected = True
             
-            # Discover services
+            # Поиск сервисов
             await self._discover_services()
             
-            # Authenticate
+            # Аутентификация
             await self._authenticate()
             
             return True
             
         except BleakError as e:
-            logger.error(f"❌ Failed to connect to {self.device_name}: {e}")
+            logger.error(f"❌ Не удалось подключиться к {self.device_name}: {e}")
             self.connected = False
             return False
         except Exception as e:
-            logger.error(f"❌ Unexpected error connecting to {self.device_name}: {e}")
+            logger.error(f"❌ Неожиданная ошибка подключения к {self.device_name}: {e}")
             self.connected = False
             return False
     
     async def _discover_services(self):
-        """Discover BLE services and characteristics."""
-        logger.device(f"📱 Discovering services for {self.device_name}...")
+        """Поиск BLE сервисов и характеристик."""
+        logger.device(f"📱 Поиск сервисов для {self.device_name}...")
         
         try:
-            # Get services
+            # Получение сервисов
             services = await self.client.get_services()
             
-            # Find our service
+            # Поиск нашего сервиса
             service = None
             for s in services:
                 if s.uuid == SERVICE_UUID:
@@ -79,26 +77,26 @@ class SkyCookerDevice:
                     break
             
             if not service:
-                logger.error(f"❌ Service {SERVICE_UUID} not found")
+                logger.error(f"❌ Сервис {SERVICE_UUID} не найден")
                 return False
             
-            # Find characteristics
+            # Поиск характеристик
             for char in service.characteristics:
                 if char.uuid == CHAR_RX_UUID:
                     self.rx_char = char
-                    logger.device(f"📱 Found RX characteristic: {char.uuid}")
+                    logger.device(f"📱 Найдена RX характеристика: {char.uuid}")
                 elif char.uuid == CHAR_TX_UUID:
                     self.tx_char = char
-                    logger.device(f"📱 Found TX characteristic: {char.uuid}")
+                    logger.device(f"📱 Найдена TX характеристика: {char.uuid}")
             
             if not self.rx_char or not self.tx_char:
-                logger.error("❌ Required characteristics not found")
+                logger.error("❌ Необходимые характеристики не найдены")
                 return False
             
             return True
             
         except Exception as e:
-            logger.error(f"❌ Error discovering services: {e}")
+            logger.error(f"❌ Ошибка поиска сервисов: {e}")
             return False
     
     async def _authenticate(self):

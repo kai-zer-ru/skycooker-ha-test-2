@@ -27,15 +27,15 @@ class SkyCookerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self._device_name = None
     
     async def async_step_user(self, user_input: dict[str, Any] | None = None) -> FlowResult:
-        """Handle the initial step."""
-        logger.info("🔌 Starting SkyCooker config flow")
+        """Обработка начального шага."""
+        logger.info("🔌 Запуск настройки SkyCooker")
         
         if user_input is not None:
-            # User selected a device type
+            # Пользователь выбрал тип устройства
             self._device_type = user_input[CONF_DEVICE_TYPE]
             return await self.async_step_discovery()
         
-        # Show device type selection
+        # Показываем выбор типа устройства
         return self.async_show_form(
             step_id="user",
             data_schema=vol.Schema({
@@ -51,15 +51,19 @@ class SkyCookerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         )
     
     async def async_step_discovery(self, user_input: dict[str, Any] | None = None) -> FlowResult:
-        """Discover available Bluetooth devices."""
-        logger.bluetooth("📡 Discovering Bluetooth devices...")
+        """Поиск доступных Bluetooth устройств."""
+        logger.bluetooth("📡 Поиск Bluetooth устройств...")
         
         if user_input is not None:
-            # User selected a device
+            # Пользователь выбрал устройство
             self._device_address = user_input[CONF_DEVICE_ADDRESS]
-            self._device_name = user_input[CONF_DEVICE_NAME]
+            # Находим имя устройства по адресу
+            for device in self._discovered_devices:
+                if device["address"] == self._device_address:
+                    self._device_name = device["name"]
+                    break
             
-            # Check if device is already configured
+            # Проверяем, не настроено ли устройство уже
             await self.async_set_unique_id(self._device_address)
             self._abort_if_unique_id_configured()
             
@@ -72,23 +76,19 @@ class SkyCookerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             
             for device in devices:
                 if device.name:
-                    # Use the same logic as in the original scanner - look for "RMC" in device name
+                    # Используем ту же логику что и в оригинальном сканере - ищем "RMC" в имени устройства
                     name_lower = device.name.lower()
                     if "rmc" in name_lower:
-                        device_info = {
+                        self._discovered_devices.append({
                             "address": device.address,
                             "name": device.name
-                        }
-                        # Add RSSI only if available
-                        if hasattr(device, 'rssi'):
-                            device_info["rssi"] = device.rssi
-                        self._discovered_devices.append(device_info)
+                        })
             
             if not self._discovered_devices:
-                logger.warning("⚠️ No SkyCooker devices found")
+                logger.warning("⚠️ Устройства SkyCooker не найдены")
                 return self.async_abort(reason="no_devices_found")
             
-            # Show device selection as radio buttons
+            # Показываем выбор устройства
             return self.async_show_form(
                 step_id="discovery",
                 data_schema=vol.Schema({
@@ -97,7 +97,7 @@ class SkyCookerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                             "options": [
                                 {
                                     "value": device["address"],
-                                    "label": f"{device['name']} ({device['address']}){f' - RSSI: {device.get(\"rssi\", \"N/A\")}' if 'rssi' in device else ''}"
+                                    "label": f"{device['name']} ({device['address']})"
                                 }
                                 for device in self._discovered_devices
                             ],
@@ -110,18 +110,18 @@ class SkyCookerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             )
             
         except BleakError as e:
-            logger.error(f"❌ Bluetooth discovery error: {e}")
+            logger.error(f"❌ Ошибка поиска Bluetooth: {e}")
             return self.async_abort(reason="bluetooth_error")
         except Exception as e:
-            logger.error(f"❌ Unexpected discovery error: {e}")
+            logger.error(f"❌ Неожиданная ошибка поиска: {e}")
             return self.async_abort(reason="discovery_error")
     
     async def async_step_confirm(self, user_input: dict[str, Any] | None = None) -> FlowResult:
-        """Confirm device selection and pairing."""
-        logger.info("ℹ️ Please put your device in pairing mode")
+        """Подтверждение выбора устройства."""
+        logger.info("ℹ️ Пожалуйста, переведите ваше устройство в режим сопряжения")
         
         if user_input is not None:
-            # User confirmed, create the config entry
+            # Пользователь подтвердил, создаем запись конфигурации
             return self.async_create_entry(
                 title=f"SkyCooker {self._device_type}",
                 data={
@@ -140,8 +140,8 @@ class SkyCookerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         )
     
     async def async_step_reconfigure(self, user_input: dict[str, Any] | None = None) -> FlowResult:
-        """Handle reconfigure flow."""
-        logger.info("🔧 Reconfiguring SkyCooker integration")
+        """Обработка переконфигурации."""
+        logger.info("🔧 Переконфигурация SkyCooker")
         return await self.async_step_user(user_input)
 
 from homeassistant.helpers import config_validation as cv
