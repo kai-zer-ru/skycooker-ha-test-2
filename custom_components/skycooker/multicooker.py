@@ -137,7 +137,20 @@ class SkyCookerDevice:
     def _rx_callback(self, sender, data):
         """Обработчик уведомлений от устройства."""
         logger.response(f"📥 Получено уведомление: {data.hex()}")
-        # Здесь можно добавить обработку входящих данных
+        
+        # Парсим входящие данные
+        if data and len(data) >= 4 and data[0] == 0x55 and data[-1] == 0xAA:
+            # Это валидный пакет R4S
+            command = data[2]
+            
+            # Если это ответ на запрос статуса
+            if command == self.constants["COMMAND_GET_STATUS"]:
+                # Парсим данные статуса
+                status_data = self._parse_status_response(data)
+                if status_data:
+                    self.status_data = status_data
+                    self._update_success_rate()
+                    logger.status(f"📊 Обновлен статус устройства: {status_data}")
         
     def _create_packet(self, command, data=None, iteration=0):
         """Создание пакета по протоколу R4S."""
@@ -169,21 +182,18 @@ class SkyCookerDevice:
             logger.command(f"📤 Отправлен запрос статуса: {status_packet.hex()}")
             self.total_commands += 1
             
-            # Ждем ответ
+            # Ждем ответ через уведомления (callback)
+            # Ответ придет в _rx_callback и обновит self.status_data
             await asyncio.sleep(1.0)
             
-            # Читаем ответ
-            response = await self.client.read_gatt_char(self.tx_char.uuid)
-            logger.response(f"📥 Получен ответ статуса: {response.hex()}")
-            
-            # Парсим ответ
-            status_data = self._parse_status_response(response)
-            if status_data:
+            # Возвращаем текущие данные статуса
+            if self.status_data:
                 self.successful_commands += 1
-                self.status_data = status_data
                 self._update_success_rate()
-                return status_data
+                return self.status_data
             
+            logger.warning("⚠️ Не получен ответ статуса")
+            self._update_success_rate()
             return None
             
         except Exception as e:
