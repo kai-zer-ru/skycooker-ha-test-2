@@ -88,23 +88,23 @@ class SkyCookerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 logger.warning("⚠️ No SkyCooker devices found")
                 return self.async_abort(reason="no_devices_found")
             
-            # Show device selection
-            device_options = {}
-            for device in self._discovered_devices:
-                rssi_info = f" - RSSI: {device.get('rssi', 'N/A')}" if 'rssi' in device else ""
-                device_options[device["address"]] = f"{device['name']} ({device['address']}){rssi_info}"
-            
+            # Show device selection as radio buttons
             return self.async_show_form(
                 step_id="discovery",
                 data_schema=vol.Schema({
                     vol.Required(CONF_DEVICE_ADDRESS): selector({
                         "select": {
-                            "options": list(device_options.keys()),
+                            "options": [
+                                {
+                                    "value": device["address"],
+                                    "label": f"{device['name']} ({device['address']}){f' - RSSI: {device.get(\"rssi\", \"N/A\")}' if 'rssi' in device else ''}"
+                                }
+                                for device in self._discovered_devices
+                            ],
                             "mode": "dropdown",
                             "translation_key": "device_address"
                         }
-                    }),
-                    vol.Required(CONF_DEVICE_NAME): str
+                    })
                 }),
                 description_placeholders={"devices": len(self._discovered_devices)}
             )
