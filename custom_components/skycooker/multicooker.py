@@ -4,7 +4,7 @@
 
 import asyncio
 from bleak import BleakError
-from bleak_retry_connector import establish_connection, BleakClientWithServiceCache
+from bleak_retry_connector import establish_connection, BleakClientWithServiceCache, BleakOutOfConnectionSlotsError
 from homeassistant.components import bluetooth
 
 from .logger import logger
@@ -66,6 +66,11 @@ class SkyCookerDevice:
             
             return True
             
+        except BleakOutOfConnectionSlotsError as e:
+            logger.error(f"❌ Нет доступных слотов для подключения Bluetooth: {e}")
+            logger.error("💡 Попробуйте добавить дополнительные Bluetooth-прокси (https://esphome.github.io/bluetooth-proxies/) или перезагрузите Home Assistant")
+            await self.disconnect()
+            raise
         except BleakError as e:
             logger.error(f"❌ Не удалось подключиться к {self.device_name}: {e}")
             await self.disconnect()
