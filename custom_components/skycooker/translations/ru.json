@@ -1,163 +1,27 @@
 {
-    "config": {
-        "title": "SkyCooker",
-        "step": {
-            "user": {
-                "title": "SkyCooker",
-                "description": "Настройка интеграции SkyCooker для управления мультиваркой через Bluetooth"
-            },
-            "scan": {
-                "title": "Выбор устройства",
-                "description": "Выберите мультиварку из списка найденных Bluetooth-устройств"
-            },
-            "parameters": {
-                "title": "Параметры подключения",
-                "description": "Настройте параметры подключения для выбранного устройства"
-            },
-            "instructions": {
-                "title": "Инструкции",
-                "description": "Перед подключением переведите мультиварку в режим сопряжения:\n\n1. Убедитесь, что мультиварка выключена\n2. Удерживайте кнопку питания 3 секунды\n3. Дождитесь появления синего индикатора\n4. Нажмите 'Продолжить' для подключения"
-            },
-            "connect": {
-                "title": "Подключение",
-                "description": "Готовы к подключению? Убедитесь, что мультиварка в режиме сопряжения и нажмите 'Подключиться'"
-            },
-            "init": {
-                "title": "Финальные настройки",
-                "description": "Настройте дополнительные параметры интеграции"
-            }
-        },
-        "error": {
-            "no_bluetooth": "Bluetooth не доступен на этом устройстве",
-            "cooker_not_found": "Устройства SkyCooker не найдены",
-            "device_not_found": "Устройство не найдено",
-            "unsupported_device": "Устройство не поддерживается",
-            "connection_failed": "Не удалось подключиться к устройству",
-            "unknown": "Неизвестная ошибка",
-            "invalid_password": "Неверный формат пароля"
-        },
-        "abort": {
-            "already_configured": "Устройство уже настроено",
-            "no_bluetooth": "Bluetooth не доступен",
-            "cooker_not_found": "Устройства SkyCooker не найдены",
-            "device_not_found": "Устройство не найдено",
-            "unsupported_device": "Устройство не поддерживается",
-            "connection_failed": "Не удалось подключиться к устройству",
-            "unknown": "Неизвестная ошибка"
-        }
+  "title": "SkyCooker",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Настройка SkyCooker",
+        "description": "Выберите модель вашей мультиварки:"
+      },
+      "discovery": {
+        "title": "Поиск устройств",
+        "description": "Выберите вашу мультиварку из списка найденных устройств:"
+      },
+      "confirm": {
+        "title": "Подтверждение устройства",
+        "description": "Пожалуйста, переведите вашу {device_name} в режим сопряжения и подтвердите для продолжения."
+      }
     },
-    "options": {
-        "title": "Настройки SkyCooker",
-        "step": {
-            "init": {
-                "title": "Настройки",
-                "description": "Настройте параметры интеграции"
-            }
-        },
-        "data": {
-            "scan_interval": {
-                "name": "Интервал опроса",
-                "description": "Интервал опроса устройства в секундах (10-300)"
-            },
-            "use_backlight": {
-                "name": "Использовать подсветку",
-                "description": "Включить подсветку на устройстве"
-            },
-            "persistent_connection": {
-                "name": "Постоянное подключение",
-                "description": "Поддерживать постоянное соединение с устройством"
-            },
-            "continue": {
-                "name": "Продолжить",
-                "description": "Продолжить настройку"
-            }
-        }
-    },
-    "options_title": "Настройки SkyCooker",
-    "options_persistent_connection": "Постоянное подключение",
-    "options_scan_interval": "Интервал опроса",
-    "options_use_backlight": "Использовать подсветку",
-    "entity": {
-        "sensor": {
-            "status": {
-                "name": "Состояние"
-            },
-            "mode": {
-                "name": "Режим"
-            },
-            "temperature": {
-                "name": "Текущая температура"
-            },
-            "target_temperature": {
-                "name": "Целевая температура"
-            },
-            "program_hours": {
-                "name": "Часы программы"
-            },
-            "program_minutes": {
-                "name": "Минуты программы"
-            },
-            "timer_hours": {
-                "name": "Часы таймера"
-            },
-            "timer_minutes": {
-                "name": "Минуты таймера"
-            },
-            "power_consumption": {
-                "name": "Потребление энергии"
-            },
-            "working_time": {
-                "name": "Время работы"
-            },
-            "starts_count": {
-                "name": "Количество включений"
-            },
-            "last_update": {
-                "name": "Последнее обновление"
-            }
-        },
-        "switch": {
-            "power": {
-                "name": "Питание"
-            },
-            "program": {
-                "name": "Программа"
-            }
-        },
-        "number": {
-            "target_temperature": {
-                "name": "Целевая температура"
-            },
-            "program_hours": {
-                "name": "Часы программы"
-            },
-            "program_minutes": {
-                "name": "Минуты программы"
-            },
-            "timer_hours": {
-                "name": "Часы таймера"
-            },
-            "timer_minutes": {
-                "name": "Минуты таймера"
-            }
-        },
-        "select": {
-            "program": {
-                "name": "Программа"
-            }
-        }
-    },
-    "state": {
-        "status": {
-            "off": "Выключено",
-            "on": "Включено",
-            "program": "Программа",
-            "keep_warm": "Поддержание температуры",
-            "delayed_start": "Отложенный старт"
-        },
-        "mode": {
-            "manual": "Ручной",
-            "auto": "Автоматический"
-        }
+    "error": {
+      "bluetooth_error": "Ошибка поиска Bluetooth",
+      "discovery_error": "Ошибка поиска устройств",
+      "no_devices": "Устройства SkyCooker не найдены"
     }
+  },
+  "device_type": "Тип устройства",
+  "device_address": "Адрес устройства",
+  "device_name": "Имя устройства"
 }

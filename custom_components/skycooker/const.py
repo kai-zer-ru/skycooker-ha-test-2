@@ -1,73 +1,167 @@
-# Константы для интеграции SkyCooker
+"""
+Constants for SkyCooker integration.
+"""
 
+# Domain name
 DOMAIN = "skycooker"
-SIGNAL_UPDATE_DATA = 'skycooker_update'
 
-# Тип устройства - 5 для мультиварки
-DEVICE_TYPE_COOKER = 5
+# Device types
+DEVICE_TYPE_RMC_M40S = "RMC-M40S"
+# DEVICE_TYPE_RMC_M90S = "RMC-M90S"  # Commented out as not supported yet
 
-# Поддерживаемые устройства
-SUPPORTED_DEVICES = {
-    'RMC-M40S': DEVICE_TYPE_COOKER,
-    'RMC-M800S': DEVICE_TYPE_COOKER,
-    'RMC-M223S': DEVICE_TYPE_COOKER,
-    'RMC-M92S': DEVICE_TYPE_COOKER,
-    'RMC-M92S-E': DEVICE_TYPE_COOKER,
-}
+# Supported device types
+SUPPORTED_DEVICES = [DEVICE_TYPE_RMC_M40S]
 
-# Программы для мультиварки RMC-M40S
-COOKER_PROGRAMS = {
-    'rice': ['01', '00', '64', '00', '23', '00', '00', '01'],
-    'slow_cooking': ['02', '00', '61', '03', '00', '00', '00', '01'],
-    'pilaf': ['03', '00', '6e', '01', '00', '00', '00', '01'],
-    'frying_vegetables': ['04', '01', 'b4', '00', '12', '00', '00', '01'],
-    'frying_fish': ['04', '02', 'b4', '00', '0c', '00', '00', '01'],
-    'frying_meat': ['04', '03', 'b4', '00', '0f', '00', '00', '01'],
-    'stewing_vegetables': ['05', '01', '64', '00', '28', '00', '00', '01'],
-    'stewing_fish': ['05', '02', '64', '00', '23', '00', '00', '01'],
-    'stewing_meat': ['05', '03', '64', '01', '00', '00', '00', '01'],
-    'pasta': ['06', '00', '64', '00', '08', '00', '00', '01'],
-    'milk_porridge': ['07', '00', '5f', '00', '23', '00', '00', '00'],
-    'soup': ['08', '00', '63', '01', '00', '00', '00', '01'],
-    'yogurt': ['09', '00', '28', '08', '00', '00', '00', '00'],
-    'baking': ['0a', '00', '91', '00', '2d', '00', '00', '01'],
-    'steam_vegetables': ['0b', '01', '64', '00', '1e', '00', '00', '01'],
-    'steam_fish': ['0b', '02', '64', '00', '19', '00', '00', '01'],
-    'steam_meat': ['0b', '03', '64', '00', '28', '00', '00', '01'],
-    'hot': ['0c', '00', '64', '00', '28', '00', '00', '01']
-}
+# Bluetooth service UUIDs (common for all devices)
+SERVICE_UUID = "6e400001-b5a3-f393-e0a9-e50e24dcca9e"
+CHAR_RX_UUID = "6e400002-b5a3-f393-e0a9-e50e24dcca9e"  # Write characteristic
+CHAR_TX_UUID = "6e400003-b5a3-f393-e0a9-e50e24dcca9e"  # Notify characteristic
 
-# Статусы
-STATUS_OFF = '00'
-STATUS_ON = '02'
-COOKER_STATUS_PROGRAM = '01'
-COOKER_STATUS_KEEP_WARM = '04'
-COOKER_STATUS_DELAYED_START = '05'
+# Configuration
+CONF_DEVICE_TYPE = "device_type"
+CONF_DEVICE_ADDRESS = "device_address"
+CONF_DEVICE_NAME = "device_name"
 
-# Режимы
-MODE_MANUAL = '00'
-MODE_AUTO = '01'
-
-# Диапазон температур
-MIN_TEMP = 35
-MAX_TEMP = 200
-
-# Диапазон времени (часы и минуты)
-MIN_HOURS = 0
-MAX_HOURS = 23
-MIN_MINUTES = 0
-MAX_MINUTES = 59
-
-# Конфигурация
-CONF_MAC = "mac"
-CONF_PASSWORD = "password"
-CONF_PERSISTENT_CONNECTION = "persistent_connection"
-DEFAULT_PERSISTENT_CONNECTION = True
-CONF_USE_BACKLIGHT = "use_backlight"
-
-# Поддерживаемые домены
-SUPPORTED_DOMAINS = ['sensor', 'switch', 'number', 'select']
-
-# Интервал сканирования
-CONF_SCAN_INTERVAL = "scan_interval"
-DEFAULT_SCAN_INTERVAL = 30
+# Device-specific constants
+def get_device_constants(device_type):
+    """Get constants for a specific device type."""
+    if device_type == DEVICE_TYPE_RMC_M40S:
+        return {
+            # Commands
+            "COMMAND_AUTH": 0xFF,
+            "COMMAND_SET_MODE": 0x09,
+            "COMMAND_GET_STATUS": 0x06,
+            "COMMAND_START": 0x03,
+            "COMMAND_STOP": 0x04,
+            
+            # Status codes
+            "STATUS_OFF": 0x00,
+            "STATUS_WAIT": 0x01,
+            "STATUS_DELAYED_LAUNCH": 0x02,
+            "STATUS_WARMING": 0x03,
+            "STATUS_COOKING": 0x05,
+            "STATUS_AUTO_WARM": 0x06,
+            "STATUS_FULL_OFF": 0x0A,
+            
+            # Modes
+            "MODE_MULTIPOT": 0x00,
+            "MODE_MILK_PORRIDGE": 0x01,
+            "MODE_STEW": 0x02,
+            "MODE_FRYING": 0x03,
+            "MODE_SOUP": 0x04,
+            "MODE_STEAM": 0x05,
+            "MODE_PASTA": 0x06,
+            "MODE_SIMMER": 0x07,
+            "MODE_BOILING": 0x08,
+            "MODE_BAKING": 0x09,
+            "MODE_RICE_GRAINS": 0x0A,
+            "MODE_PILAF": 0x0B,
+            "MODE_YOGURT": 0x0C,
+            "MODE_PIZZA": 0x0D,
+            "MODE_BREAD": 0x0E,
+            "MODE_WAIT": 0x10,
+            "MODE_VACUUM": 0x11,
+            
+            # Mode names mapping
+            "MODES": {
+                0x00: "Мультиповар",
+                0x01: "Молочная каша",
+                0x02: "Тушение",
+                0x03: "Жарка",
+                0x04: "Суп",
+                0x05: "Пар",
+                0x06: "Паста",
+                0x07: "Томление",
+                0x08: "Варка",
+                0x09: "Выпечка",
+                0x0A: "Рис/крупы",
+                0x0B: "Плов",
+                0x0C: "Йогурт",
+                0x0D: "Пицца",
+                0x0E: "Хлеб",
+                0x10: "Ожидание",
+                0x11: "Вакуум",
+            },
+            
+            # Status codes mapping
+            "STATUS_CODES": {
+                0x00: "Выключена",
+                0x01: "Ожидание",
+                0x02: "Отложенный запуск",
+                0x03: "Разогрев",
+                0x05: "Готовка",
+                0x06: "Автоподогрев",
+                0x0A: "Полностью выключена",
+            }
+        }
+    # elif device_type == DEVICE_TYPE_RMC_M90S:
+    #     return {
+    #         # Commands for RMC-M90S
+    #         "COMMAND_AUTH": 0xFF,
+    #         "COMMAND_SET_MODE": 0x10,
+    #         "COMMAND_GET_STATUS": 0x11,
+    #         "COMMAND_START": 0x12,
+    #         "COMMAND_STOP": 0x13,
+    #
+    #         # Status codes for RMC-M90S
+    #         "STATUS_OFF": 0x00,
+    #         "STATUS_WAIT": 0x01,
+    #         "STATUS_DELAYED_LAUNCH": 0x02,
+    #         "STATUS_WARMING": 0x03,
+    #         "STATUS_COOKING": 0x04,
+    #         "STATUS_AUTO_WARM": 0x05,
+    #         "STATUS_FULL_OFF": 0x06,
+    #
+    #         # Modes for RMC-M90S
+    #         "MODE_MULTIPOT": 0x00,
+    #         "MODE_MILK_PORRIDGE": 0x01,
+    #         "MODE_STEW": 0x02,
+    #         "MODE_FRYING": 0x03,
+    #         "MODE_SOUP": 0x04,
+    #         "MODE_STEAM": 0x05,
+    #         "MODE_PASTA": 0x06,
+    #         "MODE_SIMMER": 0x07,
+    #         "MODE_BOILING": 0x08,
+    #         "MODE_BAKING": 0x09,
+    #         "MODE_RICE_GRAINS": 0x0A,
+    #         "MODE_PILAF": 0x0B,
+    #         "MODE_YOGURT": 0x0C,
+    #         "MODE_PIZZA": 0x0D,
+    #         "MODE_BREAD": 0x0E,
+    #         "MODE_WAIT": 0x0F,
+    #         "MODE_VACUUM": 0x10,
+    #
+    #         # Mode names mapping
+    #         "MODES": {
+    #             0x00: "Мультиповар",
+    #             0x01: "Молочная каша",
+    #             0x02: "Тушение",
+    #             0x03: "Жарка",
+    #             0x04: "Суп",
+    #             0x05: "Пар",
+    #             0x06: "Паста",
+    #             0x07: "Томление",
+    #             0x08: "Варка",
+    #             0x09: "Выпечка",
+    #             0x0A: "Рис/крупы",
+    #             0x0B: "Плов",
+    #             0x0C: "Йогурт",
+    #             0x0D: "Пицца",
+    #             0x0E: "Хлеб",
+    #             0x0F: "Ожидание",
+    #             0x10: "Вакуум",
+    #         },
+    #
+    #         # Status codes mapping
+    #         "STATUS_CODES": {
+    #             0x00: "Выключена",
+    #             0x01: "Ожидание",
+    #             0x02: "Отложенный запуск",
+    #             0x03: "Разогрев",
+    #             0x04: "Готовка",
+    #             0x05: "Автоподогрев",
+    #             0x06: "Полностью выключена",
+    #         }
+    #     }
+    else:
+        raise ValueError(f"Unsupported device type: {device_type}")

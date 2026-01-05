@@ -1,163 +1,27 @@
 {
-    "config": {
-        "title": "SkyCooker",
-        "step": {
-            "user": {
-                "title": "SkyCooker",
-                "description": "Setup SkyCooker integration for multicooker control via Bluetooth"
-            },
-            "scan": {
-                "title": "Device selection",
-                "description": "Select a multicooker from the list of found Bluetooth devices"
-            },
-            "parameters": {
-                "title": "Connection parameters",
-                "description": "Configure connection parameters for the selected device"
-            },
-            "instructions": {
-                "title": "Instructions",
-                "description": "Before connecting, put the multicooker into pairing mode:\n\n1. Make sure the multicooker is turned off\n2. Hold the power button for 3 seconds\n3. Wait for the blue indicator to appear\n4. Click 'Continue' to connect"
-            },
-            "connect": {
-                "title": "Connection",
-                "description": "Ready to connect? Make sure the multicooker is in pairing mode and click 'Connect'"
-            },
-            "init": {
-                "title": "Final settings",
-                "description": "Configure additional integration parameters"
-            }
-        },
-        "error": {
-            "no_bluetooth": "Bluetooth is not available on this device",
-            "cooker_not_found": "SkyCooker devices not found",
-            "device_not_found": "Device not found",
-            "unsupported_device": "Device is not supported",
-            "connection_failed": "Failed to connect to device",
-            "unknown": "Unknown error",
-            "invalid_password": "Invalid password format"
-        },
-        "abort": {
-            "already_configured": "Device is already configured",
-            "no_bluetooth": "Bluetooth is not available",
-            "cooker_not_found": "SkyCooker devices not found",
-            "device_not_found": "Device not found",
-            "unsupported_device": "Device is not supported",
-            "connection_failed": "Failed to connect to device",
-            "unknown": "Unknown error"
-        }
+  "title": "SkyCooker",
+  "config": {
+    "step": {
+      "user": {
+        "title": "SkyCooker Setup",
+        "description": "Select your multicooker model:"
+      },
+      "discovery": {
+        "title": "Device Discovery",
+        "description": "Select your multicooker from the list of discovered devices:"
+      },
+      "confirm": {
+        "title": "Confirm Device",
+        "description": "Please put your {device_name} in pairing mode and confirm to continue."
+      }
     },
-    "options": {
-        "title": "SkyCooker Settings",
-        "step": {
-            "init": {
-                "title": "Settings",
-                "description": "Configure integration parameters"
-            }
-        },
-        "data": {
-            "scan_interval": {
-                "name": "Scan interval",
-                "description": "Device scan interval in seconds (10-300)"
-            },
-            "use_backlight": {
-                "name": "Use backlight",
-                "description": "Enable backlight on device"
-            },
-            "persistent_connection": {
-                "name": "Persistent connection",
-                "description": "Maintain persistent connection with device"
-            },
-            "continue": {
-                "name": "Continue",
-                "description": "Continue setup"
-            }
-        }
-    },
-    "options_title": "SkyCooker Settings",
-    "options_persistent_connection": "Persistent connection",
-    "options_scan_interval": "Scan interval",
-    "options_use_backlight": "Use backlight",
-    "entity": {
-        "sensor": {
-            "status": {
-                "name": "Status"
-            },
-            "mode": {
-                "name": "Mode"
-            },
-            "temperature": {
-                "name": "Current temperature"
-            },
-            "target_temperature": {
-                "name": "Target temperature"
-            },
-            "program_hours": {
-                "name": "Program hours"
-            },
-            "program_minutes": {
-                "name": "Program minutes"
-            },
-            "timer_hours": {
-                "name": "Timer hours"
-            },
-            "timer_minutes": {
-                "name": "Timer minutes"
-            },
-            "power_consumption": {
-                "name": "Power consumption"
-            },
-            "working_time": {
-                "name": "Working time"
-            },
-            "starts_count": {
-                "name": "Starts count"
-            },
-            "last_update": {
-                "name": "Last update"
-            }
-        },
-        "switch": {
-            "power": {
-                "name": "Power"
-            },
-            "program": {
-                "name": "Program"
-            }
-        },
-        "number": {
-            "target_temperature": {
-                "name": "Target temperature"
-            },
-            "program_hours": {
-                "name": "Program hours"
-            },
-            "program_minutes": {
-                "name": "Program minutes"
-            },
-            "timer_hours": {
-                "name": "Timer hours"
-            },
-            "timer_minutes": {
-                "name": "Timer minutes"
-            }
-        },
-        "select": {
-            "program": {
-                "name": "Program"
-            }
-        }
-    },
-    "state": {
-        "status": {
-            "off": "Off",
-            "on": "On",
-            "program": "Program",
-            "keep_warm": "Keep warm",
-            "delayed_start": "Delayed start"
-        },
-        "mode": {
-            "manual": "Manual",
-            "auto": "Auto"
-        }
+    "error": {
+      "bluetooth_error": "Bluetooth discovery error",
+      "discovery_error": "Device discovery error",
+      "no_devices": "No SkyCooker devices found"
     }
+  },
+  "device_type": "Device Type",
+  "device_address": "Device Address",
+  "device_name": "Device Name"
 }

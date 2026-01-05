@@ -1,9 +1,0 @@
-{
-    "name": "SkyCooker",
-    "content_in_root": false,
-    "filename": "custom_components/skycooker/manifest.json",
-    "iot_class": "Local Polling",
-    "persistent_directory": "custom_components/skycooker/translations/",
-    "render_readme": true,
-    "zip_release": false
-}

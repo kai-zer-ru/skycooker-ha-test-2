@@ -1,122 +1,86 @@
-#!/usr/local/bin/python3
-# coding: utf-8
+"""
+Select platform for SkyCooker integration.
+"""
 
-import logging
-from typing import Any, Dict, Optional, List
+from __future__ import annotations
 
 from homeassistant.components.select import SelectEntity
-from homeassistant.const import CONF_MAC, CONF_PASSWORD, CONF_SCAN_INTERVAL
-from homeassistant.core import callback
-from homeassistant.helpers.dispatcher import async_dispatcher_connect
+from homeassistant.config_entries import ConfigEntry
+from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
 
-from .const import (
-    CONF_USE_BACKLIGHT,
-    DOMAIN,
-    SIGNAL_UPDATE_DATA,
-    COOKER_PROGRAMS,
-)
+from .const import DOMAIN
+from .logger import logger
+from .multicooker import SkyCookerDevice
 
-_LOGGER = logging.getLogger(__name__)
+async def async_setup_entry(
+    hass: HomeAssistant,
+    entry: ConfigEntry,
+    async_add_entities: AddEntitiesCallback,
+) -> None:
+    """Set up SkyCooker select entities."""
+    logger.info("🎛️ Setting up SkyCooker select entities")
+    
+    # Get device from hass data
+    device = hass.data[DOMAIN][entry.entry_id]["device"]
+    
+    # Create select entity for cooking programs
+    select_entities = [SkyCookerProgramSelect(device)]
+    
+    async_add_entities(select_entities)
+    logger.success("✅ SkyCooker select entities setup complete")
 
-SELECT_TYPES = {
-    "program": {
-        "name": "Program",
-        "icon": "mdi:stove",
-    },
-}
-
-
-async def async_setup_entry(hass, config_entry, async_add_entities):
-    """Set up the SkyCooker select platform."""
-    _LOGGER.info("🔧 Загрузка select платформы для %s", config_entry.entry_id)
-    try:
-        cooker = hass.data[DOMAIN][config_entry.entry_id]
-        _LOGGER.info("✅ Найден cooker: %s", cooker._name)
+class SkyCookerProgramSelect(SelectEntity):
+    """Select entity for choosing cooking programs."""
+    
+    def __init__(self, device: SkyCookerDevice):
+        """Initialize the program select."""
+        self._device = device
+        self._attr_name = f"{device.device_name} Program"
+        self._attr_unique_id = f"{device.device_address}_program_select"
+        self._attr_device_info = {
+            "identifiers": {(DOMAIN, device.device_address)},
+            "name": device.device_name,
+            "manufacturer": "Redmond",
+            "model": device.device_type,
+        }
         
-        entities = []
-        for select_type in SELECT_TYPES:
-            _LOGGER.info("🔧 Создание select сущности: %s", select_type)
-            select = SkyCookerSelect(cooker, select_type)
-            entities.append(select)
-            _LOGGER.info("✅ Создана select сущность: %s", select.name)
-        
-        _LOGGER.info("🔧 Добавление %s select сущностей", len(entities))
-        async_add_entities(entities)
-        _LOGGER.info("✅ Загрузка select платформы завершена")
-        return True
-    except Exception as e:
-        _LOGGER.error("❌ Ошибка загрузки select платформы: %s", e)
-        _LOGGER.exception(e)
-        return False
-
-
-class SkyCookerSelect(SelectEntity):
-    """Representation of a SkyCooker select."""
-
-    def __init__(self, cooker, select_type):
-        """Initialize the select."""
-        self._cooker = cooker
-        self._select_type = select_type
-        self._attr_name = f"{cooker._name} {SELECT_TYPES[select_type]['name']}"
-        self._attr_unique_id = f"{cooker._mac}_{select_type}"
-        self._attr_icon = SELECT_TYPES[select_type]["icon"]
-        self._attr_options = list(COOKER_PROGRAMS.keys())
-
-    async def async_added_to_hass(self):
-        """Register callbacks."""
-        self.async_on_remove(
-            async_dispatcher_connect(
-                self.hass, SIGNAL_UPDATE_DATA, self._async_update
-            )
-        )
-
-    @callback
-    def _async_update(self):
-        """Update select."""
-        self.async_write_ha_state()
-
+        # Get available modes from device constants
+        self._options = list(device.constants["MODES"].values())
+        self._mode_values = list(device.constants["MODES"].keys())
+    
     @property
-    def current_option(self):
-        """Return the current option."""
-        # Нужно определить текущую программу по кодам
-        current_prog = self._cooker._prog
-        current_sprog = self._cooker._sprog
-        
-        for program_name, program_data in COOKER_PROGRAMS.items():
-            if program_data[0] == current_prog and program_data[1] == current_sprog:
-                return program_name
-        
-        return None
-
+    def current_option(self) -> str | None:
+        """Return the current selected option."""
+        if self._device.status_data:
+            mode = self._device.status_data.get("mode", 0)
+            return self._device.constants["MODES"].get(mode, "Unknown")
+        return "Unknown"
+    
+    @property
+    def options(self) -> list[str]:
+        """Return a list of available options."""
+        return self._options
+    
     async def async_select_option(self, option: str) -> None:
         """Change the selected option."""
-        if option in COOKER_PROGRAMS:
-            program_data = COOKER_PROGRAMS[option]
-            await self._cooker.modeOnCook(
-                program_data[0],  # prog
-                program_data[1],  # sprog
-                program_data[2],  # temp
-                program_data[3],  # hours
-                program_data[4],  # minutes
-                program_data[5],  # dhours
-                program_data[6],  # dminutes
-                program_data[7],  # heat
-            )
-
-    @property
-    def device_info(self):
-        """Return device information."""
-        return {
-            "identifiers": {(DOMAIN, self._cooker._mac)},
-            "name": self._cooker._name,
-            "manufacturer": "Redmond",
-            "model": self._cooker._name,
-            "sw_version": self._cooker._firmware_ver,
-        }
-
-    @property
-    def available(self):
-        """Return True if entity is available."""
-        return self._cooker._available
+        logger.command(f"🍲 Selecting program: {option}")
+        
+        # Find the mode value for the selected option
+        mode_value = None
+        for i, opt in enumerate(self._options):
+            if opt == option:
+                mode_value = self._mode_values[i]
+                break
+        
+        if mode_value is not None:
+            # Set the mode on the device
+            success = await self._device.set_mode(mode_value)
+            if success:
+                logger.success(f"✅ Program set to: {option}")
+                # Update the current option
+                self.async_write_ha_state()
+            else:
+                logger.error(f"❌ Failed to set program: {option}")
+        else:
+            logger.error(f"❌ Unknown program: {option}")
