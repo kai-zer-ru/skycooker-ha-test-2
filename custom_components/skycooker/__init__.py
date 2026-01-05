@@ -1,8 +1,4 @@
 """
-SkyCooker integration for Home Assistant.
-
-This integration allows you to control Redmond RMC-M40S multicooker via Bluetooth.
-
 Интеграция SkyCooker для Home Assistant.
 Позволяет управлять мультиваркой Redmond RMC-M40S через Bluetooth.
 """
@@ -19,7 +15,7 @@ from .const import DOMAIN, CONF_DEVICE_TYPE, CONF_DEVICE_ADDRESS, CONF_DEVICE_NA
 from .logger import logger
 from .multicooker import SkyCookerDevice
 
-# List of platforms to support / Список поддерживаемых платформ
+# Список поддерживаемых платформ
 PLATFORMS: list[Platform] = [
     Platform.SENSOR,
     Platform.BUTTON,
@@ -27,8 +23,8 @@ PLATFORMS: list[Platform] = [
 ]
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """Set up SkyCooker from a config entry. / Настройка SkyCooker из конфигурационного входа."""
-    logger.info("🔌 Setting up SkyCooker integration / Настройка интеграции SkyCooker")
+    """Настройка SkyCooker из конфигурационного входа."""
+    logger.info("🔌 Настройка интеграции SkyCooker")
     
     # Initialize data structure / Инициализация структуры данных
     hass.data.setdefault(DOMAIN, {})
@@ -38,7 +34,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     device_address = entry.data[CONF_DEVICE_ADDRESS]
     device_name = entry.data[CONF_DEVICE_NAME]
     
-    device = SkyCookerDevice(device_type, device_address, device_name)
+    device = SkyCookerDevice(device_type, device_address, device_name, hass=hass, persistent=True)
     
     # Store device in hass data / Сохранение устройства в данных hass
     hass.data[DOMAIN][entry.entry_id] = {
@@ -46,48 +42,48 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         "device_info": lambda: create_device_info(entry)
     }
     
-    # Connect to device / Подключение к устройству
+    # Подключение к устройству
     connected = await device.connect()
     if not connected:
-        logger.error("❌ Failed to connect to device, aborting setup / Не удалось подключиться к устройству, прерывание настройки")
+        logger.error("❌ Не удалось подключиться к устройству, прерывание настройки")
         return False
     
-    # Forward the setup to all platforms / Передача настройки на все платформы
+    # Передача настройки на все платформы
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     
-    # Start periodic status updates / Запуск периодического обновления статуса
+    # Запуск периодического обновления статуса
     hass.async_create_task(periodic_status_update(hass, device))
     
-    logger.success("✅ SkyCooker integration setup complete / Настройка интеграции SkyCooker завершена")
+    logger.success("✅ Настройка интеграции SkyCooker завершена")
     return True
 
 async def periodic_status_update(hass: HomeAssistant, device: SkyCookerDevice):
-    """Periodically update device status. / Периодическое обновление статуса устройства."""
+    """Периодическое обновление статуса устройства."""
     while True:
         try:
             await device.get_status()
-            await asyncio.sleep(30)  # Update every 30 seconds / Обновление каждые 30 секунд
+            await asyncio.sleep(30)  # Обновление каждые 30 секунд
         except Exception as e:
-            logger.error(f"❌ Error in periodic status update: {e} / Ошибка в периодическом обновлении статуса: {e}")
-            await asyncio.sleep(60)  # Wait longer if error occurs / Подождать дольше в случае ошибки
+            logger.error(f"❌ Ошибка в периодическом обновлении статуса: {e}")
+            await asyncio.sleep(60)  # Подождать дольше в случае ошибки
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """Unload a config entry. / Выгрузка конфигурационного входа."""
-    logger.info("🔌 Unloading SkyCooker integration / Выгрузка интеграции SkyCooker")
+    """Выгрузка конфигурационного входа."""
+    logger.info("🔌 Выгрузка интеграции SkyCooker")
     
-    # Get device and disconnect / Получение устройства и отключение
+    # Получение устройства и отключение
     device = hass.data[DOMAIN][entry.entry_id]["device"]
     await device.disconnect()
     
-    # Unload all platforms / Выгрузка всех платформ
+    # Выгрузка всех платформ
     if unload_ok := await hass.config_entries.async_unload_platforms(entry, PLATFORMS):
         hass.data[DOMAIN].pop(entry.entry_id)
-        logger.success("✅ SkyCooker integration unloaded successfully / Интеграция SkyCooker успешно выгружена")
+        logger.success("✅ Интеграция SkyCooker успешно выгружена")
     
     return unload_ok
 
 def create_device_info(entry: ConfigEntry) -> DeviceInfo:
-    """Create device info for the multicooker. / Создание информации об устройстве для мультиварки."""
+    """Создание информации об устройстве для мультиварки."""
     return DeviceInfo(
         name=f"SkyCooker {entry.data[CONF_DEVICE_NAME]}",
         manufacturer="Redmond",

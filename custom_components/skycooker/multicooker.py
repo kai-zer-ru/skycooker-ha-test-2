@@ -5,6 +5,7 @@
 import asyncio
 from bleak import BleakError
 from bleak_retry_connector import establish_connection, BleakClientWithServiceCache
+from homeassistant.components import bluetooth
 
 from .logger import logger
 from .const import get_device_constants, SERVICE_UUID, CHAR_RX_UUID, CHAR_TX_UUID
@@ -18,14 +19,17 @@ class DisposedError(Exception):
 class SkyCookerDevice:
     """Основной класс устройства для мультиварки Redmond."""
     
-    def __init__(self, device_type, device_address, device_name):
+    def __init__(self, device_type, device_address, device_name, hass=None, persistent=True):
         """Инициализация устройства."""
         self.device_type = device_type
         self.device_address = device_address
         self.device_name = device_name
+        self.hass = hass
+        self.persistent = persistent
         self.client = None
         self.rx_char = None
         self.tx_char = None
+        self.device = None
         self.constants = get_device_constants(device_type)
         self.connected = False
         self.status_data = {}
@@ -38,10 +42,11 @@ class SkyCookerDevice:
         logger.bluetooth(f"📡 Подключение к {self.device_name} ({self.device_address})...")
         
         try:
+            self.device = bluetooth.async_ble_device_from_address(self.hass, self.device_address)
             # Установка соединения с повторными попытками
             self.client = await establish_connection(
                 BleakClientWithServiceCache,
-                self.device_address,
+                self.device,
                 self.device_name or "Unknown Device",
                 max_attempts=3
             )
@@ -416,6 +421,10 @@ class SkyCookerDevice:
             self.command_success_rate = (self.successful_commands / self.total_commands) * 100.0
             logger.status(f"📊 Процент успешных команд: {self.command_success_rate:.1f}%")
     
+    async def _disconnect_if_need(self):
+        if not self.persistent and self.target_mode != SkyKettle.MODE_GAME:
+            await self.disconnect()
+
     async def disconnect(self):
         """Отключение от мультиварки."""
         logger.disconnect(f"🔌 Отключение от {self.device_name}...")
