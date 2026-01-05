@@ -317,12 +317,15 @@ class SkyCookerDevice:
             if response and len(response) >= 4 and response[3] == 0x01:
                 self.successful_commands += 1
                 self._update_success_rate()
+                
+                # После успешной установки режима запрашиваем статус
+                await self.get_status()
                 return True
             
             logger.warning("⚠️ Установка режима может быть неудачной")
             self._update_success_rate()
             return False
-            
+        
         except Exception as e:
             logger.error(f"❌ Ошибка установки режима: {e}")
             self._update_success_rate()
@@ -349,6 +352,9 @@ class SkyCookerDevice:
             # Поэтому считаем успешным, если не было исключений
             self.successful_commands += 1
             self._update_success_rate()
+            
+            # После успешного запуска запрашиваем статус
+            await self.get_status()
             return True
             
         except Exception as e:
@@ -384,12 +390,15 @@ class SkyCookerDevice:
             if response and len(response) >= 4 and response[3] == 0x01:
                 self.successful_commands += 1
                 self._update_success_rate()
+                
+                # После успешной остановки запрашиваем статус
+                await self.get_status()
                 return True
             
             logger.warning("⚠️ Команда остановки может быть неудачной")
             self._update_success_rate()
             return False
-            
+        
         except Exception as e:
             logger.error(f"❌ Ошибка остановки программы: {e}")
             self._update_success_rate()
