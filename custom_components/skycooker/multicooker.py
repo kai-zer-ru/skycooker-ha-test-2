@@ -3,11 +3,17 @@
 """
 
 import asyncio
-from bleak import BleakClient, BleakError
-from bleak_retry_connector import establish_connection
+from bleak import BleakError
+from bleak_retry_connector import establish_connection, BleakClientWithServiceCache
 
 from .logger import logger
 from .const import get_device_constants, SERVICE_UUID, CHAR_RX_UUID, CHAR_TX_UUID
+
+class AuthError(Exception):
+    pass
+
+class DisposedError(Exception):
+    pass
 
 class SkyCookerDevice:
     """Основной класс устройства для мультиварки Redmond."""
@@ -58,11 +64,11 @@ class SkyCookerDevice:
         except BleakError as e:
             logger.error(f"❌ Не удалось подключиться к {self.device_name}: {e}")
             await self.disconnect()
-            return False
+            raise
         except Exception as e:
             logger.error(f"❌ Неожиданная ошибка подключения к {self.device_name}: {e}")
             await self.disconnect()
-            return False
+            raise
     
     async def _discover_services(self):
         """Поиск BLE сервисов и характеристик."""
@@ -75,7 +81,7 @@ class SkyCookerDevice:
             # Проверяем, что сервисы доступны (service discovery выполнен)
             if not services:
                 logger.error("❌ Сервисы не найдены, service discovery не выполнен")
-                return False
+                raise IOError("Service discovery not completed")
             
             # Ищем Nordic UART Service
             target_service = None
@@ -143,11 +149,11 @@ class SkyCookerDevice:
                 return True
             else:
                 logger.error("❌ Не найдены необходимые сервис и характеристики")
-                return False
+                raise IOError("Required service and characteristics not found")
             
         except Exception as e:
             logger.error(f"❌ Ошибка поиска сервисов: {e}")
-            return False
+            raise
     
     async def _authenticate(self):
         """Аутентификация устройства."""
@@ -175,11 +181,11 @@ class SkyCookerDevice:
                     return True
             
             logger.warning("⚠️ Аутентификация не удалась")
-            return False
+            raise AuthError("Authentication failed")
             
         except Exception as e:
             logger.error(f"❌ Ошибка аутентификации: {e}")
-            return False
+            raise
     
     def _rx_callback(self, sender, data):
         """Обработчик уведомлений от устройства."""
