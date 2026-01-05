@@ -34,15 +34,18 @@ class SkyCookerDevice:
         try:
             # Установка соединения с повторными попытками
             self.client = await establish_connection(
-                BleakClient,
+                BleakClientWithServiceCache,
                 self.device_address,
-                self.device_name,
-                max_attempts=3,
-                timeout=10.0
+                self.device_name or "Unknown Device",
+                max_attempts=3
             )
             
             logger.connect(f"🔌 Подключено к {self.device_name}")
             self.connected = True
+            
+            # Настройка уведомлений
+            await self.client.start_notify(CHAR_TX_UUID, self._rx_callback)
+            logger.info("🔔 Подписан на уведомления")
             
             # Поиск сервисов
             await self._discover_services()
@@ -131,6 +134,11 @@ class SkyCookerDevice:
             logger.error(f"❌ Ошибка аутентификации: {e}")
             return False
     
+    def _rx_callback(self, sender, data):
+        """Обработчик уведомлений от устройства."""
+        logger.response(f"📥 Получено уведомление: {data.hex()}")
+        # Здесь можно добавить обработку входящих данных
+        
     def _create_packet(self, command, data=None, iteration=0):
         """Создание пакета по протоколу R4S."""
         packet = bytearray()
@@ -282,7 +290,7 @@ class SkyCookerDevice:
             return True
             
         except Exception as e:
-            logger.error(f"❌ Error starting program: {e}")
+            logger.error(f"❌ Ошибка запуска программы: {e}")
             self._update_success_rate()
             return False
     
@@ -321,7 +329,7 @@ class SkyCookerDevice:
             return False
             
         except Exception as e:
-            logger.error(f"❌ Error stopping program: {e}")
+            logger.error(f"❌ Ошибка остановки программы: {e}")
             self._update_success_rate()
             return False
     
