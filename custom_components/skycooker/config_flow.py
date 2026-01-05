@@ -75,11 +75,14 @@ class SkyCookerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     # Use the same logic as in the original scanner - look for "RMC" in device name
                     name_lower = device.name.lower()
                     if "rmc" in name_lower:
-                        self._discovered_devices.append({
+                        device_info = {
                             "address": device.address,
-                            "name": device.name,
-                            "rssi": device.rssi
-                        })
+                            "name": device.name
+                        }
+                        # Add RSSI only if available
+                        if hasattr(device, 'rssi'):
+                            device_info["rssi"] = device.rssi
+                        self._discovered_devices.append(device_info)
             
             if not self._discovered_devices:
                 logger.warning("⚠️ No SkyCooker devices found")
@@ -88,7 +91,8 @@ class SkyCookerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             # Show device selection
             device_options = {}
             for device in self._discovered_devices:
-                device_options[device["address"]] = f"{device['name']} ({device['address']}) - RSSI: {device['rssi']}"
+                rssi_info = f" - RSSI: {device.get('rssi', 'N/A')}" if 'rssi' in device else ""
+                device_options[device["address"]] = f"{device['name']} ({device['address']}){rssi_info}"
             
             return self.async_show_form(
                 step_id="discovery",
