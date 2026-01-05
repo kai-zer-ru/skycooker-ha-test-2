@@ -70,7 +70,7 @@ class SkyCookerDevice:
         
         try:
             # Получение сервисов
-            services = await self.client.get_services()
+            services = await self.client.services
             
             # Поиск нашего сервиса
             service = None
@@ -143,14 +143,18 @@ class SkyCookerDevice:
             # Это валидный пакет R4S
             command = data[2]
             
-            # Если это ответ на запрос статуса
-            if command == self.constants["COMMAND_GET_STATUS"]:
-                # Парсим данные статуса
-                status_data = self._parse_status_response(data)
-                if status_data:
+            # Парсим данные статуса
+            status_data = self._parse_status_response(data)
+            if status_data:
+                # Проверяем, изменилось ли состояние
+                if (not self.status_data or
+                    self.status_data.get('mode') != status_data.get('mode') or
+                    self.status_data.get('status') != status_data.get('status') or
+                    self.status_data.get('temperature') != status_data.get('temperature')):
+                    
                     self.status_data = status_data
                     self._update_success_rate()
-                    logger.status(f"📊 Обновлен статус устройства: {status_data}")
+                    logger.status(f"📊 Изменение состояния: {status_data}")
         
     def _create_packet(self, command, data=None, iteration=0):
         """Создание пакета по протоколу R4S."""
