@@ -1,0 +1,2 @@
+bleak>=0.15.0
+bleak-retry-connector>=2.0.0
