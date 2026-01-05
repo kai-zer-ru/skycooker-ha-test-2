@@ -70,33 +70,80 @@ class SkyCookerDevice:
         
         try:
             # Получение сервисов
-            services = await self.client.services
+            services = self.client.services
             
-            # Поиск нашего сервиса
-            service = None
-            for s in services:
-                if s.uuid == SERVICE_UUID:
-                    service = s
+            # Проверяем, что сервисы доступны (service discovery выполнен)
+            if not services:
+                logger.error("❌ Сервисы не найдены, service discovery не выполнен")
+                return False
+            
+            # Ищем Nordic UART Service
+            target_service = None
+            self.rx_char = None
+            self.tx_char = None
+            
+            # Сначала ищем Nordic UART Service
+            for service in services.services.values():
+                if str(service.uuid) == SERVICE_UUID:
+                    target_service = service
+                    logger.device(f"📱 Найден Nordic UART Service: {service.uuid}")
+                    
+                    # Ищем характеристики
+                    for char in service.characteristics:
+                        logger.device(f"📱 Характеристика {char.uuid}: свойства={char.properties}")
+                        
+                        # Ищем RX характеристику (для записи данных в устройство)
+                        if str(char.uuid) == CHAR_RX_UUID:
+                            self.rx_char = char
+                            logger.device(f"✅ Найдена RX характеристика: {char.uuid}")
+                        
+                        # Ищем TX характеристику (для чтения данных от устройства)
+                        elif str(char.uuid) == CHAR_TX_UUID:
+                            self.tx_char = char
+                            logger.device(f"✅ Найдена TX характеристика: {char.uuid}")
+                    
                     break
             
-            if not service:
-                logger.error(f"❌ Сервис {SERVICE_UUID} не найден")
+            # Если не нашли Nordic UART Service, пытаемся найти сервис автоматически
+            if not target_service:
+                logger.warning("⚠️ Nordic UART Service не найден, ищем сервис автоматически...")
+                for service in services.services.values():
+                    logger.device(f"📱 Проверка сервиса: {service.uuid}")
+                    
+                    # Собираем все характеристики сервиса
+                    chars = list(service.characteristics)
+                    logger.device(f"📊 Найдено характеристик: {len(chars)}")
+                    
+                    if len(chars) >= 2:
+                        # Пытаемся определить RX и TX характеристики
+                        for char in chars:
+                            logger.device(f"📱 Характеристика {char.uuid}: свойства={char.properties}")
+                            
+                            # Ищем характеристику для записи (RX)
+                            if 'write' in char.properties and self.rx_char is None:
+                                self.rx_char = char
+                                logger.device(f"✅ Найдена RX характеристика: {char.uuid}")
+                            
+                            # Ищем характеристику для чтения/уведомлений (TX)
+                            elif ('read' in char.properties or 'notify' in char.properties) and self.tx_char is None:
+                                self.tx_char = char
+                                logger.device(f"✅ Найдена TX характеристика: {char.uuid}")
+                        
+                        # Если нашли обе характеристики, используем этот сервис
+                        if self.rx_char and self.tx_char:
+                            target_service = service
+                            logger.device(f"✅ Выбран сервис: {service.uuid}")
+                            break
+            
+            if target_service and self.rx_char and self.tx_char:
+                logger.device("✅ Найдены необходимые сервис и характеристики")
+                logger.device(f"📊 Service UUID: {target_service.uuid}")
+                logger.device(f"📊 RX UUID: {self.rx_char.uuid}")
+                logger.device(f"📊 TX UUID: {self.tx_char.uuid}")
+                return True
+            else:
+                logger.error("❌ Не найдены необходимые сервис и характеристики")
                 return False
-            
-            # Поиск характеристик
-            for char in service.characteristics:
-                if char.uuid == CHAR_RX_UUID:
-                    self.rx_char = char
-                    logger.device(f"📱 Найдена RX характеристика: {char.uuid}")
-                elif char.uuid == CHAR_TX_UUID:
-                    self.tx_char = char
-                    logger.device(f"📱 Найдена TX характеристика: {char.uuid}")
-            
-            if not self.rx_char or not self.tx_char:
-                logger.error("❌ Необходимые характеристики не найдены")
-                return False
-            
-            return True
             
         except Exception as e:
             logger.error(f"❌ Ошибка поиска сервисов: {e}")
@@ -194,6 +241,7 @@ class SkyCookerDevice:
             if self.status_data:
                 self.successful_commands += 1
                 self._update_success_rate()
+                logger.status(f"📊 Обновлены сенсоры: {self.status_data}")
                 return self.status_data
             
             logger.warning("⚠️ Не получен ответ статуса")
