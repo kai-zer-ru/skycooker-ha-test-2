@@ -89,7 +89,7 @@ class SkyCookerLogger:
     def info(self, message):
         """Вывод информационного сообщения"""
         message_with_icon = self._add_icon("INFO", message)
-        self.logger.info(message_with_icon)
+        self.logger.debug(message_with_icon)
     
     def warning(self, message):
         """Вывод предупреждения"""
@@ -109,52 +109,52 @@ class SkyCookerLogger:
     def success(self, message):
         """Вывод сообщения об успехе"""
         message_with_icon = self._add_icon("SUCCESS", message)
-        self.logger.info(message_with_icon)
+        self.logger.debug(message_with_icon)
     
     def connect(self, message):
         """Вывод сообщения о подключении"""
         message_with_icon = self._add_icon("CONNECT", message)
-        self.logger.info(message_with_icon)
+        self.logger.debug(message_with_icon)
     
     def disconnect(self, message):
         """Вывод сообщения об отключении"""
         message_with_icon = self._add_icon("DISCONNECT", message)
-        self.logger.info(message_with_icon)
+        self.logger.debug(message_with_icon)
     
     def auth(self, message):
         """Вывод сообщения об аутентификации"""
         message_with_icon = self._add_icon("AUTH", message)
-        self.logger.info(message_with_icon)
+        self.logger.debug(message_with_icon)
     
     def bluetooth(self, message):
         """Вывод сообщения о Bluetooth"""
         message_with_icon = self._add_icon("BLUETOOTH", message)
-        self.logger.info(message_with_icon)
+        self.logger.debug(message_with_icon)
     
     def status(self, message):
         """Вывод сообщения о статусе"""
         message_with_icon = self._add_icon("STATUS", message)
-        self.logger.info(message_with_icon)
+        self.logger.debug(message_with_icon)
     
     def command(self, message):
         """Вывод сообщения о команде"""
         message_with_icon = self._add_icon("COMMAND", message)
-        self.logger.info(message_with_icon)
+        self.logger.debug(message_with_icon)
     
     def response(self, message):
         """Вывод сообщения о ответе"""
         message_with_icon = self._add_icon("RESPONSE", message)
-        self.logger.info(message_with_icon)
+        self.logger.debug(message_with_icon)
     
     def sensor(self, message):
         """Вывод сообщения о сенсоре"""
         message_with_icon = self._add_icon("SENSOR", message)
-        self.logger.info(message_with_icon)
+        self.logger.debug(message_with_icon)
     
     def device(self, message):
         """Вывод сообщения об устройстве"""
         message_with_icon = self._add_icon("DEVICE", message)
-        self.logger.info(message_with_icon)
+        self.logger.debug(message_with_icon)
 
 # Глобальный логгер
 logger = SkyCookerLogger()

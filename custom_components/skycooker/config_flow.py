@@ -98,8 +98,7 @@ class SkyCookerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                                 {
                                     "value": device["address"],
                                     "label": f"{device['name']} ({device['address']})"
-                                }
-                                for device in self._discovered_devices
+                                } for device in self._discovered_devices
                             ],
                             "mode": "dropdown",
                             "translation_key": "device_address"
