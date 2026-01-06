@@ -5,11 +5,21 @@ import traceback
 from time import monotonic
 
 from bleak_retry_connector import establish_connection, BleakClientWithServiceCache
-from bleak.exc import BleakOutOfConnectionSlotsError
 
 from homeassistant.components import bluetooth
 
 from .const import *
+
+# Try to import BleakOutOfConnectionSlotsError if available
+try:
+    from bleak_retry_connector import BleakOutOfConnectionSlotsError
+except ImportError:
+    try:
+        from bleak.exc import BleakOutOfConnectionSlotsError
+    except ImportError:
+        # Define a placeholder class if not available
+        class BleakOutOfConnectionSlotsError(Exception):
+            pass
 
 _LOGGER = logging.getLogger(__name__)
 
