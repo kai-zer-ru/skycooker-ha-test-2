@@ -612,10 +612,10 @@ class MulticookerConnection:
             return self._status.get('status')
         return None
 
-    def stop_connection(self):
+    async def stop_connection(self):
         """Stop the connection."""
         if self._disposed: return
-        self._disconnect()
+        await self._disconnect()
         self._disposed = True
         _LOGGER.info("🛑 Соединение остановлено")
 
