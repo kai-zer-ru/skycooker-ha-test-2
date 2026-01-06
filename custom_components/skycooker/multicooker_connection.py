@@ -110,40 +110,101 @@ class MulticookerConnection:
         if self._disposed:
             raise DisposedError()
         if self._client and self._client.is_connected: return
-        
+         
         # Ensure any previous connection is properly cleaned up
         await self._cleanup_previous_connections()
-        
+         
         try:
             self._device = bluetooth.async_ble_device_from_address(self.hass, self._mac)
-            _LOGGER.debug("🔌 Подключение к мультиварке...")
+            if not self._device:
+                raise BleakError(f"Device {self._mac} not found")
             
-            # Use fewer connection attempts to avoid slot exhaustion
+            _LOGGER.debug("🔌 Подключение к мультиварке...")
+             
+            # Use BleakClientWithServiceCache for better connection management
             self._client = await establish_connection(
                 BleakClientWithServiceCache,
                 self._device,
                 self._device.name or "Unknown Device",
-                max_attempts=2,  # Reduced from 3 to 2
+                max_attempts=2,  # Reduced from 9 to 2 to avoid slot exhaustion
                 disconnected_callback=self._handle_disconnect
             )
             _LOGGER.debug("✅ Подключено к мультиварке")
-            
+             
+            # Auto-discover service UUIDs (like in working version)
+            await self._discover_service_uuids()
+             
             # Start notifications with timeout
-            try:
-                await asyncio.wait_for(
-                    self._client.start_notify(self.UUID_RX, self._rx_callback),
-                    timeout=5.0
-                )
-                _LOGGER.debug("🔔 Подписано на уведомления")
-            except asyncio.TimeoutError:
-                _LOGGER.error("⏱️  Таймаут при подписке на уведомления")
+            if self.UUID_RX:
+                try:
+                    await asyncio.wait_for(
+                        self._client.start_notify(self.UUID_RX, self._rx_callback),
+                        timeout=5.0
+                    )
+                    _LOGGER.debug("🔔 Подписано на уведомления через %s", self.UUID_RX)
+                except asyncio.TimeoutError:
+                    _LOGGER.error("⏱️  Таймаут при подписке на уведомления")
+                    await self._disconnect()
+                    raise
+            else:
+                _LOGGER.error("❌ Не удалось определить характеристику для уведомлений")
                 await self._disconnect()
-                raise
-                
+                raise BleakError("Notification characteristic not found")
+                 
         except Exception as e:
             _LOGGER.error(f"🚫 Ошибка подключения: {e}")
             await self._disconnect()
             raise
+
+    async def _discover_service_uuids(self):
+        """Auto-discover service UUIDs like in working version."""
+        try:
+            _LOGGER.debug("🔍 Поиск сервисов и характеристик")
+            
+            # Try to get services
+            try:
+                services = await self._client.get_services()
+            except AttributeError:
+                services = self._client.services
+            
+            service_count = len(list(services))
+            _LOGGER.debug("📦 Найдено сервисов: %s", service_count)
+            
+            for service in services:
+                _LOGGER.debug("📡 Сервис: %s", service.uuid)
+                
+                # Check if this is Nordic UART Service
+                if service.uuid.lower() == self.UUID_SERVICE.lower():
+                    _LOGGER.info("✅ Найден Nordic UART Service: %s", service.uuid)
+                    
+                    # Find notification and write characteristics
+                    for characteristic in service.characteristics:
+                        _LOGGER.debug("📡 Характеристика: %s, свойства: %s",
+                                    characteristic.uuid, characteristic.properties)
+                        
+                        if 'notify' in characteristic.properties:
+                            self.UUID_RX = characteristic.uuid
+                            _LOGGER.info("📢 Найдена характеристика для уведомлений: %s", self.UUID_RX)
+                        
+                        if 'write' in characteristic.properties or 'write-without-response' in characteristic.properties:
+                            self.UUID_TX = characteristic.uuid
+                            _LOGGER.info("✏️  Найдена характеристика для записи: %s", self.UUID_TX)
+                    
+                    # If found all necessary characteristics, return
+                    if self.UUID_RX and self.UUID_TX:
+                        _LOGGER.info("✅ Все необходимые характеристики найдены")
+                        return True
+            
+            # If not found, use default UUIDs
+            if not self.UUID_SERVICE:
+                _LOGGER.warning("⚠️  Nordic UART Service не найден, используем резервные UUID")
+            
+            return True
+            
+        except Exception as e:
+            _LOGGER.error("❌ Ошибка определения UUID: %s", e)
+            # Use default UUIDs in case of error
+            return False
 
     async def _cleanup_previous_connections(self):
         """Clean up any previous connections to free up slots."""
@@ -315,30 +376,30 @@ class MulticookerConnection:
             async with self._update_lock:
                 if self._disposed: return
                 _LOGGER.debug("🔄 Обновление статуса")
-                
+                 
                 # Проверяем доступность перед попыткой обновления
                 if not self.available:
                     _LOGGER.debug("📡 Устройство недоступно, пытаемся подключиться...")
-                
+                 
                 await self._connect_if_need()
-                
+                 
                 # Проверяем, что подключение и авторизация прошли успешно
                 if not self.available:
                     _LOGGER.error("🚫 Не удалось подключиться или авторизоваться")
                     await self.disconnect()
                     self.add_stat(False)
                     return False
-                
+                 
                 _LOGGER.debug("✅ Подключение и авторизация успешны, запрашиваем статус...")
-                
+                 
                 # Get current status
                 self._status = await self.get_status()
-                
+                 
                 if self._status:
                     _LOGGER.debug(f"📊 Статус получен: режим={self._status.get('mode')}, температура={self._status.get('temperature')}°C")
                 else:
                     _LOGGER.warning("⚠️  Не удалось получить статус")
-                
+                 
                 await self._disconnect_if_need()
                 self.add_stat(True)
                 return True

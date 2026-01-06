@@ -139,5 +139,5 @@ DISPATCHER_UPDATE = "update"
 
 # BLE settings
 BLE_RECV_TIMEOUT = 1.5
-MAX_TRIES = 3
+MAX_TRIES = 2  # Reduced from 3 to 2 to avoid slot exhaustion
 TRIES_INTERVAL = 0.5
