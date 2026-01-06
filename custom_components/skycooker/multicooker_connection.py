@@ -431,6 +431,11 @@ class MulticookerConnection:
         try:
             # Get the GET_STATUS command code for this specific model
             get_status_command = get_model_constant(self.model, "command", "GET_STATUS") or COMMAND_GET_STATUS
+            
+            # Add small delay before sending status command
+            # Some devices need time after authentication
+            await asyncio.sleep(0.5)
+            
             data = await self.command(get_status_command)
             if len(data) >= 11:
                 mode = data[0]
@@ -461,8 +466,14 @@ class MulticookerConnection:
                 }
             return None
         except Exception as e:
-            _LOGGER.error(f"🚫 Ошибка получения статуса: {e}")
-            return None
+            error_str = str(e)
+            if "att error" in error_str.lower() or "0x0e" in error_str.lower():
+                _LOGGER.error(f"🚫 Ошибка ATT протокола при получении статуса: {e}")
+                _LOGGER.error("💡 Устройство может не быть готово к командам. Попробуем позже...")
+                return None
+            else:
+                _LOGGER.error(f"🚫 Ошибка получения статуса: {e}")
+                return None
 
     async def set_mode(self, mode_id):
         """Set the cooking mode."""
