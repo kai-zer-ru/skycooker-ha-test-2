@@ -233,6 +233,242 @@ logger:
 - [skykettle-ha](https://github.com/ClusterM/skykettle-ha) - за вдохновение
 - [Bleak](https://github.com/hbldh/bleak) - за кросс-платформенный Bluetooth
 
+## 🎨 Пример карточки для Lovelace
+
+Создайте красивую карточку для управления мультиваркой с использованием [card-mod](https://github.com/thomasloven/lovelace-card-mod):
+
+```yaml
+views:
+  - title: Кухня
+    cards:
+      - type: vertical-stack
+        cards:
+          # Основная карточка с информацией
+          - type: entities
+            title: Мультиварка Redmond RMC-M40S
+            show_header_toggle: false
+            entities:
+              - entity: switch.skycoocker_power
+                name: Питание
+                icon: mdi:power
+              - entity: sensor.skycoocker_status
+                name: Статус
+                icon: mdi:information
+              - entity: sensor.skycoocker_temperature
+                name: Температура
+                icon: mdi:thermometer
+              - entity: sensor.skycoocker_remaining_time
+                name: Оставшееся время
+                icon: mdi:timer
+            card_mod:
+              style: |
+                ha-card {
+                  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                  border-radius: 20px;
+                  box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+                }
+                .card-header {
+                  color: white;
+                  font-weight: bold;
+                  font-size: 1.2em;
+                }
+                .card-content {
+                  padding: 16px;
+                }
+                .entity {
+                  color: white;
+                  margin: 8px 0;
+                }
+                .name {
+                  font-weight: 500;
+                }
+                .state {
+                  font-weight: 300;
+                }
+
+          # Карточка управления
+          - type: horizontal-stack
+            cards:
+              - type: button
+                tap_action:
+                  action: call-service
+                  service: select.select_option
+                  target:
+                    entity_id: select.skycoocker_mode
+                  data:
+                    option: "Молочная каша"
+                name: Каша
+                icon: mdi:bowl-mix
+                card_mod:
+                  style: |
+                    ha-card {
+                      background: rgba(255,255,255,0.2);
+                      color: white;
+                      border-radius: 15px;
+                      padding: 12px;
+                      transition: all 0.3s;
+                    }
+                    ha-card:hover {
+                      background: rgba(255,255,255,0.3);
+                      transform: scale(1.05);
+                    }
+
+              - type: button
+                tap_action:
+                  action: call-service
+                  service: select.select_option
+                  target:
+                    entity_id: select.skycoocker_mode
+                  data:
+                    option: "Суп"
+                name: Суп
+                icon: mdi:pot-mix
+                card_mod:
+                  style: |
+                    ha-card {
+                      background: rgba(255,255,255,0.2);
+                      color: white;
+                      border-radius: 15px;
+                      padding: 12px;
+                      transition: all 0.3s;
+                    }
+                    ha-card:hover {
+                      background: rgba(255,255,255,0.3);
+                      transform: scale(1.05);
+                    }
+
+              - type: button
+                tap_action:
+                  action: call-service
+                  service: select.select_option
+                  target:
+                    entity_id: select.skycoocker_mode
+                  data:
+                    option: "Тушение"
+                name: Тушение
+                icon: mdi:pot-steam
+                card_mod:
+                  style: |
+                    ha-card {
+                      background: rgba(255,255,255,0.2);
+                      color: white;
+                      border-radius: 15px;
+                      padding: 12px;
+                      transition: all 0.3s;
+                    }
+                    ha-card:hover {
+                      background: rgba(255,255,255,0.3);
+                      transform: scale(1.05);
+                    }
+
+          # Карточка управления
+          - type: horizontal-stack
+            cards:
+              - type: button
+                tap_action:
+                  action: call-service
+                  service: button.press
+                  target:
+                    entity_id: button.skycoocker_start
+                name: Старт
+                icon: mdi:play
+                card_mod:
+                  style: |
+                    ha-card {
+                      background: #4CAF50;
+                      color: white;
+                      border-radius: 15px;
+                      padding: 12px;
+                      transition: all 0.3s;
+                    }
+                    ha-card:hover {
+                      background: #45a049;
+                      transform: scale(1.05);
+                    }
+
+              - type: button
+                tap_action:
+                  action: call-service
+                  service: button.press
+                  target:
+                    entity_id: button.skycoocker_stop
+                name: Стоп
+                icon: mdi:stop
+                card_mod:
+                  style: |
+                    ha-card {
+                      background: #f44336;
+                      color: white;
+                      border-radius: 15px;
+                      padding: 12px;
+                      transition: all 0.3s;
+                    }
+                    ha-card:hover {
+                      background: #d32f2f;
+                      transform: scale(1.05);
+                    }
+
+          # Карточка с выбором режима
+          - type: entities
+            title: Режимы готовки
+            show_header_toggle: false
+            entities:
+              - entity: select.skycoocker_mode
+                name: Выбор режима
+                icon: mdi:tune
+            card_mod:
+              style: |
+                ha-card {
+                  background: rgba(255,255,255,0.1);
+                  border-radius: 15px;
+                  backdrop-filter: blur(10px);
+                }
+                .card-header {
+                  color: white;
+                  font-weight: bold;
+                }
+                .card-content {
+                  padding: 16px;
+                }
+                .entity {
+                  color: white;
+                }
+```
+
+### Минимальная карточка (без card-mod)
+
+```yaml
+views:
+  - title: Кухня
+    cards:
+      - type: entities
+        title: Мультиварка
+        entities:
+          - switch.skycoocker_power
+          - sensor.skycoocker_status
+          - sensor.skycoocker_temperature
+          - sensor.skycoocker_remaining_time
+          - select.skycoocker_mode
+          - button.skycoocker_start
+          - button.skycoocker_stop
+```
+
+### Советы по настройке
+
+1. **Установите card-mod**:
+   ```bash
+   hacs install card-mod
+   ```
+
+2. **Добавьте ресурс**:
+   ```yaml
+   resources:
+     - url: /hacsfiles/lovelace-card-mod/card-mod.js
+       type: module
+   ```
+
+3. **Настройте тему**: Для лучшего отображения используйте темную тему или настройте цвета под ваш интерьер.
+
 ## 🔮 Планы на будущее
 
 - ✅ Поддержка RMC-M40S
