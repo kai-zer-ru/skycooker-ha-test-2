@@ -5,6 +5,7 @@ import traceback
 from time import monotonic
 
 from bleak_retry_connector import establish_connection, BleakClientWithServiceCache
+from bleak.exc import BleakOutOfConnectionSlotsError
 
 from homeassistant.components import bluetooth
 
@@ -87,21 +88,62 @@ class MulticookerConnection:
         self._last_data = data
 
     async def _connect(self):
-        """Connect to the multicooker."""
+        """Connect to the multicooker with better error handling."""
         if self._disposed:
             raise DisposedError()
         if self._client and self._client.is_connected: return
-        self._device = bluetooth.async_ble_device_from_address(self.hass, self._mac)
-        _LOGGER.debug("🔌 Подключение к мультиварке...")
-        self._client = await establish_connection(
-            BleakClientWithServiceCache,
-            self._device,
-            self._device.name or "Unknown Device",
-            max_attempts=3
-        )
-        _LOGGER.debug("✅ Подключено к мультиварке")
-        await self._client.start_notify(self.UUID_RX, self._rx_callback)
-        _LOGGER.debug("🔔 Подписано на уведомления")
+        
+        # Ensure any previous connection is properly cleaned up
+        await self._cleanup_previous_connections()
+        
+        try:
+            self._device = bluetooth.async_ble_device_from_address(self.hass, self._mac)
+            _LOGGER.debug("🔌 Подключение к мультиварке...")
+            
+            # Use fewer connection attempts to avoid slot exhaustion
+            self._client = await establish_connection(
+                BleakClientWithServiceCache,
+                self._device,
+                self._device.name or "Unknown Device",
+                max_attempts=2,  # Reduced from 3 to 2
+                disconnected_callback=self._handle_disconnect
+            )
+            _LOGGER.debug("✅ Подключено к мультиварке")
+            
+            # Start notifications with timeout
+            try:
+                await asyncio.wait_for(
+                    self._client.start_notify(self.UUID_RX, self._rx_callback),
+                    timeout=5.0
+                )
+                _LOGGER.debug("🔔 Подписано на уведомления")
+            except asyncio.TimeoutError:
+                _LOGGER.error("⏱️  Таймаут при подписке на уведомления")
+                await self._disconnect()
+                raise
+                
+        except Exception as e:
+            _LOGGER.error(f"🚫 Ошибка подключения: {e}")
+            await self._disconnect()
+            raise
+
+    async def _cleanup_previous_connections(self):
+        """Clean up any previous connections to free up slots."""
+        try:
+            if self._client:
+                if self._client.is_connected:
+                    _LOGGER.debug("🧹 Очистка предыдущего соединения...")
+                    await self._client.disconnect()
+                self._client = None
+            self._device = None
+        except Exception as e:
+            _LOGGER.warning(f"⚠️  Ошибка очистки предыдущего соединения: {e}")
+
+    def _handle_disconnect(self, client):
+        """Handle unexpected disconnections."""
+        _LOGGER.warning("⚠️  Неожиданное отключение от мультиварки")
+        self._last_connect_ok = False
+        self._auth_ok = False
 
     async def auth(self):
         """Authenticate with the multicooker."""
@@ -137,7 +179,7 @@ class MulticookerConnection:
             pass
 
     async def _connect_if_need(self):
-        """Connect if needed."""
+        """Connect if needed with better error handling."""
         if self._client and not self._client.is_connected:
             _LOGGER.debug("🔌 Подключение потеряно")
             await self.disconnect()
@@ -145,6 +187,15 @@ class MulticookerConnection:
             try:
                 await self._connect()
                 self._last_connect_ok = True
+            except BleakOutOfConnectionSlotsError as ex:
+                _LOGGER.error("🚫 Bluetooth адаптер исчерпал лимит соединений. Попробуйте:")
+                _LOGGER.error("   1. Перезагрузите Bluetooth адаптер")
+                _LOGGER.error("   2. Уменьшите количество активных Bluetooth устройств")
+                _LOGGER.error("   3. Используйте дополнительный Bluetooth прокси")
+                _LOGGER.error("   4. Проверьте, что мультиварка находится в режиме сопряжения")
+                await self.disconnect()
+                self._last_connect_ok = False
+                raise
             except Exception as ex:
                 await self.disconnect()
                 self._last_connect_ok = False
