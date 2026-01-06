@@ -42,7 +42,7 @@ def get_model_constant(model_name, constant_type, key):
 
 
 class MulticookerConnection:
-    """Main class for multicooker connection."""
+    """Main class for multicooker connection based on working library."""
     
     def __init__(self, mac, key, persistent=True, adapter=None, hass=None, model=None):
         """Initialize the multicooker connection."""
@@ -100,27 +100,41 @@ class MulticookerConnection:
         data = bytes([0x55, self._iter, command] + list(params) + [0xAA])
         self._last_data = None
         
-        await self._client.write_gatt_char(self._write_uuid, data)
+        try:
+            await self._client.write_gatt_char(self._write_uuid, data)
+            _LOGGER.debug(f"📋 Отправленный пакет: {data.hex().upper()}")
+        except BleakError as e:
+            _LOGGER.error(f"🚫 Ошибка отправки команды: {e}")
+            raise IOError(f"Ошибка отправки команды: {e}")
+        except Exception as e:
+            _LOGGER.error(f"🚫 Неизвестная ошибка отправки: {e}")
+            raise IOError(f"Неизвестная ошибка отправки: {e}")
         
         timeout_time = monotonic() + BLE_RECV_TIMEOUT
         while True:
             await asyncio.sleep(0.05)
             if self._last_data:
                 r = self._last_data
+                _LOGGER.debug(f"📥 Получен сырой ответ: {r.hex().upper()}")
                 if r[0] != 0x55 or r[-1] != 0xAA:
-                    raise IOError("❌ Некорректный формат ответа")
+                    _LOGGER.error(f"❌ Некорректный формат ответа: {r.hex().upper()}")
+                    raise IOError("Некорректный формат ответа")
                 if r[1] == self._iter:
+                    _LOGGER.debug(f"✅ Правильная итерация {self._iter} в ответе")
                     break
                 else:
+                    _LOGGER.warning(f"⚠️  Неправильная итерация в ответе: ожидалось {self._iter}, получено {r[1]}")
                     self._last_data = None
-            if monotonic() >= timeout_time: 
-                raise IOError("⏱️  Таймаут приема")
+            if monotonic() >= timeout_time:
+                _LOGGER.error(f"⏱️  Таймаут приема ответа на команду {command:02x}")
+                raise IOError("Таймаут приема")
         
         if r[2] != command:
-            raise IOError("❌ Некорректная команда ответа")
+            _LOGGER.error(f"❌ Некорректная команда ответа: ожидалось {command:02x}, получено {r[2]:02x}")
+            raise IOError("Некорректная команда ответа")
         
         clean = bytes(r[3:-1])
-        _LOGGER.debug(f"📥 Получено: {' '.join([f'{c:02x}' for c in clean])}")
+        _LOGGER.debug(f"📥 Очищенные данные ответа: {' '.join([f'{c:02x}' for c in clean])}")
         return clean
 
     def _rx_callback(self, sender, data):
@@ -131,18 +145,21 @@ class MulticookerConnection:
         """Connect to the multicooker using working approach from skycooker_dev."""
         if self._disposed:
             raise DisposedError()
-        if self._client and self._client.is_connected: 
+        if self._client and self._client.is_connected:
+            _LOGGER.debug("✅ Уже подключено к %s", self._mac)
             return
-         
+        
         # Ensure any previous connection is properly cleaned up
         await self._cleanup_previous_connections()
-         
+        
         try:
+            _LOGGER.info("🔍 Поиск устройства %s...", self._mac)
             self._device = bluetooth.async_ble_device_from_address(self.hass, self._mac)
             if not self._device:
+                _LOGGER.error("❌ Устройство %s не найдено", self._mac)
                 raise BleakError(f"Device {self._mac} not found")
             
-            _LOGGER.info("🔌 Подключение к устройству: %s", self._mac)
+            _LOGGER.info("🔌 Подключение к устройству: %s (%s)", self._device.name, self._mac)
             
             # Use max_attempts=3 like in working version
             self._client = await establish_connection(
@@ -153,10 +170,11 @@ class MulticookerConnection:
                 disconnected_callback=self._handle_disconnect
             )
             _LOGGER.info("✅ Успешное подключение к %s", self._mac)
-             
+            
             # Auto-discover service UUIDs (like in working version)
-            await self._discover_service_uuids()
-             
+            if not await self._discover_service_uuids():
+                _LOGGER.warning("⚠️  Используем резервные UUID для подключения")
+            
             # Start notification с найденной характеристикой
             if self._notify_uuid:
                 try:
@@ -173,9 +191,14 @@ class MulticookerConnection:
                 _LOGGER.error("❌ Не удалось определить характеристику для уведомлений")
                 await self._disconnect()
                 raise BleakError("Notification characteristic not found")
-                 
+          
+        except BleakError as e:
+            _LOGGER.error(f"🚫 Ошибка Bluetooth: {e}")
+            await self._disconnect()
+            raise
         except Exception as e:
             _LOGGER.error(f"🚫 Ошибка подключения: {e}")
+            _LOGGER.debug("📋 Подробности ошибки:", exc_info=True)
             await self._disconnect()
             raise
 
@@ -252,25 +275,35 @@ class MulticookerConnection:
         try:
             # Get the AUTH command code for this specific model
             auth_command = get_model_constant(self.model, "command", "AUTH") or COMMAND_AUTH
+            _LOGGER.info("🔑 Начало аутентификации...")
             
             # Use the correct key format: "0000000000000000" as hex string
             # Convert to bytes using bytes.fromhex() like in scripts/scaner/lib/auth.py
             if isinstance(self._key, str):
                 # If key is provided as hex string, convert using bytes.fromhex()
-                key_bytes = list(bytes.fromhex(self._key))
-                _LOGGER.debug("🔑 Ключ конвертирован из hex строки: %s", key_bytes)
+                try:
+                    key_bytes = list(bytes.fromhex(self._key))
+                    _LOGGER.debug("🔑 Ключ конвертирован из hex строки: %s", key_bytes)
+                except ValueError as e:
+                    _LOGGER.error("🚫 Ошибка конвертации ключа: %s. Ключ должен быть hex строкой из 16 символов", e)
+                    return False
             elif isinstance(self._key, list):
                 # If key is already list of bytes, use as is
                 key_bytes = self._key
                 _LOGGER.debug("🔑 Ключ уже список байтов: %s", key_bytes)
             else:
                 # Try to convert from other types
-                key_bytes = list(self._key)
-                _LOGGER.debug("🔑 Ключ конвертирован из другого типа: %s", key_bytes)
+                try:
+                    key_bytes = list(self._key)
+                    _LOGGER.debug("🔑 Ключ конвертирован из другого типа: %s", key_bytes)
+                except Exception as e:
+                    _LOGGER.error("🚫 Ошибка конвертации ключа: %s", e)
+                    return False
             
             # Verify key length (should be 8 bytes for 16 hex chars)
             if len(key_bytes) != 8:
-                _LOGGER.warning("⚠️  Неправильная длина ключа: %s (ожидается 8 байт)", len(key_bytes))
+                _LOGGER.error("🚫 Неправильная длина ключа: %s (ожидается 8 байт). Проверьте ключ аутентификации", len(key_bytes))
+                return False
             
             _LOGGER.debug("🔑 Финальный ключ для аутентификации: %s", key_bytes)
             
@@ -279,10 +312,13 @@ class MulticookerConnection:
                 _LOGGER.info("🔐 Аутентификация успешна")
                 return True
             else:
-                _LOGGER.error("🚫 Аутентификация не удалась")
+                _LOGGER.error("🚫 Аутентификация не удалась. Код ответа: %s", auth_data[0] if auth_data else 'None')
+                if auth_data and auth_data[0] == 0x00:
+                    _LOGGER.error("💡 Убедитесь, что мультиварка находится в режиме сопряжения")
                 return False
         except Exception as e:
             _LOGGER.error(f"🚫 Ошибка аутентификации: {e}")
+            _LOGGER.debug("📋 Подробности ошибки аутентификации:", exc_info=True)
             return False
 
     async def _disconnect(self):
@@ -421,30 +457,30 @@ class MulticookerConnection:
             async with self._update_lock:
                 if self._disposed: return
                 _LOGGER.debug("🔄 Обновление статуса")
-                 
+                  
                 # Проверяем доступность перед попыткой обновления
                 if not self.available:
                     _LOGGER.debug("📡 Устройство недоступно, пытаемся подключиться...")
-                 
+                  
                 await self._connect_if_need()
-                 
+                  
                 # Проверяем, что подключение и авторизация прошли успешно
                 if not self.available:
                     _LOGGER.error("🚫 Не удалось подключиться или авторизоваться")
                     await self.disconnect()
                     self.add_stat(False)
                     return False
-                 
+                  
                 _LOGGER.debug("✅ Подключение и авторизация успешны, запрашиваем статус...")
-                 
+                  
                 # Get current status
                 self._status = await self.get_status()
-                 
+                  
                 if self._status:
                     _LOGGER.debug(f"📊 Статус получен: режим={self._status.get('mode')}, температура={self._status.get('temperature')}°C")
                 else:
                     _LOGGER.warning("⚠️  Не удалось получить статус")
-                 
+                  
                 await self._disconnect_if_need()
                 self.add_stat(True)
                 return True

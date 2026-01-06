@@ -23,6 +23,21 @@ PLATFORMS = [
     Platform.BUTTON
 ]
 
+async def async_setup(hass, config):
+    """Set up the SkyCooker component."""
+    # Проверка минимальной версии HomeAssistant
+    from homeassistant.const import __version__ as HA_VERSION
+    from packaging import version
+    
+    min_ha_version = "2025.12.5"
+    if version.parse(HA_VERSION) < version.parse(min_ha_version):
+        _LOGGER.error("❌ Требуется HomeAssistant версии %s или выше. У вас установлена версия %s",
+                     min_ha_version, HA_VERSION)
+        return False
+    
+    hass.data.setdefault(DOMAIN, {})
+    _LOGGER.info("✅ SkyCooker интеграция загружена. Версия HA: %s", HA_VERSION)
+    return True
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     """Set up SkyCoocker integration from a config entry."""
