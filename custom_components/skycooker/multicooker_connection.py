@@ -10,16 +10,24 @@ from homeassistant.components import bluetooth
 
 from .const import *
 
-# Try to import BleakOutOfConnectionSlotsError if available
-try:
-    from bleak_retry_connector import BleakOutOfConnectionSlotsError
-except ImportError:
-    try:
-        from bleak.exc import BleakOutOfConnectionSlotsError
-    except ImportError:
-        # Define a placeholder class if not available
-        class BleakOutOfConnectionSlotsError(Exception):
-            pass
+
+def get_model_constant(model_name, constant_type, key):
+    """Get model-specific constant."""
+    if model_name not in SUPPORTED_MODELS:
+        raise ValueError(f"Model {model_name} not supported")
+    
+    model_config = SUPPORTED_MODELS[model_name]
+    
+    if constant_type == "command":
+        return model_config["commands"].get(key)
+    elif constant_type == "mode":
+        # Return the mode name for display
+        return model_config["modes"].get(key)
+    elif constant_type == "status":
+        # Return the status text for display
+        return model_config["status_codes"].get(key)
+    
+    raise ValueError(f"Unknown constant type: {constant_type}")
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -158,7 +166,9 @@ class MulticookerConnection:
     async def auth(self):
         """Authenticate with the multicooker."""
         try:
-            auth_data = await self.command(COMMAND_AUTH, list(self._key))
+            # Get the AUTH command code for this specific model
+            auth_command = get_model_constant(self.model, "command", "AUTH") or COMMAND_AUTH
+            auth_data = await self.command(auth_command, list(self._key))
             if auth_data and auth_data[0] == 0x01:
                 _LOGGER.info("🔐 Аутентификация успешна")
                 return True
@@ -197,19 +207,19 @@ class MulticookerConnection:
             try:
                 await self._connect()
                 self._last_connect_ok = True
-            except BleakOutOfConnectionSlotsError as ex:
-                _LOGGER.error("🚫 Bluetooth адаптер исчерпал лимит соединений. Попробуйте:")
-                _LOGGER.error("   1. Перезагрузите Bluetooth адаптер")
-                _LOGGER.error("   2. Уменьшите количество активных Bluetooth устройств")
-                _LOGGER.error("   3. Используйте дополнительный Bluetooth прокси")
-                _LOGGER.error("   4. Проверьте, что мультиварка находится в режиме сопряжения")
+            except Exception as ex:
+                # Проверяем, связано ли это с нехваткой слотов соединения
+                if "connection slots" in str(ex).lower() or "out of connection slots" in str(ex).lower():
+                    _LOGGER.error("🚫 Bluetooth адаптер исчерпал лимит соединений. Попробуйте:")
+                    _LOGGER.error("   1. Перезагрузите Bluetooth адаптер")
+                    _LOGGER.error("   2. Уменьшите количество активных Bluetooth устройств")
+                    _LOGGER.error("   3. Используйте дополнительный Bluetooth прокси")
+                    _LOGGER.error("   4. Проверьте, что мультиварка находится в режиме сопряжения")
+                else:
+                    _LOGGER.error(f"🚫 Ошибка подключения: {ex}")
                 await self.disconnect()
                 self._last_connect_ok = False
                 raise
-            except Exception as ex:
-                await self.disconnect()
-                self._last_connect_ok = False
-                raise ex
         if not self._auth_ok:
             self._last_auth_ok = self._auth_ok = await self.auth()
             if not self._auth_ok:
@@ -225,7 +235,9 @@ class MulticookerConnection:
     async def get_status(self):
         """Get the current status of the multicooker."""
         try:
-            data = await self.command(COMMAND_GET_STATUS)
+            # Get the GET_STATUS command code for this specific model
+            get_status_command = get_model_constant(self.model, "command", "GET_STATUS") or COMMAND_GET_STATUS
+            data = await self.command(get_status_command)
             if len(data) >= 11:
                 mode = data[0]
                 temperature = data[2]
@@ -235,6 +247,10 @@ class MulticookerConnection:
                 remaining_minutes = data[6]
                 auto_warm = data[7]
                 status = data[8]
+                
+                # Get status text for logging
+                status_text = get_model_constant(self.model, "status", status) or STATUS_CODES.get(status, f"Неизвестно ({status})")
+                _LOGGER.debug(f"📊 Статус устройства: {status_text}")
                 
                 return {
                     'mode': mode,
@@ -246,7 +262,8 @@ class MulticookerConnection:
                     'remaining_minutes': remaining_minutes,
                     'remaining_time_total': remaining_hours * 60 + remaining_minutes,
                     'auto_warm_enable': bool(auto_warm),
-                    'status': status
+                    'status': status,
+                    'status_text': status_text
                 }
             return None
         except Exception as e:
@@ -256,8 +273,13 @@ class MulticookerConnection:
     async def set_mode(self, mode_id):
         """Set the cooking mode."""
         try:
-            await self.command(COMMAND_SET_MODE, [mode_id])
-            _LOGGER.info(f"✅ Режим установлен: {mode_id}")
+            # Get the SET_MODE command code for this specific model
+            set_mode_command = get_model_constant(self.model, "command", "SET_MODE") or COMMAND_SET_MODE
+            await self.command(set_mode_command, [mode_id])
+            
+            # Get the mode name for logging
+            mode_name = get_model_constant(self.model, "mode", mode_id) or MODES.get(mode_id, f"Неизвестно ({mode_id})")
+            _LOGGER.info(f"✅ Режим установлен: {mode_id} ({mode_name})")
             return True
         except Exception as e:
             _LOGGER.error(f"🚫 Ошибка установки режима: {e}")
@@ -266,7 +288,9 @@ class MulticookerConnection:
     async def start(self):
         """Start the cooking program."""
         try:
-            await self.command(COMMAND_START)
+            # Get the START command code for this specific model
+            start_command = get_model_constant(self.model, "command", "START") or COMMAND_START
+            await self.command(start_command)
             _LOGGER.info("✅ Программа запущена")
             return True
         except Exception as e:
@@ -276,7 +300,9 @@ class MulticookerConnection:
     async def stop(self):
         """Stop the cooking program."""
         try:
-            await self.command(COMMAND_STOP)
+            # Get the STOP command code for this specific model
+            stop_command = get_model_constant(self.model, "command", "STOP") or COMMAND_STOP
+            await self.command(stop_command)
             _LOGGER.info("✅ Программа остановлена")
             return True
         except Exception as e:
@@ -289,10 +315,29 @@ class MulticookerConnection:
             async with self._update_lock:
                 if self._disposed: return
                 _LOGGER.debug("🔄 Обновление статуса")
+                
+                # Проверяем доступность перед попыткой обновления
+                if not self.available:
+                    _LOGGER.debug("📡 Устройство недоступно, пытаемся подключиться...")
+                
                 await self._connect_if_need()
+                
+                # Проверяем, что подключение и авторизация прошли успешно
+                if not self.available:
+                    _LOGGER.error("🚫 Не удалось подключиться или авторизоваться")
+                    await self.disconnect()
+                    self.add_stat(False)
+                    return False
+                
+                _LOGGER.debug("✅ Подключение и авторизация успешны, запрашиваем статус...")
                 
                 # Get current status
                 self._status = await self.get_status()
+                
+                if self._status:
+                    _LOGGER.debug(f"📊 Статус получен: режим={self._status.get('mode')}, температура={self._status.get('temperature')}°C")
+                else:
+                    _LOGGER.warning("⚠️  Не удалось получить статус")
                 
                 await self._disconnect_if_need()
                 self.add_stat(True)
