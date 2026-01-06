@@ -1,86 +1,116 @@
-"""
-Select platform for SkyCooker integration.
-"""
-
-from __future__ import annotations
+"""SkyCoocker select entities."""
+import logging
 
 from homeassistant.components.select import SelectEntity
-from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant
-from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.const import CONF_FRIENDLY_NAME
+from homeassistant.helpers.dispatcher import async_dispatcher_connect
 
-from .const import DOMAIN
-from .logger import logger
-from .multicooker import SkyCookerDevice
+from .const import *
 
-async def async_setup_entry(
-    hass: HomeAssistant,
-    entry: ConfigEntry,
-    async_add_entities: AddEntitiesCallback,
-) -> None:
-    """Set up SkyCooker select entities."""
-    logger.info("🎛️ Setting up SkyCooker select entities")
-    
-    # Get device from hass data
-    device = hass.data[DOMAIN][entry.entry_id]["device"]
-    
-    # Create select entity for cooking programs
-    select_entities = [SkyCookerProgramSelect(device)]
-    
-    async_add_entities(select_entities)
-    logger.success("✅ SkyCooker select entities setup complete")
+_LOGGER = logging.getLogger(__name__)
 
-class SkyCookerProgramSelect(SelectEntity):
-    """Select entity for choosing cooking programs."""
-    
-    def __init__(self, device: SkyCookerDevice):
-        """Initialize the program select."""
-        self._device = device
-        self._attr_name = f"{device.device_name} Program"
-        self._attr_unique_id = f"{device.device_address}_program_select"
-        self._attr_device_info = {
-            "identifiers": {(DOMAIN, device.device_address)},
-            "name": device.device_name,
-            "manufacturer": "Redmond",
-            "model": device.device_type,
-        }
+
+SELECT_TYPE_MODE = "mode"
+
+
+async def async_setup_entry(hass, entry, async_add_entities):
+    """Set up the SkyCoocker select entities."""
+    async_add_entities([
+        SkyCoockerSelect(hass, entry, SELECT_TYPE_MODE),
+    ])
+
+
+class SkyCoockerSelect(SelectEntity):
+    """Representation of a SkyCoocker select entity."""
+
+    def __init__(self, hass, entry, select_type):
+        """Initialize the select entity."""
+        self.hass = hass
+        self.entry = entry
+        self.select_type = select_type
+
+    async def async_added_to_hass(self):
+        """When entity is added to hass."""
+        self.update()
+        self.async_on_remove(async_dispatcher_connect(self.hass, DISPATCHER_UPDATE, self.update))
+
+    def update(self):
+        """Update the select entity."""
+        self.schedule_update_ha_state()
+
+    @property
+    def multicooker(self):
+        """Get the multicooker connection."""
+        return self.hass.data[DOMAIN][self.entry.entry_id][DATA_CONNECTION]
+
+    @property
+    def unique_id(self):
+        """Return a unique ID."""
+        return f"{self.entry.entry_id}_{self.select_type}"
+
+    @property
+    def device_info(self):
+        """Return device info."""
+        return self.hass.data[DOMAIN][DATA_DEVICE_INFO]()
+
+    @property
+    def should_poll(self):
+        """No polling needed."""
+        return False
+
+    @property
+    def assumed_state(self):
+        """Return true if unable to access real state of the entity."""
+        return False
+
+    @property
+    def name(self):
+        """Return the name of the select entity."""
+        base_name = (FRIENDLY_NAME + " " + self.entry.data.get(CONF_FRIENDLY_NAME, "")).strip()
         
-        # Get available modes from device constants
-        self._options = list(device.constants["MODES"].values())
-        self._mode_values = list(device.constants["MODES"].keys())
-    
+        if self.select_type == SELECT_TYPE_MODE:
+            return f"{base_name} режим"
+        
+        return base_name
+
     @property
-    def current_option(self) -> str | None:
+    def icon(self):
+        """Return the icon."""
+        if self.select_type == SELECT_TYPE_MODE:
+            return "mdi:chef-hat"
+        return None
+
+    @property
+    def available(self):
+        """Return if select entity is available."""
+        return self.multicooker.available
+
+    @property
+    def current_option(self):
         """Return the current selected option."""
-        if self._device.status_data:
-            mode = self._device.status_data.get("mode", 0)
-            return self._device.constants["MODES"].get(mode, "Unknown")
-        return "Unknown"
-    
+        if self.select_type == SELECT_TYPE_MODE:
+            mode_id = self.multicooker.current_mode
+            if mode_id is not None:
+                return MODES.get(mode_id, f"Неизвестно ({mode_id})")
+        return None
+
     @property
-    def options(self) -> list[str]:
-        """Return a list of available options."""
-        return self._options
-    
+    def options(self):
+        """Return the available options."""
+        if self.select_type == SELECT_TYPE_MODE:
+            return list(MODES.values())
+        return []
+
     async def async_select_option(self, option: str) -> None:
         """Change the selected option."""
-        logger.command(f"🍲 Selecting program: {option}")
-        
-        # Find the mode value for the selected option
-        mode_value = None
-        for i, opt in enumerate(self._options):
-            if opt == option:
-                mode_value = self._mode_values[i]
-                break
-        
-        if mode_value is not None:
-            # Set the mode on the device
-            success = await self._device.set_mode(mode_value)
-            if success:
-                logger.success(f"✅ Program set to: {option}")
-                # Update the current option
-                self.async_write_ha_state()
-            else:
-                logger.error(f"❌ Failed to set program: {option}")
-        else:
-            logger.error(f"❌ Unknown program: {option}")
+        if self.select_type == SELECT_TYPE_MODE:
+            # Find the mode ID by name
+            mode_id = None
+            for key, value in MODES.items():
+                if value == option:
+                    mode_id = key
+                    break
+            
+            if mode_id is not None:
+                await self.multicooker.set_mode(mode_id)
+                self.update()

@@ -1,13 +1,19 @@
 {
   "domain": "skycooker",
-  "name": "SkyCooker",
-  "codeowners": ["@kai-zer-ru"],
-  "config_flow": true,
-  "dependencies": ["bluetooth"],
-  "documentation": "https://github.com/kai-zer-ru/skycooker-ha-test-2/blob/master/README.md",
-  "iot_class": "local_polling",
+  "name": "SkyCoocker",
+  "documentation": "https://github.com/kai-zer-ru/skycooker-ha-test-2",
   "issue_tracker": "https://github.com/kai-zer-ru/skycooker-ha-test-2/issues",
-  "requirements": [],
-  "version": "1.0.0",
-  "homeassistant": "2025.12.5"
+  "dependencies": ["bluetooth"],
+  "codeowners": ["@kai-zer-ru"],
+  "requirements": ["bleak==0.20.2", "bleak-retry-connector==2.3.0"],
+  "iot_class": "local_push",
+  "version": "0.0.1",
+  "config_flow": true,
+  "homeassistant": "2025.12.5",
+  "ssid": "skycooker",
+  "hacs": "integration",
+  "render_issue": true,
+  "country": ["RU"],
+  "translation": true,
+  "integration_type": "device"
 }

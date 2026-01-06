@@ -1,41 +1,50 @@
-# Files and directories to ignore for HACS
-# This file should be in the root of your repository
+# Exclude test files from HACS
+**/tests/
 
-# Ignore development files
-tests/
-scripts/
-other_source/
-.idea/
-.vscode/
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
+# Exclude other_source directory
+**/other_source/
 
-# Ignore git files
+# Exclude scripts directory
+**/scripts/
+
+# Exclude git files
 .git/
 .gitignore
 
-# Ignore environment files
-.env
-.env.*
-venv/
+# Exclude IDE files
+.vscode/
+.idea/
 
-# Ignore build files
+# Exclude build files
 build/
 dist/
-*.egg-info/
 
-# Ignore coverage files
+# Exclude node modules
+node_modules/
+
+# Exclude coverage
 .coverage
 htmlcov/
 
-# Ignore IDE files
-*.swp
-*.swo
+# Exclude pytest cache
+.pytest_cache/
 
-# Ignore macOS files
+# Exclude Python cache
+__pycache__/
+*.py[cod]
+
+# Exclude environment files
+.venv/
+venv/
+ENV/
+.env
+.env.local
+
+# Exclude macOS files
 .DS_Store
 
-# Ignore Windows files
-Thumbs.db
+# Exclude swap files
+*.swp
+*.swo
+*.bak
+*.tmp

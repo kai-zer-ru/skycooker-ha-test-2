@@ -1,228 +1,210 @@
-"""
-Sensor platform for SkyCooker integration.
-"""
+"""SkyCoocker sensors."""
+import logging
 
-from __future__ import annotations
+from homeassistant.components.sensor import (SensorDeviceClass, SensorEntity,
+                                              SensorStateClass)
+from homeassistant.const import (CONF_FRIENDLY_NAME, PERCENTAGE, UnitOfTemperature,
+                                  UnitOfTime)
+from homeassistant.helpers.dispatcher import async_dispatcher_connect
+from homeassistant.helpers.entity import EntityCategory
 
-from homeassistant.components.sensor import (
-    SensorEntity,
-    SensorDeviceClass,
-    SensorStateClass,
-)
-from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant
-from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.helpers.update_coordinator import CoordinatorEntity
+from .const import *
 
-from .const import DOMAIN
-from .logger import logger
-from .multicooker import SkyCookerDevice
+_LOGGER = logging.getLogger(__name__)
 
-async def async_setup_entry(
-    hass: HomeAssistant,
-    entry: ConfigEntry,
-    async_add_entities: AddEntitiesCallback,
-) -> None:
-    """Set up SkyCooker sensors."""
-    logger.sensor("🌡️ Setting up SkyCooker sensors")
-    
-    # Get device from hass data
-    device = hass.data[DOMAIN][entry.entry_id]["device"]
-    
-    # Create sensors
-    sensors = [
-        SkyCookerStatusSensor(device),
-        SkyCookerPowerSensor(device),
-        SkyCookerProgramSensor(device),
-        SkyCookerTemperatureSensor(device),
-        SkyCookerTotalTimeSensor(device),
-        SkyCookerRemainingTimeSensor(device),
-        SkyCookerAutoWarmTimeSensor(device),
-        SkyCookerCommandSuccessRateSensor(device),
-        SkyCookerDelayedStartTimeSensor(device),
-    ]
-    
-    async_add_entities(sensors)
-    logger.success("✅ SkyCooker sensors setup complete")
 
-class SkyCookerSensor(CoordinatorEntity, SensorEntity):
-    """Base class for SkyCooker sensors."""
-    
-    def __init__(self, device: SkyCookerDevice):
+SENSOR_TYPE_STATUS = "status"
+SENSOR_TYPE_TEMPERATURE = "temperature"
+SENSOR_TYPE_REMAINING_TIME = "remaining_time"
+SENSOR_TYPE_TOTAL_TIME = "total_time"
+SENSOR_TYPE_AUTO_WARM_TIME = "auto_warm_time"
+SENSOR_TYPE_SUCCESS_RATE = "success_rate"
+SENSOR_TYPE_DELAYED_LAUNCH_TIME = "delayed_launch_time"
+
+
+async def async_setup_entry(hass, entry, async_add_entities):
+    """Set up the SkyCoocker sensors."""
+    async_add_entities([
+        SkyCoockerSensor(hass, entry, SENSOR_TYPE_STATUS),
+        SkyCoockerSensor(hass, entry, SENSOR_TYPE_TEMPERATURE),
+        SkyCoockerSensor(hass, entry, SENSOR_TYPE_REMAINING_TIME),
+        SkyCoockerSensor(hass, entry, SENSOR_TYPE_TOTAL_TIME),
+        SkyCoockerSensor(hass, entry, SENSOR_TYPE_AUTO_WARM_TIME),
+        SkyCoockerSensor(hass, entry, SENSOR_TYPE_SUCCESS_RATE),
+        SkyCoockerSensor(hass, entry, SENSOR_TYPE_DELAYED_LAUNCH_TIME),
+    ])
+
+
+class SkyCoockerSensor(SensorEntity):
+    """Representation of a SkyCoocker sensor."""
+
+    def __init__(self, hass, entry, sensor_type):
         """Initialize the sensor."""
-        super().__init__(device)
-        self._device = device
-        self._attr_device_info = {
-            "identifiers": {(DOMAIN, device.device_address)},
-            "name": device.device_name,
-            "manufacturer": "Redmond",
-            "model": device.device_type,
-        }
-        self._attr_unique_id = f"{device.device_address}_{self._attr_name}"
+        self.hass = hass
+        self.entry = entry
+        self.sensor_type = sensor_type
 
-class SkyCookerStatusSensor(SkyCookerSensor):
-    """Sensor for displaying current status."""
-    
-    def __init__(self, device: SkyCookerDevice):
-        """Initialize the status sensor."""
-        super().__init__(device)
-        self._attr_name = f"{device.device_name} Status"
-        self._attr_native_unit_of_measurement = None
-        self._attr_device_class = SensorDeviceClass.ENUM
-        self._attr_state_class = SensorStateClass.MEASUREMENT
-    
+    async def async_added_to_hass(self):
+        """When entity is added to hass."""
+        self.update()
+        self.async_on_remove(async_dispatcher_connect(self.hass, DISPATCHER_UPDATE, self.update))
+
+    def update(self):
+        """Update the sensor."""
+        self.schedule_update_ha_state()
+
+    @property
+    def multicooker(self):
+        """Get the multicooker connection."""
+        return self.hass.data[DOMAIN][self.entry.entry_id][DATA_CONNECTION]
+
+    @property
+    def unique_id(self):
+        """Return a unique ID."""
+        return f"{self.entry.entry_id}_{self.sensor_type}"
+
+    @property
+    def device_info(self):
+        """Return device info."""
+        return self.hass.data[DOMAIN][DATA_DEVICE_INFO]()
+
+    @property
+    def should_poll(self):
+        """No polling needed."""
+        return False
+
+    @property
+    def assumed_state(self):
+        """Return true if unable to access real state of the entity."""
+        return False
+
+    @property
+    def last_reset(self):
+        """Return last reset."""
+        return None
+
+    @property
+    def name(self):
+        """Return the name of the sensor."""
+        base_name = (FRIENDLY_NAME + " " + self.entry.data.get(CONF_FRIENDLY_NAME, "")).strip()
+        
+        if self.sensor_type == SENSOR_TYPE_STATUS:
+            return f"{base_name} статус"
+        elif self.sensor_type == SENSOR_TYPE_TEMPERATURE:
+            return f"{base_name} температура"
+        elif self.sensor_type == SENSOR_TYPE_REMAINING_TIME:
+            return f"{base_name} оставшееся время"
+        elif self.sensor_type == SENSOR_TYPE_TOTAL_TIME:
+            return f"{base_name} общее время"
+        elif self.sensor_type == SENSOR_TYPE_AUTO_WARM_TIME:
+            return f"{base_name} время автоподогрева"
+        elif self.sensor_type == SENSOR_TYPE_SUCCESS_RATE:
+            return f"{base_name} процент успеха"
+        elif self.sensor_type == SENSOR_TYPE_DELAYED_LAUNCH_TIME:
+            return f"{base_name} время до отложенного запуска"
+        
+        return base_name
+
+    @property
+    def icon(self):
+        """Return the icon."""
+        if self.sensor_type == SENSOR_TYPE_STATUS:
+            return "mdi:information"
+        elif self.sensor_type == SENSOR_TYPE_TEMPERATURE:
+            return "mdi:thermometer"
+        elif self.sensor_type == SENSOR_TYPE_REMAINING_TIME:
+            return "mdi:timer"
+        elif self.sensor_type == SENSOR_TYPE_TOTAL_TIME:
+            return "mdi:clock"
+        elif self.sensor_type == SENSOR_TYPE_AUTO_WARM_TIME:
+            return "mdi:clock-start"
+        elif self.sensor_type == SENSOR_TYPE_SUCCESS_RATE:
+            return "mdi:bluetooth-connect"
+        elif self.sensor_type == SENSOR_TYPE_DELAYED_LAUNCH_TIME:
+            return "mdi:timer-sand"
+        return None
+
+    @property
+    def available(self):
+        """Return if sensor is available."""
+        if not self.multicooker.available:
+            return False
+        
+        if self.sensor_type == SENSOR_TYPE_STATUS:
+            return self.multicooker.status_code is not None
+        elif self.sensor_type == SENSOR_TYPE_TEMPERATURE:
+            return self.multicooker.current_temperature is not None
+        elif self.sensor_type == SENSOR_TYPE_REMAINING_TIME:
+            return self.multicooker.remaining_time is not None
+        elif self.sensor_type == SENSOR_TYPE_TOTAL_TIME:
+            return self.multicooker.total_time is not None
+        elif self.sensor_type == SENSOR_TYPE_AUTO_WARM_TIME:
+            return self.multicooker.auto_warm_enabled is not None
+        elif self.sensor_type == SENSOR_TYPE_SUCCESS_RATE:
+            return True
+        elif self.sensor_type == SENSOR_TYPE_DELAYED_LAUNCH_TIME:
+            return self.multicooker.status_code == STATUS_DELAYED_LAUNCH
+        
+        return False
+
+    @property
+    def entity_category(self):
+        """Return entity category."""
+        if self.sensor_type == SENSOR_TYPE_SUCCESS_RATE:
+            return EntityCategory.DIAGNOSTIC
+        return None
+
+    @property
+    def device_class(self):
+        """Return device class."""
+        if self.sensor_type == SENSOR_TYPE_TEMPERATURE:
+            return SensorDeviceClass.TEMPERATURE
+        elif self.sensor_type in [SENSOR_TYPE_REMAINING_TIME, SENSOR_TYPE_TOTAL_TIME, 
+                                  SENSOR_TYPE_AUTO_WARM_TIME, SENSOR_TYPE_DELAYED_LAUNCH_TIME]:
+            return SensorDeviceClass.DURATION
+        return None
+
+    @property
+    def state_class(self):
+        """Return state class."""
+        if self.sensor_type == SENSOR_TYPE_TEMPERATURE:
+            return SensorStateClass.MEASUREMENT
+        elif self.sensor_type in [SENSOR_TYPE_REMAINING_TIME, SENSOR_TYPE_TOTAL_TIME, 
+                                  SENSOR_TYPE_AUTO_WARM_TIME, SENSOR_TYPE_DELAYED_LAUNCH_TIME]:
+            return SensorStateClass.MEASUREMENT
+        elif self.sensor_type == SENSOR_TYPE_SUCCESS_RATE:
+            return SensorStateClass.MEASUREMENT
+        return None
+
+    @property
+    def native_unit_of_measurement(self):
+        """Return unit of measurement."""
+        if self.sensor_type == SENSOR_TYPE_TEMPERATURE:
+            return UnitOfTemperature.CELSIUS
+        elif self.sensor_type in [SENSOR_TYPE_REMAINING_TIME, SENSOR_TYPE_TOTAL_TIME, 
+                                  SENSOR_TYPE_AUTO_WARM_TIME, SENSOR_TYPE_DELAYED_LAUNCH_TIME]:
+            return UnitOfTime.MINUTES
+        elif self.sensor_type == SENSOR_TYPE_SUCCESS_RATE:
+            return PERCENTAGE
+        return None
+
     @property
     def native_value(self):
         """Return the state of the sensor."""
-        if self._device.status_data:
-            return self._device.status_data.get("status_text", "Unknown")
-        return "Unknown"
-
-class SkyCookerPowerSensor(SkyCookerSensor):
-    """Binary sensor for power state."""
-    
-    def __init__(self, device: SkyCookerDevice):
-        """Initialize the power sensor."""
-        super().__init__(device)
-        self._attr_name = f"{device.device_name} Power"
-        self._attr_native_unit_of_measurement = None
-        self._attr_device_class = SensorDeviceClass.ENUM
-        self._attr_state_class = SensorStateClass.MEASUREMENT
-    
-    @property
-    def native_value(self):
-        """Return the state of the sensor."""
-        if self._device.status_data:
-            status = self._device.status_data.get("status", 0)
-            return "On" if status != 0 else "Off"
-        return "Off"
-
-class SkyCookerProgramSensor(SkyCookerSensor):
-    """Sensor for displaying current program."""
-    
-    def __init__(self, device: SkyCookerDevice):
-        """Initialize the program sensor."""
-        super().__init__(device)
-        self._attr_name = f"{device.device_name} Program"
-        self._attr_native_unit_of_measurement = None
-        self._attr_device_class = SensorDeviceClass.ENUM
-        self._attr_state_class = SensorStateClass.MEASUREMENT
-    
-    @property
-    def native_value(self):
-        """Return the state of the sensor."""
-        if self._device.status_data:
-            return self._device.status_data.get("mode_name", "Unknown")
-        return "Unknown"
-
-class SkyCookerTemperatureSensor(SkyCookerSensor):
-    """Sensor for displaying current temperature."""
-    
-    def __init__(self, device: SkyCookerDevice):
-        """Initialize the temperature sensor."""
-        super().__init__(device)
-        self._attr_name = f"{device.device_name} Temperature"
-        self._attr_native_unit_of_measurement = "°C"
-        self._attr_device_class = SensorDeviceClass.TEMPERATURE
-        self._attr_state_class = SensorStateClass.MEASUREMENT
-    
-    @property
-    def native_value(self):
-        """Return the state of the sensor."""
-        if self._device.status_data:
-            return self._device.status_data.get("temperature", 0)
-        return 0
-
-class SkyCookerTotalTimeSensor(SkyCookerSensor):
-    """Sensor for displaying total program time."""
-    
-    def __init__(self, device: SkyCookerDevice):
-        """Initialize the total time sensor."""
-        super().__init__(device)
-        self._attr_name = f"{device.device_name} Total Time"
-        self._attr_native_unit_of_measurement = "min"
-        self._attr_device_class = SensorDeviceClass.DURATION
-        self._attr_state_class = SensorStateClass.MEASUREMENT
-    
-    @property
-    def native_value(self):
-        """Return the state of the sensor."""
-        if self._device.status_data:
-            return self._device.status_data.get("time_total", 0)
-        return 0
-
-class SkyCookerRemainingTimeSensor(SkyCookerSensor):
-    """Sensor for displaying remaining time."""
-    
-    def __init__(self, device: SkyCookerDevice):
-        """Initialize the remaining time sensor."""
-        super().__init__(device)
-        self._attr_name = f"{device.device_name} Remaining Time"
-        self._attr_native_unit_of_measurement = "min"
-        self._attr_device_class = SensorDeviceClass.DURATION
-        self._attr_state_class = SensorStateClass.MEASUREMENT
-    
-    @property
-    def native_value(self):
-        """Return the state of the sensor."""
-        if self._device.status_data:
-            return self._device.status_data.get("remaining_time_total", 0)
-        return 0
-
-class SkyCookerAutoWarmTimeSensor(SkyCookerSensor):
-    """Sensor for displaying auto warm time."""
-    
-    def __init__(self, device: SkyCookerDevice):
-        """Initialize the auto warm time sensor."""
-        super().__init__(device)
-        self._attr_name = f"{device.device_name} Auto Warm Time"
-        self._attr_native_unit_of_measurement = "min"
-        self._attr_device_class = SensorDeviceClass.DURATION
-        self._attr_state_class = SensorStateClass.MEASUREMENT
-    
-    @property
-    def native_value(self):
-        """Return the state of the sensor."""
-        if self._device.status_data:
-            # Auto warm time is shown in remaining_time_total when in auto warm mode
-            status = self._device.status_data.get("status", 0)
-            if status == self._device.constants["STATUS_AUTO_WARM"]:
-                return self._device.status_data.get("remaining_time_total", 0)
-        return 0
-
-class SkyCookerCommandSuccessRateSensor(SkyCookerSensor):
-    """Sensor for displaying command success rate."""
-    
-    def __init__(self, device: SkyCookerDevice):
-        """Initialize the command success rate sensor."""
-        super().__init__(device)
-        self._attr_name = f"{device.device_name} Command Success Rate"
-        self._attr_native_unit_of_measurement = "%"
-        self._attr_device_class = SensorDeviceClass.ENUM
-        self._attr_state_class = SensorStateClass.MEASUREMENT
-    
-    @property
-    def native_value(self):
-        """Return the state of the sensor."""
-        return round(self._device.command_success_rate, 1)
-
-class SkyCookerDelayedStartTimeSensor(SkyCookerSensor):
-    """Sensor for displaying delayed start time."""
-    
-    def __init__(self, device: SkyCookerDevice):
-        """Initialize the delayed start time sensor."""
-        super().__init__(device)
-        self._attr_name = f"{device.device_name} Delayed Start Time"
-        self._attr_native_unit_of_measurement = "min"
-        self._attr_device_class = SensorDeviceClass.DURATION
-        self._attr_state_class = SensorStateClass.MEASUREMENT
-    
-    @property
-    def native_value(self):
-        """Return the state of the sensor."""
-        if self._device.status_data:
-            # Delayed start time is shown in remaining_time_total when in delayed launch mode
-            status = self._device.status_data.get("status", 0)
-            if status == self._device.constants["STATUS_DELAYED_LAUNCH"]:
-                return self._device.status_data.get("remaining_time_total", 0)
-        return 0
+        if self.sensor_type == SENSOR_TYPE_STATUS:
+            status_code = self.multicooker.status_code
+            return STATUS_CODES.get(status_code, f"Неизвестно ({status_code})")
+        elif self.sensor_type == SENSOR_TYPE_TEMPERATURE:
+            return self.multicooker.current_temperature
+        elif self.sensor_type == SENSOR_TYPE_REMAINING_TIME:
+            return self.multicooker.remaining_time
+        elif self.sensor_type == SENSOR_TYPE_TOTAL_TIME:
+            return self.multicooker.total_time
+        elif self.sensor_type == SENSOR_TYPE_AUTO_WARM_TIME:
+            return self.multicooker.remaining_time if self.multicooker.status_code == STATUS_AUTO_WARM else 0
+        elif self.sensor_type == SENSOR_TYPE_SUCCESS_RATE:
+            return self.multicooker.success_rate
+        elif self.sensor_type == SENSOR_TYPE_DELAYED_LAUNCH_TIME:
+            return self.multicooker.remaining_time if self.multicooker.status_code == STATUS_DELAYED_LAUNCH else 0
+        
+        return None

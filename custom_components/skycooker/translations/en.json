@@ -1,28 +1,63 @@
 {
-  "title": "SkyCooker",
+  "title": "SkyCoocker",
   "config": {
     "step": {
-      "user": {
-        "title": "SkyCooker Setup",
-        "description": "Select your multicooker model:"
+      "scan": {
+        "title": "Scan for multicooker",
+        "description": "Select your Redmond multicooker from the list of discovered devices."
       },
-      "discovery": {
-        "title": "Device Discovery",
-        "description": "Select your multicooker from the list of discovered devices:"
+      "connect": {
+        "title": "Connecting",
+        "description": "Please wait while connecting to the multicooker..."
       },
-      "confirm": {
-        "title": "Confirm Device",
-        "description": "Please put your {device_name} in pairing mode and confirm to continue."
+      "init": {
+        "title": "Setup",
+        "description": "Configure connection settings."
       }
     },
     "error": {
-      "bluetooth_error": "Bluetooth discovery error",
-      "discovery_error": "Device discovery error",
-      "no_devices": "No SkyCooker devices found",
-      "no_devices_found": "No compatible devices found. Please make sure your multicooker is powered on and in discoverable mode."
+      "no_bluetooth": "Bluetooth not available",
+      "device_not_found": "Multicooker not found",
+      "unknown_model": "Unknown multicooker model",
+      "already_configured": "Multicooker already configured",
+      "cant_connect": "Connection failed",
+      "cant_auth": "Authentication failed"
+    },
+    "data": {
+      "persistent_connection": "Persistent connection",
+      "scan_interval": "Scan interval (seconds)"
     }
   },
-  "device_type": "Device Type",
-  "device_address": "Device Address",
-  "device_name": "Device Name"
+  "entity": {
+    "sensor": {
+      "status": "Status",
+      "temperature": "Temperature",
+      "remaining_time": "Remaining time",
+      "total_time": "Total time",
+      "auto_warm_time": "Auto warm time",
+      "success_rate": "Success rate",
+      "delayed_launch_time": "Time until delayed launch"
+    },
+    "switch": {
+      "power": "Power"
+    },
+    "select": {
+      "mode": "Mode"
+    },
+    "button": {
+      "start": "Start",
+      "stop": "Stop"
+    }
+  },
+  "state": {
+    "status": {
+      "off": "Off",
+      "wait": "Waiting",
+      "delayed_launch": "Delayed launch",
+      "warming": "Warming",
+      "cooking": "Cooking",
+      "auto_warm": "Auto warm",
+      "full_off": "Fully off"
+    }
+  }
 }

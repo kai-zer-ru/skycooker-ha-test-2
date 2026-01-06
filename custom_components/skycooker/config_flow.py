@@ -1,147 +1,165 @@
-"""
-Config flow for SkyCooker integration.
-"""
+"""Config flow for SkyCoocker integration."""
 
-import asyncio
-from typing import Any
-from bleak import BleakScanner, BleakError
+import logging
+import secrets
+import traceback
 
-from homeassistant import config_entries
-from homeassistant.data_entry_flow import FlowResult
-from homeassistant.helpers.selector import selector
-
-from .const import DOMAIN, SUPPORTED_DEVICES, CONF_DEVICE_TYPE, CONF_DEVICE_ADDRESS, CONF_DEVICE_NAME
-from .logger import logger
-
-class SkyCookerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
-    """Handle a config flow for SkyCooker."""
-    
-    VERSION = 1
-    
-    def __init__(self):
-        """Initialize the config flow."""
-        self._discovered_devices = []
-        self._selected_device = None
-        self._device_type = None
-        self._device_address = None
-        self._device_name = None
-    
-    async def async_step_user(self, user_input: dict[str, Any] | None = None) -> FlowResult:
-        """Обработка начального шага."""
-        logger.info("🔌 Запуск настройки SkyCooker")
-        
-        if user_input is not None:
-            # Пользователь выбрал тип устройства
-            self._device_type = user_input[CONF_DEVICE_TYPE]
-            return await self.async_step_discovery()
-        
-        # Показываем выбор типа устройства
-        return self.async_show_form(
-            step_id="user",
-            data_schema=vol.Schema({
-                vol.Required(CONF_DEVICE_TYPE): selector({
-                    "select": {
-                        "options": SUPPORTED_DEVICES,
-                        "mode": "dropdown",
-                        "translation_key": "device_type"
-                    }
-                })
-            }),
-            description_placeholders={"devices": ", ".join(SUPPORTED_DEVICES)}
-        )
-    
-    async def async_step_discovery(self, user_input: dict[str, Any] | None = None) -> FlowResult:
-        """Поиск доступных Bluetooth устройств."""
-        logger.bluetooth("📡 Поиск Bluetooth устройств...")
-        
-        if user_input is not None:
-            # Пользователь выбрал устройство
-            self._device_address = user_input[CONF_DEVICE_ADDRESS]
-            # Находим имя устройства по адресу
-            for device in self._discovered_devices:
-                if device["address"] == self._device_address:
-                    self._device_name = device["name"]
-                    break
-            
-            # Проверяем, не настроено ли устройство уже
-            await self.async_set_unique_id(self._device_address)
-            self._abort_if_unique_id_configured()
-            
-            return await self.async_step_confirm()
-        
-        # Scan for devices
-        try:
-            devices = await BleakScanner.discover(timeout=10.0)
-            self._discovered_devices = []
-            
-            for device in devices:
-                if device.name:
-                    # Используем ту же логику что и в оригинальном сканере - ищем "RMC" в имени устройства
-                    name_lower = device.name.lower()
-                    if "rmc" in name_lower:
-                        self._discovered_devices.append({
-                            "address": device.address,
-                            "name": device.name
-                        })
-            
-            if not self._discovered_devices:
-                logger.warning("⚠️ Устройства SkyCooker не найдены")
-                return self.async_abort(reason="no_devices_found")
-            
-            # Показываем выбор устройства
-            return self.async_show_form(
-                step_id="discovery",
-                data_schema=vol.Schema({
-                    vol.Required(CONF_DEVICE_ADDRESS): selector({
-                        "select": {
-                            "options": [
-                                {
-                                    "value": device["address"],
-                                    "label": f"{device['name']} ({device['address']})"
-                                } for device in self._discovered_devices
-                            ],
-                            "mode": "dropdown",
-                            "translation_key": "device_address"
-                        }
-                    })
-                }),
-                description_placeholders={"devices": len(self._discovered_devices)}
-            )
-            
-        except BleakError as e:
-            logger.error(f"❌ Ошибка поиска Bluetooth: {e}")
-            return self.async_abort(reason="bluetooth_error")
-        except Exception as e:
-            logger.error(f"❌ Неожиданная ошибка поиска: {e}")
-            return self.async_abort(reason="discovery_error")
-    
-    async def async_step_confirm(self, user_input: dict[str, Any] | None = None) -> FlowResult:
-        """Подтверждение выбора устройства."""
-        logger.info("ℹ️ Пожалуйста, переведите ваше устройство в режим сопряжения")
-        
-        if user_input is not None:
-            # Пользователь подтвердил, создаем запись конфигурации
-            return self.async_create_entry(
-                title=f"SkyCooker {self._device_type}",
-                data={
-                    CONF_DEVICE_TYPE: self._device_type,
-                    CONF_DEVICE_ADDRESS: self._device_address,
-                    CONF_DEVICE_NAME: self._device_name
-                }
-            )
-        
-        return self.async_show_form(
-            step_id="confirm",
-            description_placeholders={
-                "device_name": self._device_name,
-                "device_address": self._device_address
-            }
-        )
-    
-    async def async_step_reconfigure(self, user_input: dict[str, Any] | None = None) -> FlowResult:
-        """Обработка переконфигурации."""
-        logger.info("🔧 Переконфигурация SkyCooker")
-        return await self.async_step_user(user_input)
-
-from homeassistant.helpers import config_validation as cv
 import voluptuous as vol
+
+import homeassistant.helpers.config_validation as cv
+from homeassistant import config_entries
+from homeassistant.components import bluetooth
+from homeassistant.const import (CONF_DEVICE, CONF_FRIENDLY_NAME, CONF_MAC,
+                                  CONF_PASSWORD, CONF_SCAN_INTERVAL)
+from homeassistant.core import callback
+
+from .const import *
+from .multicooker_connection import MulticookerConnection
+
+_LOGGER = logging.getLogger(__name__)
+
+
+class SkyCoockerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
+    """Handle a config flow for SkyCoocker."""
+
+    VERSION = 1
+
+    @staticmethod
+    @callback
+    def async_get_options_flow(entry):
+        """Get the options flow for this handler."""
+        return SkyCoockerConfigFlow(entry=entry)
+
+    def __init__(self, entry = None):
+        """Initialize a new SkyCoockerConfigFlow."""
+        self.entry = entry
+        self.config = {} if not entry else dict(entry.data.items())
+
+    async def init_mac(self, mac):
+        """Initialize MAC address."""
+        mac = mac.upper()
+        mac = mac.replace(':', '').replace('-', '').replace(' ', '')
+        mac = ':'.join([mac[p*2:(p*2)+2] for p in range(6)])
+        id = f"{DOMAIN}-{mac}"
+        if id in self._async_current_ids():
+            return False
+        await self.async_set_unique_id(id)
+        self.config[CONF_MAC] = mac
+        self.config[CONF_PASSWORD] = list(secrets.token_bytes(8))
+        return True
+
+    async def async_step_user(self, user_input=None):
+        """Handle the user step."""
+        return await self.async_step_scan()
+
+    async def async_step_scan(self, user_input=None):
+        """Handle the scan step."""
+        errors = {}
+        if user_input is not None:
+            spl = user_input[CONF_MAC].split(' ', maxsplit=1)
+            mac = spl[0]
+            name = spl[1][1:-1] if len(spl) >= 2 else None
+            
+            # Check if model is supported
+            if name and name not in SUPPORTED_MODELS:
+                return self.async_abort(reason='unknown_model')
+            
+            if not await self.init_mac(mac):
+                return self.async_abort(reason='already_configured')
+            
+            if name: self.config[CONF_FRIENDLY_NAME] = name
+            
+            return await self.async_step_connect()
+
+        try:
+            try:
+                scanner = bluetooth.async_get_scanner(self.hass)
+                for device in scanner.discovered_devices:
+                    _LOGGER.debug(f"🔍 Найдено устройство: {device.address} - {device.name}")
+            except:
+                _LOGGER.error("🚫 Bluetooth интеграция не работает")
+                return self.async_abort(reason='no_bluetooth')
+            
+            devices_filtered = [device for device in scanner.discovered_devices 
+                              if device.name and (device.name.startswith("RMC") or device.name.startswith("RFS"))]
+            
+            if len(devices_filtered) == 0:
+                return self.async_abort(reason='device_not_found')
+            
+            mac_list = [f"{r.address} ({r.name})" for r in devices_filtered]
+            schema = vol.Schema({
+                vol.Required(CONF_MAC): vol.In(mac_list)
+            })
+        except Exception:
+            _LOGGER.error(traceback.format_exc())
+            return self.async_abort(reason='unknown')
+        
+        return self.async_show_form(
+            step_id="scan",
+            errors=errors,
+            data_schema=schema
+        )
+
+    async def async_step_connect(self, user_input=None):
+        """Handle the connect step."""
+        errors = {}
+        if user_input is not None:
+            multicooker = MulticookerConnection(
+                mac=self.config[CONF_MAC],
+                key=self.config[CONF_PASSWORD],
+                persistent=True,
+                adapter=self.config.get(CONF_DEVICE, None),
+                hass=self.hass,
+                model=self.config.get(CONF_FRIENDLY_NAME, None)
+            )
+            tries = 3
+            while tries > 0 and not multicooker._last_connect_ok:
+                await multicooker.update()
+                tries = tries - 1
+
+            connect_ok = multicooker._last_connect_ok
+            auth_ok = multicooker._last_auth_ok
+            multicooker.stop()
+
+            if not connect_ok:
+                errors["base"] = "cant_connect"
+            elif not auth_ok:
+                errors["base"] = "cant_auth"
+            else:
+                return await self.async_step_init()
+
+        return self.async_show_form(
+            step_id="connect",
+            errors=errors,
+            data_schema=vol.Schema({})
+        )
+
+    async def async_step_init(self, user_input=None):
+        """Handle the options step."""
+        errors = {}
+        if user_input is not None:
+            self.config[CONF_SCAN_INTERVAL] = user_input[CONF_SCAN_INTERVAL]
+            self.config[CONF_PERSISTENT_CONNECTION] = user_input[CONF_PERSISTENT_CONNECTION]
+            fname = f"{self.config.get(CONF_FRIENDLY_NAME, FRIENDLY_NAME)} ({self.config[CONF_MAC]})"
+            
+            if self.entry:
+                self.hass.config_entries.async_update_entry(self.entry, data=self.config)
+            
+            _LOGGER.info("✅ Конфигурация сохранена")
+            return self.async_create_entry(
+                title=fname, data=self.config if not self.entry else {}
+            )
+
+        schema = vol.Schema({
+            vol.Required(CONF_PERSISTENT_CONNECTION, 
+                        default=self.config.get(CONF_PERSISTENT_CONNECTION, DEFAULT_PERSISTENT_CONNECTION)): cv.boolean,
+            vol.Required(CONF_SCAN_INTERVAL, 
+                        default=self.config.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)): 
+                vol.All(vol.Coerce(int), vol.Range(min=1, max=60)),
+        })
+
+        return self.async_show_form(
+            step_id="init",
+            errors=errors,
+            data_schema=schema
+        )
