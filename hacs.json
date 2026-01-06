@@ -4,5 +4,17 @@
   "render_issue": true,
   "render_license": true,
   "render_translation": true,
-  "render_integration": true
+  "render_integration": true,
+  "icon": "mdi:pot-mix",
+  "category": "Integration",
+  "keywords": ["redmond", "multicooker", "bluetooth", "cooking"],
+  "homeassistant": "2025.12.5",
+  "persistent_directory": false,
+  "iot_class": "local_push",
+  "config_flow": true,
+  "requirements": [],
+  "domain": "skycooker",
+  "country": ["RU", "UA", "KZ", "BY"],
+  "repository": "https://github.com/kai-zer-ru/skycoocker-ha",
+  "documentation": "https://github.com/kai-zer-ru/skycoocker-ha/blob/master/README.md"
 }
