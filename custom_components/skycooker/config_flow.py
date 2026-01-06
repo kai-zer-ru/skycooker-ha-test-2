@@ -120,7 +120,7 @@ class SkyCoockerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
             connect_ok = multicooker._last_connect_ok
             auth_ok = multicooker._last_auth_ok
-            multicooker.stop()
+            await multicooker.stop_connection()
 
             if not connect_ok:
                 errors["base"] = "cant_connect"
