@@ -235,7 +235,7 @@ logger:
 
 ## 🎨 Пример карточки для Lovelace
 
-Создайте красивую карточку для управления мультиваркой с использованием [card-mod](https://github.com/thomasloven/lovelace-card-mod):
+### Полноценный пример с card-mod (полный view)
 
 ```yaml
 views:
@@ -435,22 +435,105 @@ views:
                 }
 ```
 
+### Простая карточка для вставки в существующий view
+
+```yaml
+- type: vertical-stack
+  cards:
+    # Основная информация
+    - type: entities
+      title: Мультиварка
+      show_header_toggle: false
+      entities:
+        - entity: switch.skycoocker_power
+          name: Питание
+          icon: mdi:power
+        - entity: sensor.skycoocker_status
+          name: Статус
+          icon: mdi:information
+        - entity: sensor.skycoocker_temperature
+          name: Температура
+          icon: mdi:thermometer
+        - entity: sensor.skycoocker_remaining_time
+          name: Оставшееся время
+          icon: mdi:timer
+
+    # Быстрые кнопки управления
+    - type: horizontal-stack
+      cards:
+        - type: button
+          tap_action:
+            action: call-service
+            service: button.press
+            target:
+              entity_id: button.skycoocker_start
+          name: Старт
+          icon: mdi:play
+          show_name: false
+          show_icon: true
+
+        - type: button
+          tap_action:
+            action: call-service
+            service: button.press
+            target:
+              entity_id: button.skycoocker_stop
+          name: Стоп
+          icon: mdi:stop
+          show_name: false
+          show_icon: true
+
+        - type: button
+          tap_action:
+            action: more-info
+            target: {}
+          entity: select.skycoocker_mode
+          name: Режим
+          icon: mdi:tune
+          show_name: false
+          show_icon: true
+```
+
+### Карточка с custom:button-card
+
+```yaml
+- type: custom:button-card
+  entity: select.skycoocker_mode
+  name: Мультиварка
+  icon: mdi:pot-mix
+  styles:
+    card:
+      - width: 300px
+      - height: 200px
+    grid:
+      - grid-template-areas: '"i n" "i s"'
+      - grid-template-columns: 1fr 1fr
+  custom_fields:
+    buttons:
+      card:
+        type: custom:button-card
+        entity: script.start_multicooker_milk_porridge
+        name: Молочная каша
+        icon: mdi:bowl-mix
+        styles:
+          card:
+            - width: 100px
+            - height: 100px
+```
+
 ### Минимальная карточка (без card-mod)
 
 ```yaml
-views:
-  - title: Кухня
-    cards:
-      - type: entities
-        title: Мультиварка
-        entities:
-          - switch.skycoocker_power
-          - sensor.skycoocker_status
-          - sensor.skycoocker_temperature
-          - sensor.skycoocker_remaining_time
-          - select.skycoocker_mode
-          - button.skycoocker_start
-          - button.skycoocker_stop
+- type: entities
+  title: Мультиварка
+  entities:
+    - switch.skycoocker_power
+    - sensor.skycoocker_status
+    - sensor.skycoocker_temperature
+    - sensor.skycoocker_remaining_time
+    - select.skycoocker_mode
+    - button.skycoocker_start
+    - button.skycoocker_stop
 ```
 
 ### Советы по настройке
@@ -468,6 +551,233 @@ views:
    ```
 
 3. **Настройте тему**: Для лучшего отображения используйте темную тему или настройте цвета под ваш интерьер.
+
+## 🤖 Примеры интеграции
+
+### Скрипты для быстрого запуска
+
+Создайте скрипты для часто используемых режимов:
+
+```yaml
+# configuration.yaml
+script:
+  # Запуск в режиме "Молочная каша"
+  start_milk_porridge:
+    alias: "Молочная каша"
+    icon: mdi:bowl-mix
+    sequence:
+      - service: select.select_option
+        target:
+          entity_id: select.skycoocker_mode
+        data:
+          option: "Молочная каша"
+      - delay: 1
+      - service: button.press
+        target:
+          entity_id: button.skycoocker_start
+
+  # Запуск в режиме "Суп"
+  start_soup:
+    alias: "Суп"
+    icon: mdi:pot-mix
+    sequence:
+      - service: select.select_option
+        target:
+          entity_id: select.skycoocker_mode
+        data:
+          option: "Суп"
+      - delay: 1
+      - service: button.press
+        target:
+          entity_id: button.skycoocker_start
+
+  # Запуск в режиме "Тушение"
+  start_stew:
+    alias: "Тушение"
+    icon: mdi:pot-steam
+    sequence:
+      - service: select.select_option
+        target:
+          entity_id: select.skycoocker_mode
+        data:
+          option: "Тушение"
+      - delay: 1
+      - service: button.press
+        target:
+          entity_id: button.skycoocker_start
+```
+
+### Шаблонные сенсоры
+
+Создайте объединенный сенсор для отображения полного статуса:
+
+```yaml
+# configuration.yaml
+template:
+  - sensor:
+      - name: "Мультиварка - Полный статус"
+        state: >-
+          {% if is_state('switch.skycoocker_power', 'on') %}
+            Включена: {{ states('sensor.skycoocker_status') }},
+            Температура: {{ states('sensor.skycoocker_temperature') }}°C,
+            Осталось: {{ states('sensor.skycoocker_remaining_time') }} мин
+          {% else %}
+            Выключена
+          {% endif %}
+        icon: mdi:pot-mix
+```
+
+### Быстрый выбор режима с input_select
+
+```yaml
+# configuration.yaml
+input_select:
+  multicooker_preset:
+    name: "Быстрый выбор режима"
+    options:
+      - "Молочная каша"
+      - "Суп"
+      - "Тушение"
+      - "Выпечка"
+    initial: "Молочная каша"
+
+automation:
+  - alias: "Запуск мультиварки по выбору"
+    trigger:
+      platform: state
+      entity_id: input_select.multicooker_preset
+    action:
+      - service: select.select_option
+        target:
+          entity_id: select.skycoocker_mode
+        data:
+          option: "{{ trigger.to_state.state }}"
+      - delay: 1
+      - service: button.press
+        target:
+          entity_id: button.skycoocker_start
+```
+
+### Интеграция с Yandex.Intents
+
+Для голосового управления через Яндекс Станцию:
+
+```yaml
+# configuration.yaml
+yandex_intents:
+  - intent: "Запустить мультиварку в режиме {режим}"
+    action:
+      - service: select.select_option
+        target:
+          entity_id: select.skycoocker_mode
+        data:
+          option: "{{ режим }}"
+      - delay: 1
+      - service: button.press
+        target:
+          entity_id: button.skycoocker_start
+      - service: notify.mobile_app
+        data:
+          message: "Мультиварка запущена в режиме {{ режим }}"
+          title: "Мультиварка"
+
+  - intent: "Выключить мультиварку"
+    action:
+      - service: button.press
+        target:
+          entity_id: button.skycoocker_stop
+      - service: notify.mobile_app
+        data:
+          message: "Мультиварка выключена"
+          title: "Мультиварка"
+
+  - intent: "Какой статус мультиварки"
+    action:
+      - service: notify.mobile_app
+        data:
+          message: >
+            {% if is_state('switch.skycoocker_power', 'on') %}
+              Мультиварка включена. Статус: {{ states('sensor.skycoocker_status') }}.
+              Температура: {{ states('sensor.skycoocker_temperature') }}°C.
+              Осталось: {{ states('sensor.skycoocker_remaining_time') }} минут.
+            {% else %}
+              Мультиварка выключена.
+            {% endif %}
+          title: "Статус мультиварки"
+```
+
+**Примечание**: Для работы Yandex.Intents требуется установленная интеграция [ha-yandex-station-intents](https://github.com/dext0r/ha-yandex-station-intents).
+
+### Автоматизации
+
+Примеры автоматизаций для удобного управления:
+
+```yaml
+# Автоматический запуск по расписанию
+alias: "Утренняя каша в будни"
+trigger:
+  - platform: time
+    at: "07:00:00"
+  - platform: state
+    entity_id: binary_sensor.workday_sensor
+    to: "on"
+action:
+  - service: script.start_milk_porridge
+  - service: notify.mobile_app
+    data:
+      message: "Мультиварка запущена в режиме Молочная каша 🍲"
+
+# Уведомление о завершении готовки
+alias: "Готовка завершена"
+trigger:
+  - platform: state
+    entity_id: sensor.skycoocker_status
+    to: "Автоподогрев"
+action:
+  - service: notify.mobile_app
+    data:
+      message: "Готовка завершена! Вкусной каши! 🍲"
+      title: "Мультиварка"
+
+# Автоматическое выключение при отсутствии дома
+alias: "Выключить мультиварку если никого нет дома"
+trigger:
+  - platform: state
+    entity_id: person.all
+    to: "not_home"
+    for: "00:30:00"
+condition:
+  - condition: state
+    entity_id: switch.skycoocker_power
+    state: "on"
+action:
+  - service: button.press
+    target:
+      entity_id: button.skycoocker_stop
+  - service: notify.mobile_app
+    data:
+      message: "Мультиварка выключена, так как никого нет дома"
+      title: "Безопасность"
+```
+
+### Интеграция с Google Assistant / Alexa
+
+Добавьте скрипты в `configuration.yaml` для голосового управления:
+
+```yaml
+# configuration.yaml
+google_assistant:
+  project_id: ваш-project-id
+  service_account: !include google_assistant_service_account.json
+  report_state: true
+  exposed_domains:
+    - script
+    - switch
+
+# Теперь можно сказать:
+# "Окей Google, запусти мультиварку в режиме суп"
+# "Алекса, выключи мультиварку"
+```
 
 ## 🔮 Планы на будущее
 

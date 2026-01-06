@@ -129,7 +129,7 @@ class SkyCoockerSensor(SensorEntity):
         """Return if sensor is available."""
         if not self.multicooker.available:
             return False
-        
+         
         if self.sensor_type == SENSOR_TYPE_STATUS:
             return self.multicooker.status_code is not None
         elif self.sensor_type == SENSOR_TYPE_TEMPERATURE:
@@ -143,8 +143,9 @@ class SkyCoockerSensor(SensorEntity):
         elif self.sensor_type == SENSOR_TYPE_SUCCESS_RATE:
             return True
         elif self.sensor_type == SENSOR_TYPE_DELAYED_LAUNCH_TIME:
-            return self.multicooker.status_code == STATUS_DELAYED_LAUNCH
-        
+            # Always available, returns 0 when not in delayed launch mode
+            return True
+         
         return False
 
     @property
