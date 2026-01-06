@@ -463,6 +463,14 @@ class MulticookerConnection:
                 status_text = get_model_constant(self.model, "status", status) or STATUS_CODES.get(status, f"Неизвестно ({status})")
                 _LOGGER.debug(f"📊 Статус устройства: {status_text}")
                 
+                # When device is off, set default values
+                if status == STATUS_OFF or status_text == "Выключена":
+                    temperature = 0
+                    hours = 0
+                    minutes = 0
+                    remaining_hours = 0
+                    remaining_minutes = 0
+                
                 return {
                     'mode': mode,
                     'temperature': temperature,
