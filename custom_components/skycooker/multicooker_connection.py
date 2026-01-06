@@ -193,7 +193,30 @@ class MulticookerConnection:
                 raise BleakError("Notification characteristic not found")
           
         except BleakError as e:
+            error_str = str(e)
             _LOGGER.error(f"🚫 Ошибка Bluetooth: {e}")
+            
+            # More specific error handling for common Bluetooth issues
+            if "connection slots" in error_str.lower() or "out of connection slots" in error_str.lower():
+                _LOGGER.error("💡 Это может означать, что:")
+                _LOGGER.error("   1. Bluetooth адаптер не настроен в Home Assistant")
+                _LOGGER.error("   2. Bluetooth адаптер не подключен к системе")
+                _LOGGER.error("   3. Нужно перезагрузить Bluetooth адаптер")
+                _LOGGER.error("   4. Нужно добавить Bluetooth прокси (https://esphome.github.io/bluetooth-proxies/)")
+                _LOGGER.error("   5. Проверьте, что мультиварка находится в режиме сопряжения")
+            elif "not found" in error_str.lower():
+                _LOGGER.error("💡 Устройство не найдено. Проверьте:")
+                _LOGGER.error("   1. MAC адрес устройства правильный")
+                _LOGGER.error("   2. Устройство включено и находится рядом")
+                _LOGGER.error("   3. Устройство находится в режиме сопряжения")
+                _LOGGER.error("   4. Bluetooth адаптер работает и обнаружен системой")
+            elif "backend" in error_str.lower() or "proxy" in error_str.lower():
+                _LOGGER.error("💡 Проблема с Bluetooth бэкендом. Проверьте:")
+                _LOGGER.error("   1. Bluetooth интеграция включена в Home Assistant")
+                _LOGGER.error("   2. Bluetooth адаптер правильно настроен")
+                _LOGGER.error("   3. У вас есть хотя бы один работающий Bluetooth прокси")
+                _LOGGER.error("   4. Проверьте логи Home Assistant на ошибки Bluetooth")
+            
             await self._disconnect()
             raise
         except Exception as e:
@@ -350,13 +373,21 @@ class MulticookerConnection:
                 await self._connect()
                 self._last_connect_ok = True
             except Exception as ex:
+                error_str = str(ex).lower()
                 # Проверяем, связано ли это с нехваткой слотов соединения
-                if "connection slots" in str(ex).lower() or "out of connection slots" in str(ex).lower():
+                if "connection slots" in error_str or "out of connection slots" in error_str:
                     _LOGGER.error("🚫 Bluetooth адаптер исчерпал лимит соединений. Попробуйте:")
                     _LOGGER.error("   1. Перезагрузите Bluetooth адаптер")
                     _LOGGER.error("   2. Уменьшите количество активных Bluetooth устройств")
                     _LOGGER.error("   3. Используйте дополнительный Bluetooth прокси")
                     _LOGGER.error("   4. Проверьте, что мультиварка находится в режиме сопряжения")
+                elif "backend" in error_str or "proxy" in error_str or "not found" in error_str:
+                    _LOGGER.error("🚫 Проблема с Bluetooth интеграцией. Проверьте:")
+                    _LOGGER.error("   1. Bluetooth интеграция включена в Home Assistant")
+                    _LOGGER.error("   2. Bluetooth адаптер правильно настроен и подключен")
+                    _LOGGER.error("   3. У вас есть работающий Bluetooth прокси")
+                    _LOGGER.error("   4. Проверьте логи Home Assistant на ошибки Bluetooth")
+                    _LOGGER.error("   5. MAC адрес устройства правильный: %s", self._mac)
                 else:
                     _LOGGER.error(f"🚫 Ошибка подключения: {ex}")
                 await self.disconnect()
@@ -366,6 +397,11 @@ class MulticookerConnection:
             self._last_auth_ok = self._auth_ok = await self.auth()
             if not self._auth_ok:
                 _LOGGER.error("🚫 Ошибка аутентификации. Нужно включить режим сопряжения на мультиварке.")
+                _LOGGER.error("💡 Убедитесь, что:")
+                _LOGGER.error("   1. Мультиварка включена")
+                _LOGGER.error("   2. Мультиварка находится в режиме сопряжения")
+                _LOGGER.error("   3. Ключ аутентификации правильный")
+                _LOGGER.error("   4. Устройство находится рядом с адаптером")
                 raise AuthError("Ошибка аутентификации")
             _LOGGER.debug("✅ Аутентификация успешна")
 
