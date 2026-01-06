@@ -1,14 +1,25 @@
-"""Multicooker connection for SkyCoocker."""
+#!/usr/local/bin/python3
+# coding: utf-8
+
 import asyncio
 import logging
 import traceback
 from time import monotonic
 
+from bleak import BleakClient, BleakScanner
+from bleak.exc import BleakError
 from bleak_retry_connector import establish_connection, BleakClientWithServiceCache
 
 from homeassistant.components import bluetooth
 
 from .const import *
+
+_LOGGER = logging.getLogger(__name__)
+
+# Стандартные UUID для R4S устройств (резервные)
+DEFAULT_SERVICE_UUID = "6e400001-b5a3-f393-e0a9-e50e24dcca9e"
+DEFAULT_NOTIFY_UUID = "6e400003-b5a3-f393-e0a9-e50e24dcca9e"
+DEFAULT_WRITE_UUID = "6e400002-b5a3-f393-e0a9-e50e24dcca9e"
 
 
 def get_model_constant(model_name, constant_type, key):
@@ -28,8 +39,6 @@ def get_model_constant(model_name, constant_type, key):
         return model_config["status_codes"].get(key)
     
     raise ValueError(f"Unknown constant type: {constant_type}")
-
-_LOGGER = logging.getLogger(__name__)
 
 
 class MulticookerConnection:
@@ -60,17 +69,22 @@ class MulticookerConnection:
         self._last_data = None
         self.model = model
         
+        # Динамически определённые UUID
+        self._service_uuid = None
+        self._notify_uuid = None
+        self._write_uuid = None
+        
         # Get UUIDs for the specific model
         if model and model in SUPPORTED_MODELS:
             model_config = SUPPORTED_MODELS[model]
-            self.UUID_SERVICE = model_config["uuid_service"]
-            self.UUID_TX = model_config["uuid_tx"]
-            self.UUID_RX = model_config["uuid_rx"]
+            self._service_uuid = model_config["uuid_service"]
+            self._write_uuid = model_config["uuid_tx"]
+            self._notify_uuid = model_config["uuid_rx"]
         else:
             # Default to RMC-M40S
-            self.UUID_SERVICE = "6e400001-b5a3-f393-e0a9-e50e24dcca9e"
-            self.UUID_TX = "6e400002-b5a3-f393-e0a9-e50e24dcca9e"
-            self.UUID_RX = "6e400003-b5a3-f393-e0a9-e50e24dcca9e"
+            self._service_uuid = DEFAULT_SERVICE_UUID
+            self._write_uuid = DEFAULT_WRITE_UUID
+            self._notify_uuid = DEFAULT_NOTIFY_UUID
 
     async def command(self, command, params=[]):
         """Send a command to the multicooker."""
@@ -78,11 +92,16 @@ class MulticookerConnection:
             raise DisposedError()
         if not self._client or not self._client.is_connected:
             raise IOError("🔌 Не подключено")
+        
         self._iter = (self._iter + 1) % 256
         _LOGGER.debug(f"📤 Отправка команды {command:02x}, данные: [{' '.join([f'{c:02x}' for c in params])}]")
+        
+        # Формируем пакет как в рабочей версии: [0x55, iter, command, data..., 0xAA]
         data = bytes([0x55, self._iter, command] + list(params) + [0xAA])
         self._last_data = None
-        await self._client.write_gatt_char(self.UUID_TX, data)
+        
+        await self._client.write_gatt_char(self._write_uuid, data)
+        
         timeout_time = monotonic() + BLE_RECV_TIMEOUT
         while True:
             await asyncio.sleep(0.05)
@@ -94,9 +113,12 @@ class MulticookerConnection:
                     break
                 else:
                     self._last_data = None
-            if monotonic() >= timeout_time: raise IOError("⏱️  Таймаут приема")
+            if monotonic() >= timeout_time: 
+                raise IOError("⏱️  Таймаут приема")
+        
         if r[2] != command:
             raise IOError("❌ Некорректная команда ответа")
+        
         clean = bytes(r[3:-1])
         _LOGGER.debug(f"📥 Получено: {' '.join([f'{c:02x}' for c in clean])}")
         return clean
@@ -106,10 +128,11 @@ class MulticookerConnection:
         self._last_data = data
 
     async def _connect(self):
-        """Connect to the multicooker with better error handling."""
+        """Connect to the multicooker using working approach from skycooker_dev."""
         if self._disposed:
             raise DisposedError()
-        if self._client and self._client.is_connected: return
+        if self._client and self._client.is_connected: 
+            return
          
         # Ensure any previous connection is properly cleaned up
         await self._cleanup_previous_connections()
@@ -119,29 +142,29 @@ class MulticookerConnection:
             if not self._device:
                 raise BleakError(f"Device {self._mac} not found")
             
-            _LOGGER.debug("🔌 Подключение к мультиварке...")
-             
-            # Use BleakClientWithServiceCache for better connection management
+            _LOGGER.info("🔌 Подключение к устройству: %s", self._mac)
+            
+            # Use max_attempts=3 like in working version
             self._client = await establish_connection(
                 BleakClientWithServiceCache,
                 self._device,
                 self._device.name or "Unknown Device",
-                max_attempts=2,  # Reduced from 9 to 2 to avoid slot exhaustion
+                max_attempts=3,  # Like in working version!
                 disconnected_callback=self._handle_disconnect
             )
-            _LOGGER.debug("✅ Подключено к мультиварке")
+            _LOGGER.info("✅ Успешное подключение к %s", self._mac)
              
             # Auto-discover service UUIDs (like in working version)
             await self._discover_service_uuids()
              
-            # Start notifications with timeout
-            if self.UUID_RX:
+            # Start notification с найденной характеристикой
+            if self._notify_uuid:
                 try:
                     await asyncio.wait_for(
-                        self._client.start_notify(self.UUID_RX, self._rx_callback),
+                        self._client.start_notify(self._notify_uuid, self._rx_callback),
                         timeout=5.0
                     )
-                    _LOGGER.debug("🔔 Подписано на уведомления через %s", self.UUID_RX)
+                    _LOGGER.info("📡 Уведомления включены для %s через характеристику %s", self._mac, self._notify_uuid)
                 except asyncio.TimeoutError:
                     _LOGGER.error("⏱️  Таймаут при подписке на уведомления")
                     await self._disconnect()
@@ -174,7 +197,7 @@ class MulticookerConnection:
                 _LOGGER.debug("📡 Сервис: %s", service.uuid)
                 
                 # Check if this is Nordic UART Service
-                if service.uuid.lower() == self.UUID_SERVICE.lower():
+                if service.uuid.lower() == self._service_uuid.lower():
                     _LOGGER.info("✅ Найден Nordic UART Service: %s", service.uuid)
                     
                     # Find notification and write characteristics
@@ -183,20 +206,20 @@ class MulticookerConnection:
                                     characteristic.uuid, characteristic.properties)
                         
                         if 'notify' in characteristic.properties:
-                            self.UUID_RX = characteristic.uuid
-                            _LOGGER.info("📢 Найдена характеристика для уведомлений: %s", self.UUID_RX)
+                            self._notify_uuid = characteristic.uuid
+                            _LOGGER.info("📢 Найдена характеристика для уведомлений: %s", self._notify_uuid)
                         
                         if 'write' in characteristic.properties or 'write-without-response' in characteristic.properties:
-                            self.UUID_TX = characteristic.uuid
-                            _LOGGER.info("✏️  Найдена характеристика для записи: %s", self.UUID_TX)
+                            self._write_uuid = characteristic.uuid
+                            _LOGGER.info("✏️  Найдена характеристика для записи: %s", self._write_uuid)
                     
                     # If found all necessary characteristics, return
-                    if self.UUID_RX and self.UUID_TX:
-                        _LOGGER.info("✅ Все необходимые характеристики найдены")
+                    if self._notify_uuid and self._write_uuid:
+                        _LOGGER.info("✅ Все необходимые характеристики найдены для %s", self._mac)
                         return True
             
             # If not found, use default UUIDs
-            if not self.UUID_SERVICE:
+            if not self._service_uuid:
                 _LOGGER.warning("⚠️  Nordic UART Service не найден, используем резервные UUID")
             
             return True
@@ -229,7 +252,16 @@ class MulticookerConnection:
         try:
             # Get the AUTH command code for this specific model
             auth_command = get_model_constant(self.model, "command", "AUTH") or COMMAND_AUTH
-            auth_data = await self.command(auth_command, list(self._key))
+            
+            # Convert key to bytes like in working version
+            if isinstance(self._key, str):
+                key_bytes = [int(self._key[i:i+2], 16) for i in range(0, len(self._key), 2)]
+            elif isinstance(self._key, list):
+                key_bytes = self._key
+            else:
+                key_bytes = list(self._key)
+            
+            auth_data = await self.command(auth_command, key_bytes)
             if auth_data and auth_data[0] == 0x01:
                 _LOGGER.info("🔐 Аутентификация успешна")
                 return True
