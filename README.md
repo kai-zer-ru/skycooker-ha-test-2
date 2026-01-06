@@ -607,6 +607,58 @@ script:
           entity_id: button.skycoocker_start
 ```
 
+### Автоматизации
+
+Примеры автоматизаций для удобного управления:
+
+```yaml
+# Автоматический запуск по расписанию
+alias: "Утренняя каша в будни"
+trigger:
+  - platform: time
+    at: "07:00:00"
+  - platform: state
+    entity_id: binary_sensor.workday_sensor
+    to: "on"
+action:
+  - service: script.start_milk_porridge
+  - service: notify.mobile_app
+    data:
+      message: "Мультиварка запущена в режиме Молочная каша 🍲"
+
+# Уведомление о завершении готовки
+alias: "Готовка завершена"
+trigger:
+  - platform: state
+    entity_id: sensor.skycoocker_status
+    to: "Автоподогрев"
+action:
+  - service: notify.mobile_app
+    data:
+      message: "Готовка завершена! Вкусной каши! 🍲"
+      title: "Мультиварка"
+
+# Автоматическое выключение при отсутствии дома
+alias: "Выключить мультиварку если никого нет дома"
+trigger:
+  - platform: state
+    entity_id: person.all
+    to: "not_home"
+    for: "00:30:00"
+condition:
+  - condition: state
+    entity_id: switch.skycoocker_power
+    state: "on"
+action:
+  - service: button.press
+    target:
+      entity_id: button.skycoocker_stop
+  - service: notify.mobile_app
+    data:
+      message: "Мультиварка выключена, так как никого нет дома"
+      title: "Безопасность"
+```
+
 ### Шаблонные сенсоры
 
 Создайте объединенный сенсор для отображения полного статуса:
@@ -707,77 +759,6 @@ yandex_intents:
 ```
 
 **Примечание**: Для работы Yandex.Intents требуется установленная интеграция [ha-yandex-station-intents](https://github.com/dext0r/ha-yandex-station-intents).
-
-### Автоматизации
-
-Примеры автоматизаций для удобного управления:
-
-```yaml
-# Автоматический запуск по расписанию
-alias: "Утренняя каша в будни"
-trigger:
-  - platform: time
-    at: "07:00:00"
-  - platform: state
-    entity_id: binary_sensor.workday_sensor
-    to: "on"
-action:
-  - service: script.start_milk_porridge
-  - service: notify.mobile_app
-    data:
-      message: "Мультиварка запущена в режиме Молочная каша 🍲"
-
-# Уведомление о завершении готовки
-alias: "Готовка завершена"
-trigger:
-  - platform: state
-    entity_id: sensor.skycoocker_status
-    to: "Автоподогрев"
-action:
-  - service: notify.mobile_app
-    data:
-      message: "Готовка завершена! Вкусной каши! 🍲"
-      title: "Мультиварка"
-
-# Автоматическое выключение при отсутствии дома
-alias: "Выключить мультиварку если никого нет дома"
-trigger:
-  - platform: state
-    entity_id: person.all
-    to: "not_home"
-    for: "00:30:00"
-condition:
-  - condition: state
-    entity_id: switch.skycoocker_power
-    state: "on"
-action:
-  - service: button.press
-    target:
-      entity_id: button.skycoocker_stop
-  - service: notify.mobile_app
-    data:
-      message: "Мультиварка выключена, так как никого нет дома"
-      title: "Безопасность"
-```
-
-### Интеграция с Google Assistant / Alexa
-
-Добавьте скрипты в `configuration.yaml` для голосового управления:
-
-```yaml
-# configuration.yaml
-google_assistant:
-  project_id: ваш-project-id
-  service_account: !include google_assistant_service_account.json
-  report_state: true
-  exposed_domains:
-    - script
-    - switch
-
-# Теперь можно сказать:
-# "Окей Google, запусти мультиварку в режиме суп"
-# "Алекса, выключи мультиварку"
-```
 
 ## 🔮 Планы на будущее
 
