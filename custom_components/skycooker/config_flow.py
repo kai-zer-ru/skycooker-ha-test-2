@@ -47,6 +47,9 @@ class SkyCoockerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self.config[CONF_MAC] = mac
         # Use the correct fixed key for RMC-M40S as in the working library
         self.config[CONF_PASSWORD] = "0000000000000000"
+        # Set default values for missing configuration options
+        self.config[CONF_SCAN_INTERVAL] = self.config.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)
+        self.config[CONF_PERSISTENT_CONNECTION] = self.config.get(CONF_PERSISTENT_CONNECTION, DEFAULT_PERSISTENT_CONNECTION)
         return True
 
     async def async_step_user(self, user_input=None):
@@ -103,8 +106,8 @@ class SkyCoockerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     async def async_step_connect(self, user_input=None):
         """Handle the connect step."""
-        errors = {}
-        if user_input is not None:
+        # If this is the first call (user_input is None), proceed directly to test connection
+        if user_input is None:
             multicooker = MulticookerConnection(
                 mac=self.config[CONF_MAC],
                 key=self.config[CONF_PASSWORD],
@@ -123,17 +126,15 @@ class SkyCoockerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             await multicooker.stop_connection()
 
             if not connect_ok:
-                errors["base"] = "cant_connect"
+                return self.async_abort(reason="cant_connect")
             elif not auth_ok:
-                errors["base"] = "cant_auth"
+                return self.async_abort(reason="cant_auth")
             else:
+                # Connection successful, proceed to create entry
                 return await self.async_step_init()
 
-        return self.async_show_form(
-            step_id="connect",
-            errors=errors,
-            data_schema=vol.Schema({})
-        )
+        # This should not be reached as we either abort or proceed to init step
+        return self.async_abort(reason="unknown")
 
     async def async_step_init(self, user_input=None):
         """Handle the options step."""
