@@ -514,7 +514,19 @@ class MulticookerConnection:
                 if not self.available:
                     _LOGGER.debug("📡 Устройство недоступно, пытаемся подключиться...")
                   
-                await self._connect_if_need()
+                try:
+                    # Add timeout for connection attempt
+                    await asyncio.wait_for(self._connect_if_need(), timeout=30.0)
+                except asyncio.TimeoutError:
+                    _LOGGER.error("⏱️  Таймаут подключения, устройство не отвечает")
+                    await self.disconnect()
+                    self.add_stat(False)
+                    return False
+                except Exception as e:
+                    _LOGGER.error(f"🚫 Ошибка подключения: {e}")
+                    await self.disconnect()
+                    self.add_stat(False)
+                    return False
                   
                 # Проверяем, что подключение и авторизация прошли успешно
                 if not self.available:
@@ -525,8 +537,14 @@ class MulticookerConnection:
                   
                 _LOGGER.debug("✅ Подключение и авторизация успешны, запрашиваем статус...")
                   
-                # Get current status
-                self._status = await self.get_status()
+                # Get current status with timeout
+                try:
+                    self._status = await asyncio.wait_for(self.get_status(), timeout=10.0)
+                except asyncio.TimeoutError:
+                    _LOGGER.error("⏱️  Таймаут получения статуса")
+                    await self._disconnect_if_need()
+                    self.add_stat(False)
+                    return False
                   
                 if self._status:
                     _LOGGER.debug(f"📊 Статус получен: режим={self._status.get('mode')}, температура={self._status.get('temperature')}°C")
@@ -563,7 +581,14 @@ class MulticookerConnection:
     @property
     def available(self):
         """Check if the multicooker is available."""
-        return self._last_connect_ok and self._last_auth_ok
+        # Consider available if we had at least one successful connection
+        # This prevents entities from becoming unavailable immediately after setup
+        if self._last_connect_ok and self._last_auth_ok:
+            return True
+        # If we never connected successfully, check if we're currently trying to connect
+        if self._client and self._client.is_connected:
+            return True
+        return False
 
     @property
     def current_status(self):
