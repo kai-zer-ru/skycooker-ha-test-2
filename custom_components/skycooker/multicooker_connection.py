@@ -248,18 +248,31 @@ class MulticookerConnection:
         self._auth_ok = False
 
     async def auth(self):
-        """Authenticate with the multicooker."""
+        """Authenticate with the multicooker using correct key format."""
         try:
             # Get the AUTH command code for this specific model
             auth_command = get_model_constant(self.model, "command", "AUTH") or COMMAND_AUTH
             
-            # Convert key to bytes like in working version
+            # Use the correct key format: "0000000000000000" as hex string
+            # Convert to bytes using bytes.fromhex() like in scripts/scaner/lib/auth.py
             if isinstance(self._key, str):
-                key_bytes = [int(self._key[i:i+2], 16) for i in range(0, len(self._key), 2)]
+                # If key is provided as hex string, convert using bytes.fromhex()
+                key_bytes = list(bytes.fromhex(self._key))
+                _LOGGER.debug("🔑 Ключ конвертирован из hex строки: %s", key_bytes)
             elif isinstance(self._key, list):
+                # If key is already list of bytes, use as is
                 key_bytes = self._key
+                _LOGGER.debug("🔑 Ключ уже список байтов: %s", key_bytes)
             else:
+                # Try to convert from other types
                 key_bytes = list(self._key)
+                _LOGGER.debug("🔑 Ключ конвертирован из другого типа: %s", key_bytes)
+            
+            # Verify key length (should be 8 bytes for 16 hex chars)
+            if len(key_bytes) != 8:
+                _LOGGER.warning("⚠️  Неправильная длина ключа: %s (ожидается 8 байт)", len(key_bytes))
+            
+            _LOGGER.debug("🔑 Финальный ключ для аутентификации: %s", key_bytes)
             
             auth_data = await self.command(auth_command, key_bytes)
             if auth_data and auth_data[0] == 0x01:
