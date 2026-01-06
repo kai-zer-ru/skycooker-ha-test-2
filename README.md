@@ -27,7 +27,7 @@
 1. Убедитесь, что у вас установлен [HACS](https://hacs.xyz/)
 2. Добавьте этот репозиторий как пользовательский:
    ```
-   https://github.com/kai-zer-ru/skycooker-ha-test-2
+   https://github.com/kai-zer-ru/skycoocker-ha
    ```
 3. Найдите "SkyCoocker" в HACS и установите
 4. **Перезагрузите Home Assistant**
@@ -207,7 +207,7 @@ logger:
 Если у вас есть вопросы или проблемы:
 
 1. **Проверьте логи**: `journalctl -u home-assistant -f`
-2. **Создайте issue**: [GitHub Issues](https://github.com/kai-zer-ru/skycooker-ha-test-2/issues)
+2. **Создайте issue**: [GitHub Issues](https://github.com/kai-zer-ru/skycoocker-ha/issues)
 3. **Предоставьте информацию**:
    - Версия Home Assistant
    - Модель мультиварки
