@@ -1,2 +1,2 @@
 bleak==0.20.2
-bleak-retry-connector==2.3.0
+bleak_retry_connector==2.3.0
