@@ -152,11 +152,28 @@ class SkyCoockerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 title=fname, data=self.config if not self.entry else {}
             )
 
+        # Use translations for the field names
+        persistent_connection_name = "persistent_connection"
+        scan_interval_name = "scan_interval"
+        
+        # Check if we have translations for these fields
+        if self.hass and self.hass.config.language:
+            lang = self.hass.config.language
+            try:
+                # Try to get translations from the translation files
+                translations = self.hass.data["translations"]
+                if translations and DOMAIN in translations:
+                    if "config" in translations[DOMAIN] and "data" in translations[DOMAIN]["config"]:
+                        persistent_connection_name = translations[DOMAIN]["config"]["data"].get("persistent_connection", "persistent_connection")
+                        scan_interval_name = translations[DOMAIN]["config"]["data"].get("scan_interval", "scan_interval")
+            except:
+                pass
+        
         schema = vol.Schema({
-            vol.Required(CONF_PERSISTENT_CONNECTION, 
+            vol.Required(CONF_PERSISTENT_CONNECTION,
                         default=self.config.get(CONF_PERSISTENT_CONNECTION, DEFAULT_PERSISTENT_CONNECTION)): cv.boolean,
-            vol.Required(CONF_SCAN_INTERVAL, 
-                        default=self.config.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)): 
+            vol.Required(CONF_SCAN_INTERVAL,
+                        default=self.config.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)):
                 vol.All(vol.Coerce(int), vol.Range(min=1, max=60)),
         })
 

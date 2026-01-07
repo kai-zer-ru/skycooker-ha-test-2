@@ -6,7 +6,6 @@ import logging
 import traceback
 from time import monotonic
 
-from bleak.exc import BleakError
 from bleak_retry_connector import establish_connection, BleakClientWithServiceCache
 
 from homeassistant.components import bluetooth
@@ -15,10 +14,10 @@ from .const import *
 
 _LOGGER = logging.getLogger(__name__)
 
-# Стандартные UUID для R4S устройств (резервные)
-DEFAULT_SERVICE_UUID = "6e400001-b5a3-f393-e0a9-e50e24dcca9e"
-DEFAULT_NOTIFY_UUID = "6e400003-b5a3-f393-e0a9-e50e24dcca9e"
-DEFAULT_WRITE_UUID = "6e400002-b5a3-f393-e0a9-e50e24dcca9e"
+# Стандартные UUID для R4S устройств
+SERVICE_UUID = "6e400001-b5a3-f393-e0a9-e50e24dcca9e"
+NOTIFY_UUID = "6e400003-b5a3-f393-e0a9-e50e24dcca9e"
+WRITE_UUID = "6e400002-b5a3-f393-e0a9-e50e24dcca9e"
 
 
 def get_model_constant(model_name, constant_type, key):
@@ -42,7 +41,7 @@ def get_model_constant(model_name, constant_type, key):
 
 class MulticookerConnection:
     """Main class for multicooker connection based on working library."""
-    
+
     def __init__(self, mac, key, persistent=True, adapter=None, hass=None, model=None):
         """Initialize the multicooker connection."""
         self._device = None
@@ -67,94 +66,34 @@ class MulticookerConnection:
         self._disposed = False
         self._last_data = None
         self.model = model
-        self._last_successful_update = None
-        self._reconnect_attempts = 0
-        self._max_reconnect_attempts = 5
-        self._reconnect_delay = 15
-        self._is_reconnecting = False
-        self._reconnect_task = None
-        
-        # Динамически определённые UUID
-        self._service_uuid = None
-        self._notify_uuid = None
-        self._write_uuid = None
-        
-        # Get UUIDs for the specific model
-        if model and model in SUPPORTED_MODELS:
-            model_config = SUPPORTED_MODELS[model]
-            self._service_uuid = model_config["uuid_service"]
-            self._write_uuid = model_config["uuid_tx"]
-            self._notify_uuid = model_config["uuid_rx"]
-        else:
-            # Default to RMC-M40S
-            self._service_uuid = DEFAULT_SERVICE_UUID
-            self._write_uuid = DEFAULT_WRITE_UUID
-            self._notify_uuid = DEFAULT_NOTIFY_UUID
 
     async def command(self, command, params=[]):
         """Send a command to the multicooker."""
         if self._disposed:
             raise DisposedError()
         if not self._client or not self._client.is_connected:
-            raise IOError("🔌 Не подключено")
-        
+            raise IOError("not connected")
         self._iter = (self._iter + 1) % 256
-        _LOGGER.debug(f"📤 Отправка команды {command:02x}, данные: [{' '.join([f'{c:02x}' for c in params])}]")
-        
-        # Формируем пакет как в рабочей версии: [0x55, iter, command, data..., 0xAA]
-        # Структура пакета:
-        # 0x55 - заголовок
-        # iter - итерация (последовательный номер)
-        # command - команда
-        # data... - данные
-        # 0xAA - конец пакета
+        _LOGGER.debug(f"Writing command {command:02x}, data: [{' '.join([f'{c:02x}' for c in params])}]")
         data = bytes([0x55, self._iter, command] + list(params) + [0xAA])
         self._last_data = None
-        
-        try:
-            await self._client.write_gatt_char(self._write_uuid, data)
-            _LOGGER.debug(f"📋 Отправленный пакет: {data.hex().upper()}")
-        except BleakError as e:
-            _LOGGER.error(f"🚫 Ошибка отправки команды: {e}")
-            raise IOError(f"Ошибка отправки команды: {e}")
-        except Exception as e:
-            _LOGGER.error(f"🚫 Неизвестная ошибка отправки: {e}")
-            raise IOError(f"Неизвестная ошибка отправки: {e}")
-        
+        await self._client.write_gatt_char(WRITE_UUID, data)
         timeout_time = monotonic() + BLE_RECV_TIMEOUT
         while True:
             await asyncio.sleep(0.05)
             if self._last_data:
                 r = self._last_data
-                _LOGGER.debug(f"📥 Получен сырой ответ: {r.hex().upper()}")
-                
-                # Проверяем формат ответа
-                if len(r) < 4 or r[0] != 0x55 or r[-1] != 0xAA:
-                    _LOGGER.error(f"❌ Некорректный формат ответа: {r.hex().upper()}")
-                    raise IOError("Некорректный формат ответа")
-                
-                # Проверяем итерацию (байт 1) - это идентификатор запроса
-                # Он должен совпадать с текущей итерацией, чтобы убедиться,
-                # что это ответ на наш запрос, а не на предыдущий
+                if r[0] != 0x55 or r[-1] != 0xAA:
+                    raise IOError("Invalid response magic")
                 if r[1] == self._iter:
-                    _LOGGER.debug(f"✅ Правильный идентификатор запроса {self._iter} в ответе")
                     break
                 else:
-                    _LOGGER.warning(f"⚠️  Неправильный идентификатор запроса в ответе: ожидалось {self._iter}, получено {r[1]}")
-                    _LOGGER.warning(f"💡 Это может быть ответ на предыдущий запрос или от другого устройства")
                     self._last_data = None
-            if monotonic() >= timeout_time:
-                _LOGGER.error(f"⏱️  Таймаут приема ответа на команду {command:02x}")
-                raise IOError("Таймаут приема")
-        
-        # Проверяем команду в ответе (байт 2)
+            if monotonic() >= timeout_time: raise IOError("Receive timeout")
         if r[2] != command:
-            _LOGGER.error(f"❌ Некорректная команда ответа: ожидалось {command:02x}, получено {r[2]:02x}")
-            raise IOError("Некорректная команда ответа")
-        
-        # Извлекаем чистые данные (без заголовка 0x55, итерации, команды и конца 0xAA)
+            raise IOError("Invalid response command")
         clean = bytes(r[3:-1])
-        _LOGGER.debug(f"📥 Очищенные данные ответа: {' '.join([f'{c:02x}' for c in clean])}")
+        _LOGGER.debug(f"Received: {' '.join([f'{c:02x}' for c in clean])}")
         return clean
 
     def _rx_callback(self, sender, data):
@@ -162,333 +101,23 @@ class MulticookerConnection:
         self._last_data = data
 
     async def _connect(self):
-        """Connect to the multicooker using working approach from skycooker_dev."""
+        """Connect to the multicooker."""
         if self._disposed:
             raise DisposedError()
-        if self._client and self._client.is_connected:
-            _LOGGER.debug("✅ Уже подключено к %s", self._mac)
-            return
-        
-        # Ensure any previous connection is properly cleaned up
-        await self._cleanup_previous_connections()
-        
-        try:
-            _LOGGER.info("🔍 Поиск устройства %s...", self._mac)
-            self._device = bluetooth.async_ble_device_from_address(self.hass, self._mac)
-            if not self._device:
-                _LOGGER.error("❌ Устройство %s не найдено", self._mac)
-                raise BleakError(f"Device {self._mac} not found")
-            
-            _LOGGER.info("🔌 Подключение к устройству: %s (%s)", self._device.name, self._mac)
-            
-            # Use max_attempts=3 like in working version
-            self._client = await establish_connection(
-                BleakClientWithServiceCache,
-                self._device,
-                self._device.name or "Unknown Device",
-                max_attempts=3,  # Like in working version!
-                disconnected_callback=self._handle_disconnect
-            )
-            _LOGGER.info("✅ Успешное подключение к %s", self._mac)
-            
-            # Auto-discover service UUIDs (like in working version)
-            if not await self._discover_service_uuids():
-                _LOGGER.warning("⚠️  Используем резервные UUID для подключения")
-            
-            # Start notification с найденной характеристикой
-            if self._notify_uuid:
-                try:
-                    await asyncio.wait_for(
-                        self._client.start_notify(self._notify_uuid, self._rx_callback),
-                        timeout=5.0
-                    )
-                    _LOGGER.info("📡 Уведомления включены для %s через характеристику %s", self._mac, self._notify_uuid)
-                except asyncio.TimeoutError:
-                    _LOGGER.error("⏱️  Таймаут при подписке на уведомления")
-                    await self._disconnect()
-                    raise
-            else:
-                _LOGGER.error("❌ Не удалось определить характеристику для уведомлений")
-                await self._disconnect()
-                raise BleakError("Notification characteristic not found")
-          
-        except Exception as e:
-            error_str = str(e)
-            _LOGGER.error(f"🚫 Ошибка подключения: {e}")
-            _LOGGER.debug("📋 Подробности ошибки:", exc_info=True)
-            
-            # More specific error handling for common Bluetooth issues
-            if "connection slots" in error_str.lower() or "out of connection slots" in error_str.lower():
-                _LOGGER.error("💡 Это может означать, что:")
-                _LOGGER.error("   1. Bluetooth адаптер не настроен в Home Assistant")
-                _LOGGER.error("   2. Bluetooth адаптер не подключен к системе")
-                _LOGGER.error("   3. Нужно перезагрузить Bluetooth адаптер")
-                _LOGGER.error("   4. Нужно добавить Bluetooth прокси (https://esphome.github.io/bluetooth-proxies/)")
-                _LOGGER.error("   5. Проверьте, что мультиварка находится в режиме сопряжения")
-                _LOGGER.error("💡 Если проблема сохраняется даже когда ничего не подключено:")
-                _LOGGER.error("   1. Перезагрузите Bluetooth-адаптер (выключите и включите его)")
-                _LOGGER.error("   2. Перезагрузите службу Bluetooth (sudo systemctl restart bluetooth)")
-                _LOGGER.error("   3. Проверьте логи Bluetooth на ошибки (journalctl -u bluetooth -f)")
-                _LOGGER.error("   4. Попробуйте использовать другой Bluetooth-адаптер")
-                _LOGGER.error("   5. Настройте ESPHome Bluetooth прокси для увеличения количества доступных слотов")
-            elif "not found" in error_str.lower():
-                _LOGGER.error("💡 Устройство не найдено. Проверьте:")
-                _LOGGER.error("   1. MAC адрес устройства правильный")
-                _LOGGER.error("   2. Устройство включено и находится рядом")
-                _LOGGER.error("   3. Устройство находится в режиме сопряжения")
-                _LOGGER.error("   4. Bluetooth адаптер работает и обнаружен системой")
-            elif "backend" in error_str.lower() or "proxy" in error_str.lower():
-                _LOGGER.error("💡 Проблема с Bluetooth бэкендом. Проверьте:")
-                _LOGGER.error("   1. Bluetooth интеграция включена в Home Assistant")
-                _LOGGER.error("   2. Bluetooth адаптер правильно настроен")
-                _LOGGER.error("   3. У вас есть хотя бы один работающий Bluetooth прокси")
-                _LOGGER.error("   4. Проверьте логи Home Assistant на ошибки Bluetooth")
-            elif "att error" in error_str.lower() or "0x0e" in error_str.lower():
-                _LOGGER.error("💡 Ошибка ATT протокола. Это может означать:")
-                _LOGGER.error("   1. Устройство не в режиме сопряжения")
-                _LOGGER.error("   2. Неправильный ключ аутентификации")
-                _LOGGER.error("   3. Устройство отвергло команду")
-                _LOGGER.error("   4. Проблема с протоколом обмена")
-                _LOGGER.error("💡 Попробуйте:")
-                _LOGGER.error("   1. Переведите устройство в режим сопряжения")
-                _LOGGER.error("   2. Проверьте правильность ключа аутентификации")
-                _LOGGER.error("   3. Перезагрузите устройство")
-                _LOGGER.error("   4. Попробуйте подключиться снова")
-            
-            _LOGGER.error("📋 Дополнительные шаги по устранению неполадок:")
-            _LOGGER.error("   1. Проверьте, что Bluetooth-адаптер поддерживается вашей системой")
-            _LOGGER.error("   2. Обновите библиотеку Bleak до последней версии")
-            _LOGGER.error("   3. Проверьте совместимость вашего Bluetooth-адаптера с Bleak")
-            _LOGGER.error("   4. Проверьте, что нет других процессов, использующих Bluetooth")
-            _LOGGER.error("   5. Попробуйте использовать другой Bluetooth-адаптер")
-            
-            await self._disconnect()
-            raise
+        if self._client and self._client.is_connected: return
+        self._device = bluetooth.async_ble_device_from_address(self.hass, self._mac)
+        _LOGGER.debug("Connecting to the Multicooker...")
+        self._client = await establish_connection(
+            BleakClientWithServiceCache,
+            self._device,
+            self._device.name or "Unknown Device",
+            max_attempts=3
+        )
+        _LOGGER.debug("Connected to the Multicooker")
+        await self._client.start_notify(NOTIFY_UUID, self._rx_callback)
+        _LOGGER.debug("Subscribed to RX")
 
-    async def _discover_service_uuids(self):
-        """Auto-discover service UUIDs like in working version."""
-        try:
-            _LOGGER.debug("🔍 Поиск сервисов и характеристик")
-            
-            # Try to get services
-            try:
-                services = await self._client.get_services()
-            except AttributeError:
-                services = self._client.services
-            
-            service_count = len(list(services))
-            _LOGGER.debug("📦 Найдено сервисов: %s", service_count)
-            
-            for service in services:
-                _LOGGER.debug("📡 Сервис: %s", service.uuid)
-                
-                # Check if this is Nordic UART Service
-                if service.uuid.lower() == self._service_uuid.lower():
-                    _LOGGER.info("✅ Найден Nordic UART Service: %s", service.uuid)
-                    
-                    # Find notification and write characteristics
-                    for characteristic in service.characteristics:
-                        _LOGGER.debug("📡 Характеристика: %s, свойства: %s",
-                                    characteristic.uuid, characteristic.properties)
-                        
-                        if 'notify' in characteristic.properties:
-                            self._notify_uuid = characteristic.uuid
-                            _LOGGER.info("📢 Найдена характеристика для уведомлений: %s", self._notify_uuid)
-                        
-                        if 'write' in characteristic.properties or 'write-without-response' in characteristic.properties:
-                            self._write_uuid = characteristic.uuid
-                            _LOGGER.info("✏️  Найдена характеристика для записи: %s", self._write_uuid)
-                    
-                    # If found all necessary characteristics, return
-                    if self._notify_uuid and self._write_uuid:
-                        _LOGGER.info("✅ Все необходимые характеристики найдены для %s", self._mac)
-                        return True
-            
-            # If not found, use default UUIDs
-            if not self._service_uuid:
-                _LOGGER.warning("⚠️  Nordic UART Service не найден, используем резервные UUID")
-            
-            return True
-            
-        except Exception as e:
-            _LOGGER.error("❌ Ошибка определения UUID: %s", e)
-            # Use default UUIDs in case of error
-            return False
-
-    async def _cleanup_previous_connections(self):
-        """Clean up any previous connections to free up slots."""
-        try:
-            if self._client:
-                if self._client.is_connected:
-                    _LOGGER.debug("🧹 Очистка предыдущего соединения...")
-                    await self._client.disconnect()
-                self._client = None
-            self._device = None
-        except Exception as e:
-            _LOGGER.warning(f"⚠️  Ошибка очистки предыдущего соединения: {e}")
-
-    def _handle_disconnect(self, client):
-        """Handle unexpected disconnections."""
-        _LOGGER.warning("⚠️  Неожиданное отключение от мультиварки")
-        _LOGGER.debug("📋 Попытка восстановления соединения...")
-        _LOGGER.info("💡 Возможные причины отключения:")
-        _LOGGER.info("   1. Временная потеря Bluetooth-соединения")
-        _LOGGER.info("   2. Устройство перешло в режим энергосбережения")
-        _LOGGER.info("   3. Проблемы с Bluetooth-адаптером")
-        _LOGGER.info("   4. Устройство выключено или находится вне зоны действия")
-        _LOGGER.info("🔄 Попытка автоматического переподключения...")
-        
-        self._last_connect_ok = False
-        self._auth_ok = False
-        
-        # Schedule a reconnection attempt
-        if self.hass and not self._disposed and not self._is_reconnecting:
-            _LOGGER.debug("🔄 Запуск новой попытки переподключения...")
-            _LOGGER.info(f"📋 Текущее состояние: попытка {self._reconnect_attempts + 1}/{self._max_reconnect_attempts}, задержка {self._reconnect_delay} секунд")
-            _LOGGER.info("💡 Если проблема сохраняется, проверьте:")
-            _LOGGER.info("   1. Устройство включено и находится в зоне действия Bluetooth")
-            _LOGGER.info("   2. Bluetooth-адаптер работает правильно")
-            _LOGGER.info("   3. Нет других процессов, использующих Bluetooth")
-            _LOGGER.info("   4. Проверьте логи Home Assistant на дополнительные ошибки")
-            _LOGGER.debug(f"📋 Флаги состояния: _is_reconnecting={self._is_reconnecting}, _disposed={self._disposed}, _reconnect_attempts={self._reconnect_attempts}")
-            _LOGGER.info("💡 Если проблема сохраняется, попробуйте:")
-            _LOGGER.info("   1. Перезагрузите Bluetooth-адаптер (выключите и включите его)")
-            _LOGGER.info("   2. Перезагрузите службу Bluetooth (sudo systemctl restart bluetooth)")
-            _LOGGER.info("   3. Проверьте логи Bluetooth на ошибки (journalctl -u bluetooth -f)")
-            _LOGGER.info("   4. Попробуйте использовать другой Bluetooth-адаптер")
-            _LOGGER.info("   5. Настройте ESPHome Bluetooth прокси для увеличения количества доступных слотов")
-            self._is_reconnecting = True
-            
-            async def attempt_reconnect():
-                try:
-                    # Log the current attempt number before checking the limit
-                    current_attempt = self._reconnect_attempts + 1
-                    _LOGGER.info(f"🔄 Запуск попытки переподключения {current_attempt}/{self._max_reconnect_attempts}")
-                    
-                    # Check if we have reached the maximum number of reconnection attempts
-                    if self._reconnect_attempts >= self._max_reconnect_attempts:
-                        _LOGGER.error(f"🚫 Превышено максимальное количество попыток подключения ({self._max_reconnect_attempts})")
-                        _LOGGER.error("💡 Интеграция будет отключена. Пожалуйста, проверьте:")
-                        _LOGGER.error("   1. Устройство включено и находится в зоне действия Bluetooth")
-                        _LOGGER.error("   2. Bluetooth-адаптер работает правильно")
-                        _LOGGER.error("   3. Нет других процессов, использующих Bluetooth")
-                        _LOGGER.error("   4. Проверьте логи Home Assistant на дополнительные ошибки")
-                        _LOGGER.error("💡 Для повторного подключения перезагрузите интеграцию или Home Assistant")
-                        
-                        # Disable the integration by setting connection as disposed
-                        self._disposed = True
-                        await self.disconnect()
-                        return
-                    
-                    # Increment the reconnection attempt counter
-                    self._reconnect_attempts += 1
-                    attempt_number = self._reconnect_attempts
-                    
-                    _LOGGER.info(f"🔄 Попытка переподключения {attempt_number}/{self._max_reconnect_attempts} через {self._reconnect_delay} секунд...")
-                    await asyncio.sleep(self._reconnect_delay)
-                    
-                    if not self._disposed:
-                        _LOGGER.info("🔌 Попытка переподключения...")
-                        
-                        # Add timeout for the connection attempt
-                        try:
-                            await asyncio.wait_for(self._connect_if_need(), timeout=30.0)
-                            if self._client and self._client.is_connected:
-                                _LOGGER.info("✅ Успешное переподключение")
-                                # Reset the reconnection attempt counter on successful connection
-                                self._reconnect_attempts = 0
-                            else:
-                                _LOGGER.error("🚫 Не удалось переподключиться")
-                                _LOGGER.info("💡 Рекомендации:")
-                                _LOGGER.info("   1. Проверьте, что устройство включено и находится в зоне действия Bluetooth")
-                                _LOGGER.info("   2. Проверьте, что Bluetooth-адаптер работает правильно")
-                                _LOGGER.info("   3. Попробуйте перезагрузить устройство")
-                                _LOGGER.info("   4. Проверьте логи Home Assistant на дополнительные ошибки")
-                                _LOGGER.info("   5. Если проблема сохраняется, попробуйте перезагрузить Bluetooth-адаптер")
-                        except asyncio.TimeoutError:
-                            _LOGGER.error("⏱️  Таймаут при попытке переподключения")
-                            _LOGGER.error("💡 Устройство не отвечает или занято")
-                            _LOGGER.info("💡 Рекомендации:")
-                            _LOGGER.info("   1. Проверьте, что устройство включено и находится в зоне действия Bluetooth")
-                            _LOGGER.info("   2. Проверьте, что Bluetooth-адаптер работает правильно")
-                            _LOGGER.info("   3. Попробуйте перезагрузить устройство")
-                            _LOGGER.info("   4. Проверьте логи Home Assistant на дополнительные ошибки")
-                            _LOGGER.info("   5. Если проблема сохраняется, попробуйте перезагрузить Bluetooth-адаптер")
-                except Exception as e:
-                    error_str = str(e).lower()
-                    if "connection slots" in error_str or "out of connection slots" in error_str:
-                        _LOGGER.error(f"🚫 Ошибка при попытке переподключения: {e}")
-                        _LOGGER.error("💡 Это может происходить даже если к адаптеру ничего не подключено")
-                        _LOGGER.error("💡 Попробуйте следующие решения:")
-                        _LOGGER.error("   1. Перезагрузите Bluetooth-адаптер (выключите и включите его)")
-                        _LOGGER.error("   2. Перезагрузите службу Bluetooth (sudo systemctl restart bluetooth)")
-                        _LOGGER.error("   3. Проверьте логи Bluetooth на ошибки (journalctl -u bluetooth -f)")
-                        _LOGGER.error("   4. Попробуйте использовать другой Bluetooth-адаптер")
-                        _LOGGER.error("   5. Настройте ESPHome Bluetooth прокси для увеличения количества доступных слотов")
-                    else:
-                        _LOGGER.error(f"🚫 Ошибка при попытке переподключения: {e}")
-                    _LOGGER.debug("📋 Подробности ошибки:", exc_info=True)
-                finally:
-                    self._is_reconnecting = False
-            
-            # Run the reconnection attempt in the background
-            self._reconnect_task = self.hass.async_create_task(attempt_reconnect())
-
-    async def auth(self):
-        """Authenticate with the multicooker using correct key format."""
-        try:
-            # Get the AUTH command code for this specific model
-            auth_command = get_model_constant(self.model, "command", "AUTH") or COMMAND_AUTH
-            _LOGGER.info("🔑 Начало аутентификации...")
-            
-            # Use the correct key format: "0000000000000000" as hex string
-            # Convert to bytes using bytes.fromhex() like in scripts/scaner/lib/auth.py
-            if isinstance(self._key, str):
-                # If key is provided as hex string, convert using bytes.fromhex()
-                try:
-                    key_bytes = list(bytes.fromhex(self._key))
-                    _LOGGER.debug("🔑 Ключ конвертирован из hex строки: %s", key_bytes)
-                except ValueError as e:
-                    _LOGGER.error("🚫 Ошибка конвертации ключа: %s. Ключ должен быть hex строкой из 16 символов", e)
-                    return False
-            elif isinstance(self._key, list):
-                # If key is already list of bytes, use as is
-                key_bytes = self._key
-                _LOGGER.debug("🔑 Ключ уже список байтов: %s", key_bytes)
-            else:
-                # Try to convert from other types
-                try:
-                    key_bytes = list(self._key)
-                    _LOGGER.debug("🔑 Ключ конвертирован из другого типа: %s", key_bytes)
-                except Exception as e:
-                    _LOGGER.error("🚫 Ошибка конвертации ключа: %s", e)
-                    return False
-            
-            # Verify key length (should be 8 bytes for 16 hex chars)
-            if len(key_bytes) != 8:
-                _LOGGER.error("🚫 Неправильная длина ключа: %s (ожидается 8 байт). Проверьте ключ аутентификации", len(key_bytes))
-                return False
-            
-            _LOGGER.debug("🔑 Финальный ключ для аутентификации: %s", key_bytes)
-            
-            auth_data = await self.command(auth_command, key_bytes)
-            if auth_data and auth_data[0] == 0x01:
-                _LOGGER.info("🔐 Аутентификация успешна")
-                return True
-            else:
-                _LOGGER.error("🚫 Аутентификация не удалась. Код ответа: %s", auth_data[0] if auth_data else 'None')
-                if auth_data and auth_data[0] == 0x00:
-                    _LOGGER.error("💡 Убедитесь, что мультиварка находится в режиме сопряжения")
-                    _LOGGER.error("💡 Также проверьте:")
-                    _LOGGER.error("   1. Ключ аутентификации правильный")
-                    _LOGGER.error("   2. Устройство включено и готово к сопряжению")
-                    _LOGGER.error("   3. Нет других активных подключений к устройству")
-                    _LOGGER.error("   4. Попробуйте перезагрузить устройство")
-                return False
-        except Exception as e:
-            _LOGGER.error(f"🚫 Ошибка аутентификации: {e}")
-            _LOGGER.debug("📋 Подробности ошибки аутентификации:", exc_info=True)
-            return False
+    auth = lambda self: super().auth(self._key)
 
     async def _disconnect(self):
         """Disconnect from the multicooker."""
@@ -496,7 +125,7 @@ class MulticookerConnection:
             if self._client:
                 was_connected = self._client.is_connected
                 await self._client.disconnect()
-                if was_connected: _LOGGER.debug("🔌 Отключено")
+                if was_connected: _LOGGER.debug("Disconnected")
         finally:
             self._auth_ok = False
             self._device = None
@@ -505,83 +134,29 @@ class MulticookerConnection:
     async def disconnect(self):
         """Public disconnect method."""
         try:
-            # Cancel any ongoing reconnection attempt
-            if self._reconnect_task and not self._reconnect_task.done():
-                _LOGGER.debug("🔄 Отмена текущей задачи переподключения...")
-                self._reconnect_task.cancel()
-                try:
-                    await self._reconnect_task
-                except asyncio.CancelledError:
-                    _LOGGER.debug("🔄 Задача переподключения успешно отменена")
-            
-            # Reset the reconnection flags, but keep the attempt counter
-            self._is_reconnecting = False
-            # self._reconnect_attempts = 0  # Don't reset the counter here
-            
             await self._disconnect()
         except:
             pass
 
     async def _connect_if_need(self):
-        """Connect if needed with better error handling."""
-        # Check if we are already trying to connect
-        if self._is_reconnecting:
-            _LOGGER.debug("🔄 Уже идет попытка подключения, пропускаем новую попытку")
-            return
-        
+        """Connect if needed."""
         if self._client and not self._client.is_connected:
-            _LOGGER.debug("🔌 Подключение потеряно")
+            _LOGGER.debug("Connection lost")
             await self.disconnect()
         if not self._client or not self._client.is_connected:
             try:
                 await self._connect()
                 self._last_connect_ok = True
             except Exception as ex:
-                error_str = str(ex).lower()
-                # Проверяем, связано ли это с нехваткой слотов соединения
-                if "connection slots" in error_str or "out of connection slots" in error_str:
-                    _LOGGER.error("🚫 Bluetooth адаптер исчерпал лимит соединений")
-                    _LOGGER.error("💡 Это может происходить даже если к адаптеру ничего не подключено")
-                    _LOGGER.error("💡 Возможные причины и решения:")
-                    _LOGGER.error("   1. Проблемы с Bluetooth-адаптером или его драйверами:")
-                    _LOGGER.error("      - Перезагрузите Bluetooth адаптер (выключите и включите его)")
-                    _LOGGER.error("      - Проверьте, что адаптер поддерживается вашей системой")
-                    _LOGGER.error("      - Попробуйте использовать другой Bluetooth-адаптер")
-                    _LOGGER.error("   2. Ограничения на уровне операционной системы:")
-                    _LOGGER.error("      - Проверьте настройки Bluetooth в вашей ОС")
-                    _LOGGER.error("      - Убедитесь, что нет других процессов, использующих Bluetooth")
-                    _LOGGER.error("   3. Проблемы с Bluetooth-стеком:")
-                    _LOGGER.error("      - Перезагрузите службу Bluetooth (sudo systemctl restart bluetooth)")
-                    _LOGGER.error("      - Проверьте логи Bluetooth на ошибки (journalctl -u bluetooth -f)")
-                    _LOGGER.error("   4. Проблемы с библиотекой Bleak:")
-                    _LOGGER.error("      - Обновите библиотеку Bleak до последней версии")
-                    _LOGGER.error("      - Проверьте совместимость вашего Bluetooth-адаптера с Bleak")
-                    _LOGGER.error("   5. Используйте Bluetooth прокси:")
-                    _LOGGER.error("      - Настройте ESPHome Bluetooth прокси (https://esphome.github.io/bluetooth-proxies/)")
-                    _LOGGER.error("      - Это поможет распределить нагрузку и увеличить количество доступных слотов")
-                elif "backend" in error_str or "proxy" in error_str or "not found" in error_str:
-                    _LOGGER.error("🚫 Проблема с Bluetooth интеграцией. Проверьте:")
-                    _LOGGER.error("   1. Bluetooth интеграция включена в Home Assistant")
-                    _LOGGER.error("   2. Bluetooth адаптер правильно настроен и подключен")
-                    _LOGGER.error("   3. У вас есть работающий Bluetooth прокси")
-                    _LOGGER.error("   4. Проверьте логи Home Assistant на ошибки Bluetooth")
-                    _LOGGER.error("   5. MAC адрес устройства правильный: %s", self._mac)
-                else:
-                    _LOGGER.error(f"🚫 Ошибка подключения: {ex}")
                 await self.disconnect()
                 self._last_connect_ok = False
-                raise
+                raise ex
         if not self._auth_ok:
             self._last_auth_ok = self._auth_ok = await self.auth()
             if not self._auth_ok:
-                _LOGGER.error("🚫 Ошибка аутентификации. Нужно включить режим сопряжения на мультиварке.")
-                _LOGGER.error("💡 Убедитесь, что:")
-                _LOGGER.error("   1. Мультиварка включена")
-                _LOGGER.error("   2. Мультиварка находится в режиме сопряжения")
-                _LOGGER.error("   3. Ключ аутентификации правильный")
-                _LOGGER.error("   4. Устройство находится рядом с адаптером")
-                raise AuthError("Ошибка аутентификации")
-            _LOGGER.debug("✅ Аутентификация успешна")
+                _LOGGER.error(f"Auth failed. You need to enable pairing mode on the multicooker.")
+                raise AuthError("Auth failed")
+            _LOGGER.debug("Auth ok")
 
     async def _disconnect_if_need(self):
         """Disconnect if needed."""
