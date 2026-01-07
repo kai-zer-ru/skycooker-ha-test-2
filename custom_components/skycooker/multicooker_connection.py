@@ -317,8 +317,41 @@ class MulticookerConnection:
     def _handle_disconnect(self, client):
         """Handle unexpected disconnections."""
         _LOGGER.warning("⚠️  Неожиданное отключение от мультиварки")
+        _LOGGER.debug("📋 Попытка восстановления соединения...")
+        _LOGGER.info("💡 Возможные причины отключения:")
+        _LOGGER.info("   1. Временная потеря Bluetooth-соединения")
+        _LOGGER.info("   2. Устройство перешло в режим энергосбережения")
+        _LOGGER.info("   3. Проблемы с Bluetooth-адаптером")
+        _LOGGER.info("   4. Устройство выключено или находится вне зоны действия")
+        _LOGGER.info("🔄 Попытка автоматического переподключения...")
+        
         self._last_connect_ok = False
         self._auth_ok = False
+        
+        # Schedule a reconnection attempt
+        if self.hass and not self._disposed:
+            async def attempt_reconnect():
+                try:
+                    _LOGGER.info("🔄 Попытка переподключения через 5 секунд...")
+                    await asyncio.sleep(5)
+                    if not self._disposed:
+                        _LOGGER.info("🔌 Попытка переподключения...")
+                        await self._connect_if_need()
+                        if self._client and self._client.is_connected:
+                            _LOGGER.info("✅ Успешное переподключение")
+                        else:
+                            _LOGGER.error("🚫 Не удалось переподключиться")
+                            _LOGGER.info("💡 Рекомендации:")
+                            _LOGGER.info("   1. Проверьте, что устройство включено и находится в зоне действия Bluetooth")
+                            _LOGGER.info("   2. Проверьте, что Bluetooth-адаптер работает правильно")
+                            _LOGGER.info("   3. Попробуйте перезагрузить устройство")
+                            _LOGGER.info("   4. Проверьте логи Home Assistant на дополнительные ошибки")
+                except Exception as e:
+                    _LOGGER.error(f"🚫 Ошибка при попытке переподключения: {e}")
+                    _LOGGER.debug("📋 Подробности ошибки:", exc_info=True)
+            
+            # Run the reconnection attempt in the background
+            self.hass.async_create_task(attempt_reconnect())
 
     async def auth(self):
         """Authenticate with the multicooker using correct key format."""
