@@ -350,10 +350,15 @@ class MulticookerConnection:
             _LOGGER.info("   2. Bluetooth-адаптер работает правильно")
             _LOGGER.info("   3. Нет других процессов, использующих Bluetooth")
             _LOGGER.info("   4. Проверьте логи Home Assistant на дополнительные ошибки")
+            _LOGGER.debug(f"📋 Флаги состояния: _is_reconnecting={self._is_reconnecting}, _disposed={self._disposed}, _reconnect_attempts={self._reconnect_attempts}")
             self._is_reconnecting = True
             
             async def attempt_reconnect():
                 try:
+                    # Log the current attempt number before checking the limit
+                    current_attempt = self._reconnect_attempts + 1
+                    _LOGGER.info(f"🔄 Запуск попытки переподключения {current_attempt}/{self._max_reconnect_attempts}")
+                    
                     # Check if we have reached the maximum number of reconnection attempts
                     if self._reconnect_attempts >= self._max_reconnect_attempts:
                         _LOGGER.error(f"🚫 Превышено максимальное количество попыток подключения ({self._max_reconnect_attempts})")
@@ -513,6 +518,11 @@ class MulticookerConnection:
 
     async def _connect_if_need(self):
         """Connect if needed with better error handling."""
+        # Check if we are already trying to connect
+        if self._is_reconnecting:
+            _LOGGER.debug("🔄 Уже идет попытка подключения, пропускаем новую попытку")
+            return
+        
         if self._client and not self._client.is_connected:
             _LOGGER.debug("🔌 Подключение потеряно")
             await self.disconnect()
