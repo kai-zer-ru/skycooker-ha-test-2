@@ -6,7 +6,6 @@ import logging
 import traceback
 from time import monotonic
 
-from bleak import BleakClient, BleakScanner
 from bleak.exc import BleakError
 from bleak_retry_connector import establish_connection, BleakClientWithServiceCache
 
@@ -72,6 +71,8 @@ class MulticookerConnection:
         self._reconnect_attempts = 0
         self._max_reconnect_attempts = 5
         self._reconnect_delay = 15
+        self._is_reconnecting = False
+        self._reconnect_task = None
         
         # Динамически определённые UUID
         self._service_uuid = None
@@ -211,10 +212,10 @@ class MulticookerConnection:
                 await self._disconnect()
                 raise BleakError("Notification characteristic not found")
           
-        except BleakError as e:
+        except Exception as e:
             error_str = str(e)
-            _LOGGER.error(f"🚫 Ошибка Bluetooth: {e}")
-            _LOGGER.debug(f"📋 Подробности ошибки Bluetooth: {error_str}")
+            _LOGGER.error(f"🚫 Ошибка подключения: {e}")
+            _LOGGER.debug("📋 Подробности ошибки:", exc_info=True)
             
             # More specific error handling for common Bluetooth issues
             if "connection slots" in error_str.lower() or "out of connection slots" in error_str.lower():
@@ -261,11 +262,6 @@ class MulticookerConnection:
             _LOGGER.error("   4. Проверьте, что нет других процессов, использующих Bluetooth")
             _LOGGER.error("   5. Попробуйте использовать другой Bluetooth-адаптер")
             
-            await self._disconnect()
-            raise
-        except Exception as e:
-            _LOGGER.error(f"🚫 Ошибка подключения: {e}")
-            _LOGGER.debug("📋 Подробности ошибки:", exc_info=True)
             await self._disconnect()
             raise
 
@@ -346,7 +342,11 @@ class MulticookerConnection:
         self._auth_ok = False
         
         # Schedule a reconnection attempt
-        if self.hass and not self._disposed:
+        if self.hass and not self._disposed and not self._is_reconnecting:
+            _LOGGER.debug("🔄 Запуск новой попытки переподключения...")
+            _LOGGER.info(f"📋 Текущее состояние: попытка {self._reconnect_attempts + 1}/{self._max_reconnect_attempts}, задержка {self._reconnect_delay} секунд")
+            self._is_reconnecting = True
+            
             async def attempt_reconnect():
                 try:
                     # Check if we have reached the maximum number of reconnection attempts
@@ -400,9 +400,11 @@ class MulticookerConnection:
                     else:
                         _LOGGER.error(f"🚫 Ошибка при попытке переподключения: {e}")
                     _LOGGER.debug("📋 Подробности ошибки:", exc_info=True)
+                finally:
+                    self._is_reconnecting = False
             
             # Run the reconnection attempt in the background
-            self.hass.async_create_task(attempt_reconnect())
+            self._reconnect_task = self.hass.async_create_task(attempt_reconnect())
 
     async def auth(self):
         """Authenticate with the multicooker using correct key format."""
@@ -475,6 +477,19 @@ class MulticookerConnection:
     async def disconnect(self):
         """Public disconnect method."""
         try:
+            # Cancel any ongoing reconnection attempt
+            if self._reconnect_task and not self._reconnect_task.done():
+                _LOGGER.debug("🔄 Отмена текущей задачи переподключения...")
+                self._reconnect_task.cancel()
+                try:
+                    await self._reconnect_task
+                except asyncio.CancelledError:
+                    _LOGGER.debug("🔄 Задача переподключения успешно отменена")
+            
+            # Reset the reconnection flags
+            self._is_reconnecting = False
+            self._reconnect_attempts = 0
+            
             await self._disconnect()
         except:
             pass
