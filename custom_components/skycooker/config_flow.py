@@ -79,9 +79,9 @@ class SkyCoockerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             try:
                 scanner = bluetooth.async_get_scanner(self.hass)
                 for device in scanner.discovered_devices:
-                    _LOGGER.debug(f"Device found: {device.address} - {device.name}")
+                    _LOGGER.debug(f"🔍 Найдено устройство: {device.address} - {device.name}")
             except:
-                _LOGGER.error("Bluetooth integration not working")
+                _LOGGER.error("🚫 Bluetooth интеграция не работает")
                 return self.async_abort(reason='no_bluetooth')
              
             devices_filtered = [device for device in scanner.discovered_devices
