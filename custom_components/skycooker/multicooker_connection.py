@@ -311,9 +311,6 @@ class MulticookerConnection:
                   
                 if self._status:
                     _LOGGER.debug(f"📊 Статус получен: режим={self._status.get('mode')}, температура={self._status.get('temperature')}°C")
-                    # Update last successful update time
-                    import time
-                    self._last_successful_update = time.monotonic()
                 else:
                     _LOGGER.warning("⚠️  Не удалось получить статус")
                     
@@ -370,14 +367,6 @@ class MulticookerConnection:
         # If we never connected successfully, check if we're currently trying to connect
         if self._client and self._client.is_connected:
             return True
-        # If we have a recent successful update (within the last 2 scan intervals), consider available
-        if self._last_successful_update:
-            import time
-            current_time = time.monotonic()
-            # Use 2 * DEFAULT_SCAN_INTERVAL * 60 seconds as timeout (convert minutes to seconds)
-            timeout = 2 * DEFAULT_SCAN_INTERVAL * 60
-            if current_time - self._last_successful_update < timeout:
-                return True
         return False
 
     @property
