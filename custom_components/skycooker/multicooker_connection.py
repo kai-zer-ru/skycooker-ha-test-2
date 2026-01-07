@@ -69,6 +69,9 @@ class MulticookerConnection:
         self._last_data = None
         self.model = model
         self._last_successful_update = None
+        self._reconnect_attempts = 0
+        self._max_reconnect_attempts = 5
+        self._reconnect_delay = 15
         
         # Динамически определённые UUID
         self._service_uuid = None
@@ -346,13 +349,35 @@ class MulticookerConnection:
         if self.hass and not self._disposed:
             async def attempt_reconnect():
                 try:
-                    _LOGGER.info("🔄 Попытка переподключения через 5 секунд...")
-                    await asyncio.sleep(5)
+                    # Check if we have reached the maximum number of reconnection attempts
+                    if self._reconnect_attempts >= self._max_reconnect_attempts:
+                        _LOGGER.error(f"🚫 Превышено максимальное количество попыток подключения ({self._max_reconnect_attempts})")
+                        _LOGGER.error("💡 Интеграция будет отключена. Пожалуйста, проверьте:")
+                        _LOGGER.error("   1. Устройство включено и находится в зоне действия Bluetooth")
+                        _LOGGER.error("   2. Bluetooth-адаптер работает правильно")
+                        _LOGGER.error("   3. Нет других процессов, использующих Bluetooth")
+                        _LOGGER.error("   4. Проверьте логи Home Assistant на дополнительные ошибки")
+                        _LOGGER.error("💡 Для повторного подключения перезагрузите интеграцию или Home Assistant")
+                        
+                        # Disable the integration by setting connection as disposed
+                        self._disposed = True
+                        await self.disconnect()
+                        return
+                    
+                    # Increment the reconnection attempt counter
+                    self._reconnect_attempts += 1
+                    attempt_number = self._reconnect_attempts
+                    
+                    _LOGGER.info(f"🔄 Попытка переподключения {attempt_number}/{self._max_reconnect_attempts} через {self._reconnect_delay} секунд...")
+                    await asyncio.sleep(self._reconnect_delay)
+                    
                     if not self._disposed:
                         _LOGGER.info("🔌 Попытка переподключения...")
                         await self._connect_if_need()
                         if self._client and self._client.is_connected:
                             _LOGGER.info("✅ Успешное переподключение")
+                            # Reset the reconnection attempt counter on successful connection
+                            self._reconnect_attempts = 0
                         else:
                             _LOGGER.error("🚫 Не удалось переподключиться")
                             _LOGGER.info("💡 Рекомендации:")
@@ -708,6 +733,10 @@ class MulticookerConnection:
     @property
     def available(self):
         """Check if the multicooker is available."""
+        # If we have exceeded the maximum number of reconnection attempts, return False
+        if self._reconnect_attempts >= self._max_reconnect_attempts:
+            return False
+        
         # Consider available if we had at least one successful connection
         # This prevents entities from becoming unavailable immediately after setup
         if self._last_connect_ok and self._last_auth_ok:
