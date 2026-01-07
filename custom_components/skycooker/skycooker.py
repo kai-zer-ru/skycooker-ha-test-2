@@ -4,7 +4,7 @@
 import calendar
 import logging
 import time
-from abc import abstractmethod
+from abc import ABC, abstractmethod
 from collections import namedtuple
 from datetime import datetime
 from struct import pack, unpack
@@ -14,7 +14,7 @@ from .const import *
 _LOGGER = logging.getLogger(__name__)
 
 
-class SkyCooker():
+class SkyCooker(ABC):
     Status = namedtuple("Status", ["mode", "target_temp", "sound_enabled", "current_temp",
         "color_interval", "parental_control", "is_on", "error_code", "boil_time"])
 
@@ -33,6 +33,7 @@ class SkyCooker():
             return MODELS.get(model[:-2], None)
         return None
 
+    @abstractmethod
     async def command(self, command, params=None):
         pass
 
