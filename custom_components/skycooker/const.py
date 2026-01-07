@@ -360,6 +360,11 @@ BUTTON_TYPE_STOP = "stop"
 # Select types
 SELECT_TYPE_MODE = "mode"
 
+# Number types
+NUMBER_TYPE_TEMPERATURE = "temperature"
+NUMBER_TYPE_COOKING_TIME_HOURS = "cooking_time_hours"
+NUMBER_TYPE_COOKING_TIME_MINUTES = "cooking_time_minutes"
+
 # Sensor types
 SENSOR_TYPE_STATUS = "status"
 SENSOR_TYPE_TEMPERATURE = "temperature"

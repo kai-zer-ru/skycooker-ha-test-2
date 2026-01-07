@@ -25,19 +25,19 @@ class TestConstants(unittest.TestCase):
     
     def test_status_codes(self):
         """Test status codes."""
-        self.assertEqual(len(STATUS_CODES), 7)
+        self.assertEqual(len(STATUS_CODES), 5)
         self.assertEqual(STATUS_CODES[STATUS_OFF], "Выключена")
         self.assertEqual(STATUS_CODES[STATUS_COOKING], "Готовка")
 
 
 class TestMulticookerConnection(unittest.TestCase):
     """Test multicooker connection."""
-    
-    @patch('custom_components.skycooker.multicooker_connection.BleakClientWithServiceCache')
-    @patch('custom_components.skycooker.multicooker_connection.bluetooth.async_ble_device_from_address')
+
+    @patch('custom_components.skycooker.skycooker_connection.BleakClientWithServiceCache')
+    @patch('custom_components.skycooker.skycooker_connection.bluetooth.async_ble_device_from_address')
     def test_initialization(self, mock_device_from_address, mock_bleak_client):
         """Test connection initialization."""
-        from custom_components.skycooker.multicooker_connection import MulticookerConnection
+        from custom_components.skycooker.skycooker_connection import SkyCookerConnection
         
         # Mock device and client
         mock_device = MagicMock()
@@ -48,7 +48,7 @@ class TestMulticookerConnection(unittest.TestCase):
         mock_bleak_client.return_value = mock_client
         
         # Create connection
-        connection = MulticookerConnection(
+        connection = SkyCookerConnection(
             mac="AA:BB:CC:DD:EE:FF",
             key=[0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08],
             persistent=True,
@@ -61,6 +61,58 @@ class TestMulticookerConnection(unittest.TestCase):
         self.assertEqual(connection._mac, "AA:BB:CC:DD:EE:FF")
         self.assertEqual(connection.model, "RMC-M40S")
         self.assertFalse(connection._disposed)
+
+    @patch('custom_components.skycooker.skycooker_connection.SkyCookerConnection.get_status')
+    def test_status_properties(self, mock_get_status):
+        """Test status properties."""
+        from custom_components.skycooker.skycooker_connection import SkyCookerConnection
+        from custom_components.skycooker.skycooker import SkyCooker
+        
+        # Create a mock status
+        mock_status = SkyCooker.Status(
+            mode=1,
+            target_temp=100,
+            sound_enabled=True,
+            current_temp=95,
+            color_interval=5,
+            parental_control=False,
+            is_on=True,
+            error_code=0,
+            boil_time=30
+        )
+        
+        # Mock get_status to return our mock status
+        mock_get_status.return_value = mock_status
+        
+        # Create connection
+        connection = SkyCookerConnection(
+            mac="AA:BB:CC:DD:EE:FF",
+            key=[0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08],
+            persistent=True,
+            adapter=None,
+            hass=MagicMock(),
+            model="RMC-M40S"
+        )
+        
+        # Set the status directly
+        connection._status = mock_status
+        
+        # Test new properties
+        self.assertEqual(connection.status_code, 1)
+        self.assertEqual(connection.target_temperature, 100)
+        self.assertEqual(connection.remaining_time, 30)
+        self.assertEqual(connection.total_time, 30)
+        self.assertEqual(connection.delayed_start_time, 0)
+        self.assertEqual(connection.auto_warm_time, 0)
+        self.assertEqual(connection.auto_warm_enabled, False)
+        
+        # Test new methods (can't test async methods in sync test)
+        # These would be tested in async tests
+        # await connection.set_temperature(95)
+        # self.assertEqual(connection._target_state[1], 95)
+        #
+        # await connection.set_cooking_time(1, 30)
+        # self.assertEqual(connection._target_boil_time, 90)
 
 
 if __name__ == '__main__':

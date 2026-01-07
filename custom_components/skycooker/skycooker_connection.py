@@ -108,7 +108,8 @@ class SkyCookerConnection(SkyCooker):
                 BleakClientWithServiceCache,
                 self._device,
                 self._device.name or "Unknown Device",
-                max_attempts=5
+                max_attempts=5,
+                retry_interval=1.0  # Добавляем задержку между попытками
             )
             _LOGGER.info("✅ Успешно подключено к мультиварке %s", self._mac)
             await self._client.start_notify(UUID_RX, self._rx_callback)
@@ -377,10 +378,83 @@ class SkyCookerConnection(SkyCooker):
         if not self._status: return None
         return self._status.boil_time
 
+    @property
+    def status_code(self):
+        if not self._status: return None
+        return self._status.mode if self._status.is_on else STATUS_OFF
+
+    @property
+    def target_temperature(self):
+        if not self._status: return None
+        return self._status.target_temp
+
+    @property
+    def remaining_time(self):
+        if not self._status: return None
+        # Return boil_time as remaining time
+        return self._status.boil_time
+
+    @property
+    def total_time(self):
+        if not self._status: return None
+        # For total time, we need to calculate based on status
+        # For now, return boil_time as a placeholder
+        # In a real implementation, this should come from the program settings
+        return self._status.boil_time
+
+    @property
+    def delayed_start_time(self):
+        if not self._status: return None
+        # For delayed start time, we need to calculate based on status
+        # For now, return 0 as a placeholder
+        # In a real implementation, this should come from wait_hours and wait_minutes
+        return 0
+
+    @property
+    def auto_warm_time(self):
+        if not self._status: return None
+        # For auto warm time, we need to calculate based on status
+        # For now, return boil_time if in auto warm mode, else 0
+        return self._status.boil_time if self._status.mode == STATUS_AUTO_WARM else 0
+
+    @property
+    def auto_warm_enabled(self):
+        if not self._status: return None
+        return self._status.mode == STATUS_AUTO_WARM
+
     async def set_boil_time(self, value):
         value = int(value)
         _LOGGER.info(f"Setting boil time to {value}")
         self._target_boil_time = value
+        await self.update(commit=True)
+
+    async def set_temperature(self, value):
+        """Set target temperature."""
+        value = int(value)
+        _LOGGER.info(f"Setting target temperature to {value}")
+        if self._status and self._status.is_on:
+            # If device is on, we need to send temperature command
+            # For now, store it and it will be applied on next update
+            self._target_state = self._status.mode, value
+            await self.update(commit=True)
+        else:
+            # If device is off, just store the target temperature
+            # It will be applied when device is turned on
+            if self._target_state:
+                target_mode, _ = self._target_state
+                self._target_state = target_mode, value
+            else:
+                self._target_state = self._status.mode if self._status else None, value
+
+    async def set_cooking_time(self, hours, minutes):
+        """Set cooking time."""
+        hours = int(hours)
+        minutes = int(minutes)
+        _LOGGER.info(f"Setting cooking time to {hours}:{minutes:02d}")
+        # For now, convert to total minutes and store in boil_time
+        # In a real implementation, this should send the proper command
+        total_minutes = hours * 60 + minutes
+        self._target_boil_time = total_minutes
         await self.update(commit=True)
 
     async def set_target_temp(self, target_temp, operation_mode = None):
