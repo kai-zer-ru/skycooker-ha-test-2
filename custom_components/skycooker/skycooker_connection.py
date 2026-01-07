@@ -95,17 +95,25 @@ class SkyCookerConnection(SkyCooker):
         if self._client and self._client.is_connected:
             _LOGGER.debug("✅ Уже подключено к мультиварке")
             return
-        self._device = bluetooth.async_ble_device_from_address(self.hass, self._mac)
-        _LOGGER.info("🔌 Подключение к мультиварке %s...", self._mac)
-        self._client = await establish_connection(
-            BleakClientWithServiceCache,
-            self._device,
-            self._device.name or "Unknown Device",
-            max_attempts=3
-        )
-        _LOGGER.info("✅ Успешно подключено к мультиварке %s", self._mac)
-        await self._client.start_notify(UUID_RX, self._rx_callback)
-        _LOGGER.info("📡 Подписка на уведомления от мультиварки")
+        try:
+            self._device = bluetooth.async_ble_device_from_address(self.hass, self._mac)
+            if not self._device:
+                _LOGGER.error("❌ Устройство %s не найдено", self._mac)
+                raise IOError(f"Устройство {self._mac} не найдено")
+            _LOGGER.info("🔌 Подключение к мультиварке %s (%s)...", self._mac, self._device.name)
+            self._client = await establish_connection(
+                BleakClientWithServiceCache,
+                self._device,
+                self._device.name or "Unknown Device",
+                max_attempts=10  # Увеличено количество попыток
+            )
+            _LOGGER.info("✅ Успешно подключено к мультиварке %s", self._mac)
+            await self._client.start_notify(UUID_RX, self._rx_callback)
+            _LOGGER.info("📡 Подписка на уведомления от мультиварки")
+        except Exception as e:
+            _LOGGER.error("❌ Ошибка подключения к мультиварке: %s", e)
+            _LOGGER.error("💡 Проверьте, что устройство находится в режиме сопряжения и рядом с адаптером")
+            raise
 
     auth = lambda self: super().auth(self._key)
 
