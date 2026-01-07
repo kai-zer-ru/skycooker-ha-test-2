@@ -10,13 +10,7 @@ from bleak_retry_connector import establish_connection, BleakClientWithServiceCa
 
 from homeassistant.components import bluetooth
 
-from .const import (
-    DOMAIN, DATA_CONNECTION, DATA_CANCEL, DATA_WORKING, DATA_DEVICE_INFO,
-    DISPATCHER_UPDATE, COMMAND_AUTH, COMMAND_GET_VERSION, COMMAND_TURN_ON,
-    COMMAND_TURN_OFF, COMMAND_SET_MAIN_MODE, COMMAND_GET_STATUS, COMMAND_SYNC_TIME,
-    COMMAND_GET_TIME, UUID_SERVICE, UUID_TX, UUID_RX, BLE_RECV_TIMEOUT, MAX_TRIES,
-    TRIES_INTERVAL, STATS_INTERVAL, TARGET_TTL, MODELS
-)
+from .const import *
 from .skycooker import SkyCooker
 
 _LOGGER = logging.getLogger(__name__)
@@ -61,12 +55,12 @@ class SkyCookerConnection(SkyCooker):
         data = bytes([0x55, self._iter, command] + list(params) + [0xAA])
         self._last_data = None
         try:
-            await self._client.write_gatt_char(SkyCookerConnection.UUID_TX, data)
+            await self._client.write_gatt_char(UUID_TX, data)
             _LOGGER.debug(f"📋 Отправленный пакет: {data.hex().upper()}")
         except Exception as e:
             _LOGGER.error(f"🚫 Ошибка отправки команды: {e}")
             raise IOError(f"Ошибка отправки команды: {e}")
-        timeout_time = monotonic() + SkyCookerConnection.BLE_RECV_TIMEOUT
+        timeout_time = monotonic() + BLE_RECV_TIMEOUT
         while True:
             await asyncio.sleep(0.05)
             if self._last_data:
@@ -110,7 +104,7 @@ class SkyCookerConnection(SkyCooker):
             max_attempts=3
         )
         _LOGGER.info("✅ Успешно подключено к мультиварке %s", self._mac)
-        await self._client.start_notify(SkyCookerConnection.UUID_RX, self._rx_callback)
+        await self._client.start_notify(UUID_RX, self._rx_callback)
         _LOGGER.info("📡 Подписка на уведомления от мультиварки")
 
     auth = lambda self: super().auth(self._key)
@@ -231,14 +225,14 @@ class SkyCookerConnection(SkyCooker):
 
         except Exception as ex:
             await self.disconnect()
-            if self._target_state is not None and self._last_set_target + SkyCookerConnection.TARGET_TTL < monotonic():
-                _LOGGER.warning(f"⚠️  Не удалось установить режим {self._target_state} в течение {SkyCookerConnection.TARGET_TTL} секунд, прекращаю попытки")
+            if self._target_state is not None and self._last_set_target + TARGET_TTL < monotonic():
+                _LOGGER.warning(f"⚠️  Не удалось установить режим {self._target_state} в течение {TARGET_TTL} секунд, прекращаю попытки")
                 self._target_state = None
             if type(ex) == AuthError: return None
             self.add_stat(False)
             if tries > 1 and extra_action is None:
-                _LOGGER.debug(f"🚫 {type(ex).__name__}: {str(ex)}, повтор #{SkyCookerConnection.MAX_TRIES - tries + 1}")
-                await asyncio.sleep(SkyCookerConnection.TRIES_INTERVAL)
+                _LOGGER.debug(f"🚫 {type(ex).__name__}: {str(ex)}, повтор #{MAX_TRIES - tries + 1}")
+                await asyncio.sleep(TRIES_INTERVAL)
                 return await self.update(tries=tries-1, force_stats=force_stats, extra_action=extra_action, commit=commit)
             else:
                 _LOGGER.warning(f"⚠️  Не удалось обновить состояние, {type(ex).__name__}: {str(ex)}")
