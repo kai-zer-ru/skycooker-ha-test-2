@@ -102,12 +102,12 @@ class SkyCookerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 model=self.config.get(CONF_FRIENDLY_NAME, None)
             )
             tries = 3
-            while tries > 0 and not skycooker._last_connect_ok:
+            while tries > 0 and not skycooker.last_connect_ok:
                 await skycooker.update()
                 tries = tries - 1
-             
-            connect_ok = skycooker._last_connect_ok
-            auth_ok = skycooker._last_auth_ok
+              
+            connect_ok = skycooker.last_connect_ok
+            auth_ok = skycooker.last_auth_ok
             skycooker.stop()
          
             if not connect_ok:

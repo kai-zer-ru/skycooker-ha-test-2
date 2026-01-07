@@ -33,7 +33,6 @@ class SkyCooker():
             return MODELS.get(model[:-2], None)
         return None
 
-    @abstractmethod
     async def command(self, command, params=None):
         pass
 
@@ -48,7 +47,7 @@ class SkyCooker():
         major, minor = unpack("BB", r)
         ver = f"{major}.{minor}"
         _LOGGER.debug(f"Version: {ver}")
-        return (major, minor)
+        return major, minor
 
     async def turn_on(self):
         r = await self.command(COMMAND_TURN_ON)

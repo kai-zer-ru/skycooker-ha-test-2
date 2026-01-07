@@ -272,6 +272,14 @@ class SkyCookerConnection(SkyCooker):
         return self._last_connect_ok and self._last_auth_ok
 
     @property
+    def last_connect_ok(self):
+        return self._last_connect_ok
+
+    @property
+    def last_auth_ok(self):
+        return self._last_auth_ok
+
+    @property
     def current_temp(self):
         if self._status:
             return self._status.current_temp
