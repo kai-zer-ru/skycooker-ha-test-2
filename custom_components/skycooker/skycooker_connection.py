@@ -92,18 +92,20 @@ class SkyCookerConnection(SkyCooker):
     async def _connect(self):
         if self._disposed:
             raise DisposedError()
-        if self._client and self._client.is_connected: return
+        if self._client and self._client.is_connected:
+            _LOGGER.debug("✅ Уже подключено к мультиварке")
+            return
         self._device = bluetooth.async_ble_device_from_address(self.hass, self._mac)
-        _LOGGER.debug("Connecting to the SkyCooker...")
+        _LOGGER.info("🔌 Подключение к мультиварке %s...", self._mac)
         self._client = await establish_connection(
             BleakClientWithServiceCache,
             self._device,
             self._device.name or "Unknown Device",
             max_attempts=3
         )
-        _LOGGER.debug("Connected to the SkyCooker")
+        _LOGGER.info("✅ Успешно подключено к мультиварке %s", self._mac)
         await self._client.start_notify(SkyCookerConnection.UUID_RX, self._rx_callback)
-        _LOGGER.debug("Subscribed to RX")
+        _LOGGER.info("📡 Подписка на уведомления от мультиварки")
 
     auth = lambda self: super().auth(self._key)
 
@@ -126,7 +128,7 @@ class SkyCookerConnection(SkyCooker):
 
     async def _connect_if_need(self):
         if self._client and not self._client.is_connected:
-            _LOGGER.debug("Connection lost")
+            _LOGGER.warning("⚠️  Подключение к мультиварке потеряно")
             await self.disconnect()
         if not self._client or not self._client.is_connected:
             try:
@@ -135,13 +137,14 @@ class SkyCookerConnection(SkyCooker):
             except Exception as ex:
                 await self.disconnect()
                 self._last_connect_ok = False
+                _LOGGER.error(f"🚫 Ошибка подключения к мультиварке: {ex}")
                 raise ex
         if not self._auth_ok:
             self._last_auth_ok = self._auth_ok = await self.auth()
             if not self._auth_ok:
-                _LOGGER.error(f"Auth failed. You need to enable pairing mode on the SkyCooker.")
-                raise AuthError("Auth failed")
-            _LOGGER.debug("Auth ok")
+                _LOGGER.error("🚫 Ошибка аутентификации. Необходимо включить режим сопряжения на мультиварке.")
+                raise AuthError("Ошибка аутентификации")
+            _LOGGER.info("✅ Аутентификация успешна")
             self._sw_version = await self.get_version()
             await self.sync_time()
 
@@ -153,7 +156,7 @@ class SkyCookerConnection(SkyCooker):
         try:
             async with self._update_lock:
                 if self._disposed: return None
-                _LOGGER.debug(f"Updating")
+                _LOGGER.info("🔄 Обновление состояния мультиварки")
                 if not self.available: force_stats = True
                 await self._connect_if_need()
 
@@ -163,7 +166,7 @@ class SkyCookerConnection(SkyCooker):
                 boil_time = self._status.boil_time
                 if self._target_boil_time is not None and self._target_boil_time != boil_time:
                     try:
-                        _LOGGER.debug(f"Need to update boil time from {boil_time} to {self._target_boil_time}")
+                        _LOGGER.info(f"🔥 Необходимо обновить время кипения с {boil_time} на {self._target_boil_time}")
                         boil_time = self._target_boil_time
                         if self._target_state is None:
                             self._target_state = self._status.mode if self._status.is_on else None, self._status.target_temp
@@ -172,9 +175,9 @@ class SkyCookerConnection(SkyCooker):
                             await self.turn_off()
                             await asyncio.sleep(0.2)
                         await self.set_main_mode(self._status.mode, self._status.target_temp, boil_time)
-                        _LOGGER.info(f"Boil time is successfully set to {boil_time}")
+                        _LOGGER.info(f"✅ Время кипения успешно установлено на {boil_time}")
                     except Exception as ex:
-                        _LOGGER.error(f"Can't update boil time ({type(ex).__name__}): {str(ex)}")
+                        _LOGGER.error(f"❌ Не удалось обновить время кипения ({type(ex).__name__}): {str(ex)}")
                     self._status = await self.get_status()
                 self._target_boil_time = None
 
@@ -183,37 +186,37 @@ class SkyCookerConnection(SkyCooker):
                 if self._target_state is not None:
                     target_mode, target_temp = self._target_state
                     if target_mode is None and self._status.is_on:
-                        _LOGGER.info(f"State: {self._status} -> {self._target_state}")
-                        _LOGGER.info("Need to turn off the SkyCooker...")
+                        _LOGGER.info(f"🔄 Состояние: {self._status} -> {self._target_state}")
+                        _LOGGER.info("🔌 Необходимо выключить мультиварку...")
                         await self.turn_off()
-                        _LOGGER.info("The SkyCooker was turned off")
+                        _LOGGER.info("✅ Мультиварка выключена")
                         await asyncio.sleep(0.2)
                         self._status = await self.get_status()
                     elif target_mode is not None and not self._status.is_on:
-                        _LOGGER.info(f"State: {self._status} -> {self._target_state}")
-                        _LOGGER.info("Need to set mode and turn on the SkyCooker...")
+                        _LOGGER.info(f"🔄 Состояние: {self._status} -> {self._target_state}")
+                        _LOGGER.info("🔌 Необходимо установить режим и включить мультиварку...")
                         await self.set_main_mode(target_mode, target_temp, boil_time)
-                        _LOGGER.info("New mode was set")
+                        _LOGGER.info("✅ Режим установлен")
                         await self.turn_on()
-                        _LOGGER.info("The SkyCooker was turned on")
+                        _LOGGER.info("✅ Мультиварка включена")
                         await asyncio.sleep(0.2)
                         self._status = await self.get_status()
                     elif target_mode is not None and (
                             target_mode != self._status.mode or
                             target_temp != self._status.target_temp):
-                        _LOGGER.info(f"State: {self._status} -> {self._target_state}")
-                        _LOGGER.info("Need to switch mode of the SkyCooker and restart it")
+                        _LOGGER.info(f"🔄 Состояние: {self._status} -> {self._target_state}")
+                        _LOGGER.info("🔌 Необходимо переключить режим мультиварки и перезапустить её")
                         await self.turn_off()
-                        _LOGGER.info("The SkyCooker was turned off")
+                        _LOGGER.info("✅ Мультиварка выключена")
                         await asyncio.sleep(0.2)
                         await self.set_main_mode(target_mode, target_temp, boil_time)
-                        _LOGGER.info("New mode was set")
+                        _LOGGER.info("✅ Режим установлен")
                         await self.turn_on()
-                        _LOGGER.info("The SkyCooker was turned on")
+                        _LOGGER.info("✅ Мультиварка включена")
                         await asyncio.sleep(0.2)
                         self._status = await self.get_status()
                     else:
-                        _LOGGER.debug(f"There is no reason to update state")
+                        _LOGGER.debug(f"📊 Нет необходимости обновлять состояние")
                     self._target_state = None
 
                 await self._disconnect_if_need()
@@ -223,16 +226,16 @@ class SkyCookerConnection(SkyCooker):
         except Exception as ex:
             await self.disconnect()
             if self._target_state is not None and self._last_set_target + SkyCookerConnection.TARGET_TTL < monotonic():
-                _LOGGER.warning(f"Can't set mode to {self._target_state} for {SkyCookerConnection.TARGET_TTL} seconds, stop trying")
+                _LOGGER.warning(f"⚠️  Не удалось установить режим {self._target_state} в течение {SkyCookerConnection.TARGET_TTL} секунд, прекращаю попытки")
                 self._target_state = None
             if type(ex) == AuthError: return None
             self.add_stat(False)
             if tries > 1 and extra_action is None:
-                _LOGGER.debug(f"{type(ex).__name__}: {str(ex)}, retry #{SkyCookerConnection.MAX_TRIES - tries + 1}")
+                _LOGGER.debug(f"🚫 {type(ex).__name__}: {str(ex)}, повтор #{SkyCookerConnection.MAX_TRIES - tries + 1}")
                 await asyncio.sleep(SkyCookerConnection.TRIES_INTERVAL)
                 return await self.update(tries=tries-1, force_stats=force_stats, extra_action=extra_action, commit=commit)
             else:
-                _LOGGER.warning(f"Can't update status, {type(ex).__name__}: {str(ex)}")
+                _LOGGER.warning(f"⚠️  Не удалось обновить состояние, {type(ex).__name__}: {str(ex)}")
                 _LOGGER.debug(traceback.format_exc())
             return False
 
