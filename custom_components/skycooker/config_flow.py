@@ -79,17 +79,17 @@ class SkyCoockerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             try:
                 scanner = bluetooth.async_get_scanner(self.hass)
                 for device in scanner.discovered_devices:
-                    _LOGGER.debug(f"🔍 Найдено устройство: {device.address} - {device.name}")
+                    _LOGGER.debug(f"Device found: {device.address} - {device.name}")
             except:
-                _LOGGER.error("🚫 Bluetooth интеграция не работает")
+                _LOGGER.error("Bluetooth integration not working")
                 return self.async_abort(reason='no_bluetooth')
-            
-            devices_filtered = [device for device in scanner.discovered_devices 
+             
+            devices_filtered = [device for device in scanner.discovered_devices
                               if device.name and (device.name.startswith("RMC") or device.name.startswith("RFS"))]
-            
+             
             if len(devices_filtered) == 0:
                 return self.async_abort(reason='device_not_found')
-            
+             
             mac_list = [f"{r.address} ({r.name})" for r in devices_filtered]
             schema = vol.Schema({
                 vol.Required(CONF_MAC): vol.In(mac_list)
@@ -106,8 +106,8 @@ class SkyCoockerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     async def async_step_connect(self, user_input=None):
         """Handle the connect step."""
-        # If this is the first call (user_input is None), proceed directly to test connection
-        if user_input is None:
+        errors = {}
+        if user_input is not None:
             multicooker = MulticookerConnection(
                 mac=self.config[CONF_MAC],
                 key=self.config[CONF_PASSWORD],
@@ -126,15 +126,17 @@ class SkyCoockerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             await multicooker.stop_connection()
 
             if not connect_ok:
-                return self.async_abort(reason="cant_connect")
+                errors["base"] = "cant_connect"
             elif not auth_ok:
-                return self.async_abort(reason="cant_auth")
+                errors["base"] = "cant_auth"
             else:
-                # Connection successful, proceed to create entry
                 return await self.async_step_init()
 
-        # This should not be reached as we either abort or proceed to init step
-        return self.async_abort(reason="unknown")
+        return self.async_show_form(
+            step_id="connect",
+            errors=errors,
+            data_schema=vol.Schema({})
+        )
 
     async def async_step_init(self, user_input=None):
         """Handle the options step."""
@@ -143,38 +145,18 @@ class SkyCoockerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             self.config[CONF_SCAN_INTERVAL] = user_input[CONF_SCAN_INTERVAL]
             self.config[CONF_PERSISTENT_CONNECTION] = user_input[CONF_PERSISTENT_CONNECTION]
             fname = f"{self.config.get(CONF_FRIENDLY_NAME, FRIENDLY_NAME)} ({self.config[CONF_MAC]})"
-            
+            # _LOGGER.debug(f"saving config: {self.config}")
             if self.entry:
                 self.hass.config_entries.async_update_entry(self.entry, data=self.config)
-            
-            _LOGGER.info("✅ Конфигурация сохранена")
+            _LOGGER.info(f"Config saved")
             return self.async_create_entry(
                 title=fname, data=self.config if not self.entry else {}
             )
 
-        # Use translations for the field names
-        persistent_connection_name = "persistent_connection"
-        scan_interval_name = "scan_interval"
-        
-        # Check if we have translations for these fields
-        if self.hass and self.hass.config.language:
-            lang = self.hass.config.language
-            try:
-                # Try to get translations from the translation files
-                translations = self.hass.data["translations"]
-                if translations and DOMAIN in translations:
-                    if "config" in translations[DOMAIN] and "data" in translations[DOMAIN]["config"]:
-                        persistent_connection_name = translations[DOMAIN]["config"]["data"].get("persistent_connection", "persistent_connection")
-                        scan_interval_name = translations[DOMAIN]["config"]["data"].get("scan_interval", "scan_interval")
-            except:
-                pass
-        
-        schema = vol.Schema({
-            vol.Required(CONF_PERSISTENT_CONNECTION,
-                        default=self.config.get(CONF_PERSISTENT_CONNECTION, DEFAULT_PERSISTENT_CONNECTION)): cv.boolean,
-            vol.Required(CONF_SCAN_INTERVAL,
-                        default=self.config.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)):
-                vol.All(vol.Coerce(int), vol.Range(min=1, max=60)),
+        schema = vol.Schema(
+        {
+            vol.Required(CONF_PERSISTENT_CONNECTION, default=self.config.get(CONF_PERSISTENT_CONNECTION, DEFAULT_PERSISTENT_CONNECTION)): cv.boolean,
+            vol.Required(CONF_SCAN_INTERVAL, default=self.config.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)): vol.All(vol.Coerce(int), vol.Range(min=1, max=60)),
         })
 
         return self.async_show_form(

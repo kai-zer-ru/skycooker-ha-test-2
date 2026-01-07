@@ -72,9 +72,9 @@ class MulticookerConnection:
         if self._disposed:
             raise DisposedError()
         if not self._client or not self._client.is_connected:
-            raise IOError("not connected")
+            raise IOError("🔌 Не подключено")
         self._iter = (self._iter + 1) % 256
-        _LOGGER.debug(f"Writing command {command:02x}, data: [{' '.join([f'{c:02x}' for c in params])}]")
+        _LOGGER.debug(f"📤 Отправка команды {command:02x}, данные: [{' '.join([f'{c:02x}' for c in params])}]")
         data = bytes([0x55, self._iter, command] + list(params) + [0xAA])
         self._last_data = None
         await self._client.write_gatt_char(WRITE_UUID, data)
@@ -84,16 +84,16 @@ class MulticookerConnection:
             if self._last_data:
                 r = self._last_data
                 if r[0] != 0x55 or r[-1] != 0xAA:
-                    raise IOError("Invalid response magic")
+                    raise IOError("❌ Некорректный формат ответа")
                 if r[1] == self._iter:
                     break
                 else:
                     self._last_data = None
-            if monotonic() >= timeout_time: raise IOError("Receive timeout")
+            if monotonic() >= timeout_time: raise IOError("⏱️  Таймаут приема")
         if r[2] != command:
-            raise IOError("Invalid response command")
+            raise IOError("❌ Некорректная команда ответа")
         clean = bytes(r[3:-1])
-        _LOGGER.debug(f"Received: {' '.join([f'{c:02x}' for c in clean])}")
+        _LOGGER.debug(f"📥 Очищенные данные ответа: {' '.join([f'{c:02x}' for c in clean])}")
         return clean
 
     def _rx_callback(self, sender, data):
@@ -104,18 +104,23 @@ class MulticookerConnection:
         """Connect to the multicooker."""
         if self._disposed:
             raise DisposedError()
-        if self._client and self._client.is_connected: return
+        if self._client and self._client.is_connected:
+            _LOGGER.debug("✅ Уже подключено к %s", self._mac)
+            return
         self._device = bluetooth.async_ble_device_from_address(self.hass, self._mac)
-        _LOGGER.debug("Connecting to the Multicooker...")
+        if not self._device:
+            _LOGGER.error("❌ Устройство %s не найдено", self._mac)
+            raise BleakError(f"Device {self._mac} not found")
+        _LOGGER.info("🔌 Подключение к устройству: %s (%s)", self._device.name, self._mac)
         self._client = await establish_connection(
             BleakClientWithServiceCache,
             self._device,
             self._device.name or "Unknown Device",
             max_attempts=3
         )
-        _LOGGER.debug("Connected to the Multicooker")
+        _LOGGER.info("✅ Успешное подключение к %s", self._mac)
         await self._client.start_notify(NOTIFY_UUID, self._rx_callback)
-        _LOGGER.debug("Subscribed to RX")
+        _LOGGER.info("📡 Уведомления включены для %s", self._mac)
 
     auth = lambda self: super().auth(self._key)
 
@@ -125,7 +130,8 @@ class MulticookerConnection:
             if self._client:
                 was_connected = self._client.is_connected
                 await self._client.disconnect()
-                if was_connected: _LOGGER.debug("Disconnected")
+                if was_connected:
+                    _LOGGER.debug("🔌 Отключено")
         finally:
             self._auth_ok = False
             self._device = None
@@ -141,7 +147,7 @@ class MulticookerConnection:
     async def _connect_if_need(self):
         """Connect if needed."""
         if self._client and not self._client.is_connected:
-            _LOGGER.debug("Connection lost")
+            _LOGGER.debug("🔌 Подключение потеряно")
             await self.disconnect()
         if not self._client or not self._client.is_connected:
             try:
@@ -154,9 +160,9 @@ class MulticookerConnection:
         if not self._auth_ok:
             self._last_auth_ok = self._auth_ok = await self.auth()
             if not self._auth_ok:
-                _LOGGER.error(f"Auth failed. You need to enable pairing mode on the multicooker.")
-                raise AuthError("Auth failed")
-            _LOGGER.debug("Auth ok")
+                _LOGGER.error("🚫 Ошибка аутентификации. Нужно включить режим сопряжения на мультиварке.")
+                raise AuthError("Ошибка аутентификации")
+            _LOGGER.debug("✅ Аутентификация успешна")
 
     async def _disconnect_if_need(self):
         """Disconnect if needed."""
