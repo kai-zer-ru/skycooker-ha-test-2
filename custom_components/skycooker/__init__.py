@@ -1,4 +1,4 @@
-"""Support for SkyCoocker."""
+"""Support for SkyCooker."""
 import logging
 from datetime import timedelta
 
@@ -40,7 +40,7 @@ async def async_setup(hass, config):
     return True
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
-    """Set up SkyCoocker integration from a config entry."""
+    """Set up SkyCooker integration from a config entry."""
     entry.async_on_unload(entry.add_update_listener(entry_update_listener))
 
     if DOMAIN not in hass.data: hass.data[DOMAIN] = {}

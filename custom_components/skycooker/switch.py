@@ -1,4 +1,4 @@
-"""SkyCoocker switches."""
+"""SkyCooker switches."""
 import logging
 
 from homeassistant.components.switch import SwitchEntity
@@ -14,14 +14,14 @@ SWITCH_TYPE_POWER = "power"
 
 
 async def async_setup_entry(hass, entry, async_add_entities):
-    """Set up the SkyCoocker switches."""
+    """Set up the SkyCooker switches."""
     async_add_entities([
-        SkyCoockerSwitch(hass, entry, SWITCH_TYPE_POWER),
+        SkyCookerSwitch(hass, entry, SWITCH_TYPE_POWER),
     ])
 
 
-class SkyCoockerSwitch(SwitchEntity):
-    """Representation of a SkyCoocker switch."""
+class SkyCookerSwitch(SwitchEntity):
+    """Representation of a SkyCooker switch."""
 
     def __init__(self, hass, entry, switch_type):
         """Initialize the switch."""

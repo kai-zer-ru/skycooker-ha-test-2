@@ -1,4 +1,4 @@
-"""Config flow for SkyCoocker integration."""
+"""Config flow for SkyCooker integration."""
 
 import logging
 import traceback
@@ -18,8 +18,8 @@ from .multicooker_connection import MulticookerConnection
 _LOGGER = logging.getLogger(__name__)
 
 
-class SkyCoockerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
-    """Handle a config flow for SkyCoocker."""
+class SkyCookerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
+    """Handle a config flow for SkyCooker."""
 
     VERSION = 1
 
@@ -27,10 +27,10 @@ class SkyCoockerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     @callback
     def async_get_options_flow(entry):
         """Get the options flow for this handler."""
-        return SkyCoockerConfigFlow(entry=entry)
+        return SkyCookerConfigFlow(entry=entry)
 
     def __init__(self, entry = None):
-        """Initialize a new SkyCoockerConfigFlow."""
+        """Initialize a new SkyCookerConfigFlow."""
         self.entry = entry
         self.config = {} if not entry else dict(entry.data.items())
 

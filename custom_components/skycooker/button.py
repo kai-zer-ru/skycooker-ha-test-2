@@ -1,4 +1,4 @@
-"""SkyCoocker button entities."""
+"""SkyCooker button entities."""
 import logging
 
 from homeassistant.components.button import ButtonEntity
@@ -15,15 +15,15 @@ BUTTON_TYPE_STOP = "stop"
 
 
 async def async_setup_entry(hass, entry, async_add_entities):
-    """Set up the SkyCoocker button entities."""
+    """Set up the SkyCooker button entities."""
     async_add_entities([
-        SkyCoockerButton(hass, entry, BUTTON_TYPE_START),
-        SkyCoockerButton(hass, entry, BUTTON_TYPE_STOP),
+        SkyCookerButton(hass, entry, BUTTON_TYPE_START),
+        SkyCookerButton(hass, entry, BUTTON_TYPE_STOP),
     ])
 
 
-class SkyCoockerButton(ButtonEntity):
-    """Representation of a SkyCoocker button entity."""
+class SkyCookerButton(ButtonEntity):
+    """Representation of a SkyCooker button entity."""
 
     def __init__(self, hass, entry, button_type):
         """Initialize the button entity."""

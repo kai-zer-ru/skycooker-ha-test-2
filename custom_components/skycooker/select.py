@@ -1,4 +1,4 @@
-"""SkyCoocker select entities."""
+"""SkyCooker select entities."""
 import logging
 
 from homeassistant.components.select import SelectEntity
@@ -14,14 +14,14 @@ SELECT_TYPE_MODE = "mode"
 
 
 async def async_setup_entry(hass, entry, async_add_entities):
-    """Set up the SkyCoocker select entities."""
+    """Set up the SkyCooker select entities."""
     async_add_entities([
-        SkyCoockerSelect(hass, entry, SELECT_TYPE_MODE),
+        SkyCookerSelect(hass, entry, SELECT_TYPE_MODE),
     ])
 
 
-class SkyCoockerSelect(SelectEntity):
-    """Representation of a SkyCoocker select entity."""
+class SkyCookerSelect(SelectEntity):
+    """Representation of a SkyCooker select entity."""
 
     def __init__(self, hass, entry, select_type):
         """Initialize the select entity."""

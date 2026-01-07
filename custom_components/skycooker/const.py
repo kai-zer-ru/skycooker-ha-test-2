@@ -1,7 +1,7 @@
-"""Constants for SkyCoocker component."""
+"""Constants for SkyCooker component."""
 
 DOMAIN = "skycooker"
-FRIENDLY_NAME = "SkyCoocker"
+FRIENDLY_NAME = "SkyCooker"
 MANUFACTORER = "Redmond"
 
 # Supported models

@@ -1,4 +1,4 @@
-"""Basic tests for SkyCoocker integration."""
+"""Basic tests for SkyCooker integration."""
 import unittest
 from unittest.mock import MagicMock, patch
 

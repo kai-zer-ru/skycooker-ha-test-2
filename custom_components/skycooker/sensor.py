@@ -1,4 +1,4 @@
-"""SkyCoocker sensors."""
+"""SkyCooker sensors."""
 import logging
 
 from homeassistant.components.sensor import (SensorDeviceClass, SensorEntity,
@@ -23,20 +23,20 @@ SENSOR_TYPE_DELAYED_LAUNCH_TIME = "delayed_launch_time"
 
 
 async def async_setup_entry(hass, entry, async_add_entities):
-    """Set up the SkyCoocker sensors."""
+    """Set up the SkyCooker sensors."""
     async_add_entities([
-        SkyCoockerSensor(hass, entry, SENSOR_TYPE_STATUS),
-        SkyCoockerSensor(hass, entry, SENSOR_TYPE_TEMPERATURE),
-        SkyCoockerSensor(hass, entry, SENSOR_TYPE_REMAINING_TIME),
-        SkyCoockerSensor(hass, entry, SENSOR_TYPE_TOTAL_TIME),
-        SkyCoockerSensor(hass, entry, SENSOR_TYPE_AUTO_WARM_TIME),
-        SkyCoockerSensor(hass, entry, SENSOR_TYPE_SUCCESS_RATE),
-        SkyCoockerSensor(hass, entry, SENSOR_TYPE_DELAYED_LAUNCH_TIME),
+        SkyCookerSensor(hass, entry, SENSOR_TYPE_STATUS),
+        SkyCookerSensor(hass, entry, SENSOR_TYPE_TEMPERATURE),
+        SkyCookerSensor(hass, entry, SENSOR_TYPE_REMAINING_TIME),
+        SkyCookerSensor(hass, entry, SENSOR_TYPE_TOTAL_TIME),
+        SkyCookerSensor(hass, entry, SENSOR_TYPE_AUTO_WARM_TIME),
+        SkyCookerSensor(hass, entry, SENSOR_TYPE_SUCCESS_RATE),
+        SkyCookerSensor(hass, entry, SENSOR_TYPE_DELAYED_LAUNCH_TIME),
     ])
 
 
-class SkyCoockerSensor(SensorEntity):
-    """Representation of a SkyCoocker sensor."""
+class SkyCookerSensor(SensorEntity):
+    """Representation of a SkyCooker sensor."""
 
     def __init__(self, hass, entry, sensor_type):
         """Initialize the sensor."""
