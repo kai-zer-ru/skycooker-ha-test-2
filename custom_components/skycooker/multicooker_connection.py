@@ -363,10 +363,6 @@ class MulticookerConnection:
     @property
     def available(self):
         """Check if the multicooker is available."""
-        # If we have exceeded the maximum number of reconnection attempts, return False
-        if self._reconnect_attempts >= self._max_reconnect_attempts:
-            return False
-        
         # Consider available if we had at least one successful connection
         # This prevents entities from becoming unavailable immediately after setup
         if self._last_connect_ok and self._last_auth_ok:
