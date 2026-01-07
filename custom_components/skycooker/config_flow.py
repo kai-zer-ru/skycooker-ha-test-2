@@ -1,6 +1,7 @@
 """Config flow for SkyCooker integration."""
 
 import logging
+import secrets
 import traceback
 
 import voluptuous as vol
@@ -14,19 +15,18 @@ from homeassistant.core import callback
 
 from .const import *
 from .multicooker_connection import MulticookerConnection
+from .multicooker import SkyCooker
 
 _LOGGER = logging.getLogger(__name__)
 
 
 class SkyCookerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
-    """Handle a config flow for SkyCooker."""
-
     VERSION = 1
 
     @staticmethod
     @callback
     def async_get_options_flow(entry):
-        """Get the options flow for this handler."""
+        """Get options flow for this handler."""
         return SkyCookerConfigFlow(entry=entry)
 
     def __init__(self, entry = None):
@@ -35,26 +35,21 @@ class SkyCookerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self.config = {} if not entry else dict(entry.data.items())
 
     async def init_mac(self, mac):
-        """Initialize MAC address."""
         mac = mac.upper()
-        mac = mac.replace(':', '').replace('-', '').replace(' ', '')
+        mac = mac.replace(':','').replace('-','').replace(' ','')
         mac = ':'.join([mac[p*2:(p*2)+2] for p in range(6)])
         id = f"{DOMAIN}-{mac}"
         if id in self._async_current_ids():
             return False
         await self.async_set_unique_id(id)
         self.config[CONF_MAC] = mac
-        # Use the correct fixed key for RMC-M40S as in the working library
-        self.config[CONF_PASSWORD] = "0000000000000000"
-        # Set default values for missing configuration options
-        self.config[CONF_SCAN_INTERVAL] = self.config.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)
-        self.config[CONF_PERSISTENT_CONNECTION] = self.config.get(CONF_PERSISTENT_CONNECTION, DEFAULT_PERSISTENT_CONNECTION)
+        self.config[CONF_PASSWORD] = list(secrets.token_bytes(8))
         return True
 
     async def async_step_user(self, user_input=None):
         """Handle the user step."""
         return await self.async_step_scan()
-
+    
     async def async_step_scan(self, user_input=None):
         """Handle the scan step."""
         errors = {}
@@ -62,41 +57,32 @@ class SkyCookerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             spl = user_input[CONF_MAC].split(' ', maxsplit=1)
             mac = spl[0]
             name = spl[1][1:-1] if len(spl) >= 2 else None
-            
-            # Check if model is supported
-            if name and name not in SUPPORTED_MODELS:
+            if not SkyCooker.get_model_code(name):
                 return self.async_abort(reason='unknown_model')
-            
             if not await self.init_mac(mac):
                 return self.async_abort(reason='already_configured')
-            
             if name: self.config[CONF_FRIENDLY_NAME] = name
-            
             return await self.async_step_connect()
 
         try:
             try:
                 scanner = bluetooth.async_get_scanner(self.hass)
                 for device in scanner.discovered_devices:
-                    _LOGGER.debug(f"🔍 Найдено устройство: {device.address} - {device.name}")
+                    _LOGGER.debug(f"Device found: {device.address} - {device.name}")
             except:
-                _LOGGER.error("🚫 Bluetooth интеграция не работает")
+                _LOGGER.error("Bluetooth integration not working")
                 return self.async_abort(reason='no_bluetooth')
-             
-            devices_filtered = [device for device in scanner.discovered_devices
-                              if device.name and (device.name.startswith("RMC") or device.name.startswith("RFS"))]
-             
+            devices_filtered = [device for device in scanner.discovered_devices if device.name and (device.name.startswith("RMC-") or device.name.startswith("RFS-"))]
             if len(devices_filtered) == 0:
-                return self.async_abort(reason='device_not_found')
-             
+                return self.async_abort(reason='multicooker_not_found')
             mac_list = [f"{r.address} ({r.name})" for r in devices_filtered]
-            schema = vol.Schema({
+            schema = vol.Schema(
+            {
                 vol.Required(CONF_MAC): vol.In(mac_list)
             })
         except Exception:
             _LOGGER.error(traceback.format_exc())
             return self.async_abort(reason='unknown')
-        
         return self.async_show_form(
             step_id="scan",
             errors=errors,
@@ -119,11 +105,11 @@ class SkyCookerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             while tries > 0 and not multicooker._last_connect_ok:
                 await multicooker.update()
                 tries = tries - 1
-
+             
             connect_ok = multicooker._last_connect_ok
             auth_ok = multicooker._last_auth_ok
-            await multicooker.stop_connection()
-
+            multicooker.stop()
+         
             if not connect_ok:
                 errors["base"] = "cant_connect"
             elif not auth_ok:
@@ -135,7 +121,7 @@ class SkyCookerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             step_id="connect",
             errors=errors,
             data_schema=vol.Schema({})
-        )
+        )  
 
     async def async_step_init(self, user_input=None):
         """Handle the options step."""
@@ -146,7 +132,7 @@ class SkyCookerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             fname = f"{self.config.get(CONF_FRIENDLY_NAME, FRIENDLY_NAME)} ({self.config[CONF_MAC]})"
             if self.entry:
                 self.hass.config_entries.async_update_entry(self.entry, data=self.config)
-            _LOGGER.info("✅ Конфигурация сохранена")
+            _LOGGER.info(f"Config saved")
             return self.async_create_entry(
                 title=fname, data=self.config if not self.entry else {}
             )

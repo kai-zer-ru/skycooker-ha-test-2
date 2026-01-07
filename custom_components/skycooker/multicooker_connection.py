@@ -12,39 +12,23 @@ from bleak_retry_connector import establish_connection, BleakClientWithServiceCa
 from homeassistant.components import bluetooth
 
 from .const import *
+from .multicooker import SkyCooker
 
 _LOGGER = logging.getLogger(__name__)
 
-# Стандартные UUID для R4S устройств
-SERVICE_UUID = "6e400001-b5a3-f393-e0a9-e50e24dcca9e"
-NOTIFY_UUID = "6e400003-b5a3-f393-e0a9-e50e24dcca9e"
-WRITE_UUID = "6e400002-b5a3-f393-e0a9-e50e24dcca9e"
 
-
-def get_model_constant(model_name, constant_type, key):
-    """Get model-specific constant."""
-    if model_name not in SUPPORTED_MODELS:
-        raise ValueError(f"Model {model_name} not supported")
-    
-    model_config = SUPPORTED_MODELS[model_name]
-    
-    if constant_type == "command":
-        return model_config["commands"].get(key)
-    elif constant_type == "mode":
-        # Return the mode name for display
-        return model_config["modes"].get(key)
-    elif constant_type == "status":
-        # Return the status text for display
-        return model_config["status_codes"].get(key)
-    
-    raise ValueError(f"Unknown constant type: {constant_type}")
-
-
-class MulticookerConnection:
-    """Main class for multicooker connection based on working library."""
+class MulticookerConnection(SkyCooker):
+    UUID_SERVICE = "6e400001-b5a3-f393-e0a9-e50e24dcca9e"
+    UUID_TX = "6e400002-b5a3-f393-e0a9-e50e24dcca9e"
+    UUID_RX = "6e400003-b5a3-f393-e0a9-e50e24dcca9e"
+    BLE_RECV_TIMEOUT = 1.5
+    MAX_TRIES = 3
+    TRIES_INTERVAL = 0.5
+    STATS_INTERVAL = 15
+    TARGET_TTL = 30
 
     def __init__(self, mac, key, persistent=True, adapter=None, hass=None, model=None):
-        """Initialize the multicooker connection."""
+        super().__init__(model)
         self._device = None
         self._client = None
         self._mac = mac
@@ -62,93 +46,81 @@ class MulticookerConnection:
         self._last_auth_ok = False
         self._successes = []
         self._target_state = None
+        self._target_boil_time = None
         self._status = None
         self._stats = None
         self._disposed = False
         self._last_data = None
-        self.model = model
 
     async def command(self, command, params=[]):
-        """Send a command to the multicooker."""
         if self._disposed:
             raise DisposedError()
         if not self._client or not self._client.is_connected:
-            raise IOError("🔌 Не подключено")
+            raise IOError("not connected")
         self._iter = (self._iter + 1) % 256
-        _LOGGER.debug(f"📤 Отправка команды {command:02x}, данные: [{' '.join([f'{c:02x}' for c in params])}]")
+        _LOGGER.debug(f"Writing command {command:02x}, data: [{' '.join([f'{c:02x}' for c in params])}]")
         data = bytes([0x55, self._iter, command] + list(params) + [0xAA])
         self._last_data = None
-        await self._client.write_gatt_char(WRITE_UUID, data)
-        timeout_time = monotonic() + BLE_RECV_TIMEOUT
+        await self._client.write_gatt_char(MulticookerConnection.UUID_TX, data)
+        timeout_time = monotonic() + MulticookerConnection.BLE_RECV_TIMEOUT
         while True:
             await asyncio.sleep(0.05)
             if self._last_data:
                 r = self._last_data
                 if r[0] != 0x55 or r[-1] != 0xAA:
-                    raise IOError("❌ Некорректный формат ответа")
+                    raise IOError("Invalid response magic")
                 if r[1] == self._iter:
                     break
                 else:
                     self._last_data = None
-            if monotonic() >= timeout_time: raise IOError("⏱️  Таймаут приема")
+            if monotonic() >= timeout_time: raise IOError("Receive timeout")
         if r[2] != command:
-            raise IOError("❌ Некорректная команда ответа")
+            raise IOError("Invalid response command")
         clean = bytes(r[3:-1])
-        _LOGGER.debug(f"📥 Очищенные данные ответа: {' '.join([f'{c:02x}' for c in clean])}")
+        _LOGGER.debug(f"Received: {' '.join([f'{c:02x}' for c in clean])}")
         return clean
 
     def _rx_callback(self, sender, data):
-        """Callback for receiving data."""
         self._last_data = data
 
     async def _connect(self):
-        """Connect to the multicooker."""
         if self._disposed:
             raise DisposedError()
-        if self._client and self._client.is_connected:
-            _LOGGER.debug("✅ Уже подключено к %s", self._mac)
-            return
+        if self._client and self._client.is_connected: return
         self._device = bluetooth.async_ble_device_from_address(self.hass, self._mac)
-        if not self._device:
-            _LOGGER.error("❌ Устройство %s не найдено", self._mac)
-            raise BleakError(f"Device {self._mac} not found")
-        _LOGGER.info("🔌 Подключение к устройству: %s (%s)", self._device.name, self._mac)
+        _LOGGER.debug("Connecting to the Multicooker...")
         self._client = await establish_connection(
             BleakClientWithServiceCache,
             self._device,
             self._device.name or "Unknown Device",
             max_attempts=3
         )
-        _LOGGER.info("✅ Успешное подключение к %s", self._mac)
-        await self._client.start_notify(NOTIFY_UUID, self._rx_callback)
-        _LOGGER.info("📡 Уведомления включены для %s", self._mac)
+        _LOGGER.debug("Connected to the Multicooker")
+        await self._client.start_notify(MulticookerConnection.UUID_RX, self._rx_callback)
+        _LOGGER.debug("Subscribed to RX")
 
     auth = lambda self: super().auth(self._key)
 
     async def _disconnect(self):
-        """Disconnect from the multicooker."""
         try:
             if self._client:
                 was_connected = self._client.is_connected
                 await self._client.disconnect()
-                if was_connected:
-                    _LOGGER.debug("🔌 Отключено")
+                if was_connected: _LOGGER.debug("Disconnected")
         finally:
             self._auth_ok = False
             self._device = None
             self._client = None
 
     async def disconnect(self):
-        """Public disconnect method."""
         try:
             await self._disconnect()
         except:
             pass
 
     async def _connect_if_need(self):
-        """Connect if needed."""
         if self._client and not self._client.is_connected:
-            _LOGGER.debug("🔌 Подключение потеряно")
+            _LOGGER.debug("Connection lost")
             await self.disconnect()
         if not self._client or not self._client.is_connected:
             try:
@@ -161,274 +133,264 @@ class MulticookerConnection:
         if not self._auth_ok:
             self._last_auth_ok = self._auth_ok = await self.auth()
             if not self._auth_ok:
-                _LOGGER.error("🚫 Ошибка аутентификации. Нужно включить режим сопряжения на мультиварке.")
-                raise AuthError("Ошибка аутентификации")
-            _LOGGER.debug("✅ Аутентификация успешна")
+                _LOGGER.error(f"Auth failed. You need to enable pairing mode on the multicooker.")
+                raise AuthError("Auth failed")
+            _LOGGER.debug("Auth ok")
+            self._sw_version = await self.get_version()
+            await self.sync_time()
 
     async def _disconnect_if_need(self):
-        """Disconnect if needed."""
         if not self.persistent:
             await self.disconnect()
 
-    async def get_status(self):
-        """Get the current status of the multicooker."""
-        try:
-            # Get the GET_STATUS command code for this specific model
-            get_status_command = get_model_constant(self.model, "command", "GET_STATUS") or COMMAND_GET_STATUS
-            
-            # Add small delay before sending status command
-            # Some devices need time after authentication
-            await asyncio.sleep(0.5)
-            
-            data = await self.command(get_status_command)
-            if len(data) >= 11:
-                mode = data[0]
-                temperature = data[2]
-                hours = data[3]
-                minutes = data[4]
-                remaining_hours = data[5]
-                remaining_minutes = data[6]
-                auto_warm = data[7]
-                status = data[8]
-                
-                # Get status text for logging
-                status_text = get_model_constant(self.model, "status", status) or STATUS_CODES.get(status, f"Неизвестно ({status})")
-                _LOGGER.debug(f"📊 Статус устройства: {status_text}")
-                
-                # When device is off, set default values
-                if status == STATUS_OFF or status_text == "Выключена":
-                    temperature = 0
-                    hours = 0
-                    minutes = 0
-                    remaining_hours = 0
-                    remaining_minutes = 0
-                
-                return {
-                    'mode': mode,
-                    'temperature': temperature,
-                    'time_hours': hours,
-                    'time_minutes': minutes,
-                    'time_total': hours * 60 + minutes,
-                    'remaining_hours': remaining_hours,
-                    'remaining_minutes': remaining_minutes,
-                    'remaining_time_total': remaining_hours * 60 + remaining_minutes,
-                    'auto_warm_enable': bool(auto_warm),
-                    'status': status,
-                    'status_text': status_text
-                }
-            return None
-        except Exception as e:
-            error_str = str(e)
-            if "att error" in error_str.lower() or "0x0e" in error_str.lower():
-                _LOGGER.error(f"🚫 Ошибка ATT протокола при получении статуса: {e}")
-                _LOGGER.error("💡 Устройство может не быть готово к командам. Попробуем позже...")
-                return None
-            else:
-                _LOGGER.error(f"🚫 Ошибка получения статуса: {e}")
-                return None
-
-    async def set_mode(self, mode_id):
-        """Set the cooking mode."""
-        try:
-            # Get the SET_MODE command code for this specific model
-            set_mode_command = get_model_constant(self.model, "command", "SET_MODE") or COMMAND_SET_MODE
-            await self.command(set_mode_command, [mode_id])
-            
-            # Get the mode name for logging
-            mode_name = get_model_constant(self.model, "mode", mode_id) or MODES.get(mode_id, f"Неизвестно ({mode_id})")
-            _LOGGER.info(f"✅ Режим установлен: {mode_id} ({mode_name})")
-            return True
-        except Exception as e:
-            _LOGGER.error(f"🚫 Ошибка установки режима: {e}")
-            return False
-
-    async def start(self):
-        """Start the cooking program."""
-        try:
-            # Get the START command code for this specific model
-            start_command = get_model_constant(self.model, "command", "START") or COMMAND_START
-            await self.command(start_command)
-            _LOGGER.info("✅ Программа запущена")
-            return True
-        except Exception as e:
-            _LOGGER.error(f"🚫 Ошибка запуска программы: {e}")
-            return False
-
-    async def stop(self):
-        """Stop the cooking program."""
-        try:
-            # Get the STOP command code for this specific model
-            stop_command = get_model_constant(self.model, "command", "STOP") or COMMAND_STOP
-            await self.command(stop_command)
-            _LOGGER.info("✅ Программа остановлена")
-            return True
-        except Exception as e:
-            _LOGGER.error(f"🚫 Ошибка остановки программы: {e}")
-            return False
-
-    async def update(self, tries=MAX_TRIES):
-        """Update the multicooker status."""
+    async def update(self, tries=MAX_TRIES, force_stats=False, extra_action=None, commit=False):
         try:
             async with self._update_lock:
                 if self._disposed: return
-                _LOGGER.debug("🔄 Обновление статуса")
-                  
-                # Проверяем доступность перед попыткой обновления
-                if not self.available:
-                    _LOGGER.debug("📡 Устройство недоступно, пытаемся подключиться...")
-                  
-                try:
-                    # Add timeout for connection attempt
-                    await asyncio.wait_for(self._connect_if_need(), timeout=30.0)
-                except asyncio.TimeoutError:
-                    _LOGGER.error("⏱️  Таймаут подключения, устройство не отвечает")
-                    await self.disconnect()
-                    self.add_stat(False)
-                    return False
-                except Exception as e:
-                    _LOGGER.error(f"🚫 Ошибка подключения: {e}")
-                    await self.disconnect()
-                    self.add_stat(False)
-                    return False
-                  
-                # Проверяем, что подключение и авторизация прошли успешно
-                if not self.available:
-                    _LOGGER.error("🚫 Не удалось подключиться или авторизоваться")
-                    await self.disconnect()
-                    self.add_stat(False)
-                    return False
-                  
-                _LOGGER.debug("✅ Подключение и авторизация успешны, запрашиваем статус...")
-                  
-                # Get current status with timeout
-                try:
-                    self._status = await asyncio.wait_for(self.get_status(), timeout=10.0)
-                except asyncio.TimeoutError:
-                    _LOGGER.error("⏱️  Таймаут получения статуса")
-                    await self._disconnect_if_need()
-                    self.add_stat(False)
-                    return False
-                  
-                if self._status:
-                    _LOGGER.debug(f"📊 Статус получен: режим={self._status.get('mode')}, температура={self._status.get('temperature')}°C")
-                else:
-                    _LOGGER.warning("⚠️  Не удалось получить статус")
-                    
+                _LOGGER.debug(f"Updating")
+                if not self.available: force_stats = True
+                await self._connect_if_need()
+
+                if extra_action: await extra_action
+
+                self._status = await self.get_status()
+                boil_time = self._status.boil_time
+                if self._target_boil_time != None and self._target_boil_time != boil_time:
+                    try:
+                        _LOGGER.debug(f"Need to update boil time from {boil_time} to {self._target_boil_time}")
+                        boil_time = self._target_boil_time
+                        if self._target_state == None:
+                            self._target_state = self._status.mode if self._status.is_on else None, self._status.target_temp
+                            self._last_set_target = monotonic()
+                        if self._status.is_on:
+                            await self.turn_off()
+                            await asyncio.sleep(0.2)
+                        await self.set_main_mode(self._status.mode, self._status.target_temp, boil_time)
+                        _LOGGER.info(f"Boil time is succesfully set to {boil_time}")
+                    except Exception as ex:
+                        _LOGGER.error(f"Can't update boil time ({type(ex).__name__}): {str(ex)}")
+                    self._status = await self.get_status()
+                self._target_boil_time = None
+
+                if commit: await self.commit()
+
+                if self._target_state != None:
+                    target_mode, target_temp = self._target_state
+                    if target_mode == None and self._status.is_on:
+                        _LOGGER.info(f"State: {self._status} -> {self._target_state}")
+                        _LOGGER.info("Need to turn off the multicooker...")
+                        await self.turn_off()
+                        _LOGGER.info("The multicooker was turned off")
+                        await asyncio.sleep(0.2)
+                        self._status = await self.get_status()
+                    elif target_mode != None and not self._status.is_on:
+                        _LOGGER.info(f"State: {self._status} -> {self._target_state}")
+                        _LOGGER.info("Need to set mode and turn on the multicooker...")
+                        await self.set_main_mode(target_mode, target_temp, boil_time)
+                        _LOGGER.info("New mode was set")
+                        await self.turn_on()
+                        _LOGGER.info("The multicooker was turned on")
+                        await asyncio.sleep(0.2)
+                        self._status = await self.get_status()
+                    elif target_mode != None  and (
+                            target_mode != self._status.mode or
+                            target_temp != self._status.target_temp):
+                        _LOGGER.info(f"State: {self._status} -> {self._target_state}")
+                        _LOGGER.info("Need to switch mode of the multicooker and restart it")
+                        await self.turn_off()
+                        _LOGGER.info("The multicooker was turned off")
+                        await asyncio.sleep(0.2)
+                        await self.set_main_mode(target_mode, target_temp, boil_time)
+                        _LOGGER.info("New mode was set")
+                        await self.turn_on()
+                        _LOGGER.info("The multicooker was turned on")
+                        await asyncio.sleep(0.2)
+                        self._status = await self.get_status()
+                    else:
+                        _LOGGER.debug(f"There is no reason to update state")
+                    self._target_state = None
+
                 await self._disconnect_if_need()
                 self.add_stat(True)
                 return True
 
         except Exception as ex:
             await self.disconnect()
+            if self._target_state != None and self._last_set_target + MulticookerConnection.TARGET_TTL < monotonic():
+                _LOGGER.warning(f"Can't set mode to {self._target_state} for {MulticookerConnection.TARGET_TTL} seconds, stop trying")
+                self._target_state = None
+            if type(ex) == AuthError: return
             self.add_stat(False)
-            error_type = type(ex).__name__
-            error_message = str(ex)
-            
-            # More specific error handling
-            if "att error" in error_message.lower() or "0x0e" in error_message.lower():
-                _LOGGER.error(f"🚫 Ошибка ATT протокола при обновлении статуса: {error_message}")
-                _LOGGER.error("💡 Устройство может не быть готово к командам. Попробуем позже...")
-            elif "timeout" in error_message.lower():
-                _LOGGER.error(f"⏱️  Таймаут при обновлении статуса: {error_message}")
-                _LOGGER.error("💡 Устройство может быть занято или не отвечает. Попробуем позже...")
-            elif "connection" in error_message.lower():
-                _LOGGER.error(f"🔌 Ошибка подключения при обновлении статуса: {error_message}")
-                _LOGGER.error("💡 Проверьте подключение к устройству и попробуйте снова...")
+            if tries > 1 and extra_action == None:
+                _LOGGER.debug(f"{type(ex).__name__}: {str(ex)}, retry #{MulticookerConnection.MAX_TRIES - tries + 1}")
+                await asyncio.sleep(MulticookerConnection.TRIES_INTERVAL)
+                return await self.update(tries=tries-1, force_stats=force_stats, extra_action=extra_action, commit=commit)
             else:
-                _LOGGER.error(f"🚫 Неизвестная ошибка при обновлении статуса: {error_type}: {error_message}")
-            
-            if tries > 1:
-                _LOGGER.debug(f"🔄 Повтор #{MAX_TRIES - tries + 1}")
-                await asyncio.sleep(TRIES_INTERVAL)
-                return await self.update(tries=tries-1)
-            else:
-                _LOGGER.warning(f"🚫 Не удалось обновить статус после {MAX_TRIES} попыток")
+                _LOGGER.warning(f"Can't update status, {type(ex).__name__}: {str(ex)}")
                 _LOGGER.debug(traceback.format_exc())
             return False
 
     def add_stat(self, value):
-        """Add a success/failure statistic."""
         self._successes.append(value)
         if len(self._successes) > 100: self._successes = self._successes[-100:]
 
     @property
     def success_rate(self):
-        """Get the success rate of commands."""
         if len(self._successes) == 0: return 0
         return int(100 * len([s for s in self._successes if s]) / len(self._successes))
 
-    @property
-    def available(self):
-        """Check if the multicooker is available."""
-        # Consider available if we had at least one successful connection
-        # This prevents entities from becoming unavailable immediately after setup
-        if self._last_connect_ok and self._last_auth_ok:
-            return True
-        # If we never connected successfully, check if we're currently trying to connect
-        if self._client and self._client.is_connected:
-            return True
-        return False
+    async def _set_target_state(self, target_mode, target_temp = 0):
+        self._target_state = target_mode, target_temp
+        self._last_set_target = monotonic()
+        await self.update()
+
+    async def cancel_target(self):
+        self._target_state = None
+
+    def stop(self):
+        if self._disposed: return
+        self._disconnect()
+        self._disposed = True
+        _LOGGER.info("Stopped.")
 
     @property
-    def current_status(self):
-        """Get the current status."""
-        return self._status
+    def available(self):
+        return self._last_connect_ok and self._last_auth_ok
+
+    @property
+    def current_temp(self):
+        if self._status:
+            return self._status.current_temp
+        return None
 
     @property
     def current_mode(self):
-        """Get the current mode."""
-        if self._status:
-            return self._status.get('mode')
+        if self._status and self._status.is_on:
+            return self._status.mode
         return None
 
     @property
-    def current_temperature(self):
-        """Get the current temperature."""
+    def target_temp(self):
+        if self._target_state:
+            target_mode, target_temp = self._target_state
+            if target_mode in [0, 1]:
+                return target_temp
+            if target_mode == 2:
+                return 100
+            if target_mode == None:
+                return 25
         if self._status:
-            return self._status.get('temperature')
+            if self._status.is_on:
+                if self._status.mode in [0, 1]:
+                    return self._status.target_temp
+                if self._status.mode == 2:
+                    return 100
+            else:
+                return 25
         return None
 
     @property
-    def remaining_time(self):
-        """Get the remaining time."""
-        if self._status:
-            return self._status.get('remaining_time_total')
+    def target_mode(self):
+        if self._target_state:
+            target_mode, target_temp = self._target_state
+            return target_mode
+        else:
+            if self._status and self._status.is_on:
+                return self._status.mode
         return None
 
     @property
-    def total_time(self):
-        """Get the total cooking time."""
-        if self._status:
-            return self._status.get('time_total')
-        return None
+    def connected(self):
+        return True if self._client and self._client.is_connected else False
 
     @property
-    def auto_warm_enabled(self):
-        """Check if auto warm is enabled."""
-        if self._status:
-            return self._status.get('auto_warm_enable')
-        return None
+    def auth_ok(self):
+        return self._auth_ok
 
     @property
-    def status_code(self):
-        """Get the status code."""
-        if self._status:
-            return self._status.get('status')
-        return None
+    def sw_version(self):
+        return self._sw_version
 
-    async def stop_connection(self):
-        """Stop the connection."""
-        if self._disposed: return
-        await self._disconnect()
-        self._disposed = True
-        _LOGGER.info("🛑 Соединение остановлено")
+    @property
+    def sound_enabled(self):
+        if not self._status: return None
+        return self._status.sound_enabled
+
+    @property
+    def color_interval(self):
+        if not self._status: return None
+        return self._status.color_interval
+
+    @property
+    def boil_time(self):
+        if not self._status: return None
+        return self._status.boil_time
+
+    async def set_boil_time(self, value):
+        value = int(value)
+        _LOGGER.info(f"Setting boil time to {value}")
+        self._target_boil_time = value
+        await self.update(commit=True)
+
+    async def set_target_temp(self, target_temp, operation_mode = None):
+        if target_temp == self.target_temp: return
+        _LOGGER.info(f"Setting target temperature to {target_temp}")
+        target_mode = self.target_mode
+        
+        # Get model type from model_code
+        model_type = self.model_code.split('_')[1] if self.model_code else None
+        if model_type is None:
+            _LOGGER.error("Unknown model type")
+            return
+        
+        model_type = int(model_type)
+        
+        # Find the appropriate mode based on temperature
+        if target_temp < 35:
+            target_mode = None
+        else:
+            # Find the mode that matches the target temperature
+            for mode_idx, mode_data in enumerate(MODE_DATA.get(model_type, [])):
+                if mode_data[0] == target_temp:
+                    target_mode = mode_idx
+                    break
+            
+            # If no exact match found, use the closest mode
+            if target_mode is None:
+                closest_diff = float('inf')
+                for mode_idx, mode_data in enumerate(MODE_DATA.get(model_type, [])):
+                    diff = abs(mode_data[0] - target_temp)
+                    if diff < closest_diff:
+                        closest_diff = diff
+                        target_mode = mode_idx
+        
+        if target_mode != self.current_mode:
+            _LOGGER.info(f"Mode autoswitched to {target_mode}")
+        await self._set_target_state(target_mode, target_temp)
+
+    async def set_target_mode(self, operation_mode):
+        if operation_mode == self.target_mode: return
+        _LOGGER.info(f"Setting target mode to {operation_mode}")
+        target_mode = operation_mode
+        target_temp = self.target_temp
+        if target_mode in [2]:
+            target_temp = 0
+        elif target_mode in [3, 4]:
+            target_temp = 85
+        elif target_temp == None:
+            target_temp = 90
+        else:
+            if target_temp > 90:
+                target_temp = 90
+            elif target_temp < 35:
+                target_temp = 35
+        if target_temp != self.target_temp:
+            _LOGGER.info(f"Target temperature autoswitched to {target_temp}")
+        await self._set_target_state(target_mode, target_temp)
 
 
 class AuthError(Exception):
-    """Authentication error."""
     pass
 
-
 class DisposedError(Exception):
-    """Connection disposed error."""
     pass

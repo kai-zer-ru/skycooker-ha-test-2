@@ -48,17 +48,19 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
 
     # Check if model is supported
     model_name = entry.data.get(CONF_FRIENDLY_NAME, "")
-    if model_name not in SUPPORTED_MODELS or not SUPPORTED_MODELS[model_name]["supported"]:
-        _LOGGER.error(f"🚨 Модель {model_name} не поддерживается. Поддерживаемые модели: {list(SUPPORTED_MODELS.keys())}")
+    if model_name not in MODELS:
+        _LOGGER.error(f"🚨 Модель {model_name} не поддерживается. Поддерживаемые модели: {list(MODELS.keys())}")
         return False
 
+    model_type = MODELS[model_name]
     multicooker = MulticookerConnection(
         mac=entry.data[CONF_MAC],
         key=entry.data[CONF_PASSWORD],
         persistent=entry.data[CONF_PERSISTENT_CONNECTION],
         adapter=entry.data.get(CONF_DEVICE, None),
         hass=hass,
-        model=model_name
+        model=model_name,
+        model_type=model_type
     )
     hass.data[DOMAIN][entry.entry_id][DATA_CONNECTION] = multicooker
 
