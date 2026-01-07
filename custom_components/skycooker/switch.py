@@ -90,7 +90,10 @@ class SkyCoockerSwitch(SwitchEntity):
         """Return true if switch is on."""
         if self.switch_type == SWITCH_TYPE_POWER:
             status_code = self.multicooker.status_code
-            return status_code not in [STATUS_OFF, STATUS_FULL_OFF]
+            if status_code is not None:
+                return status_code not in [STATUS_OFF, STATUS_FULL_OFF]
+            # If status_code is None, assume it's off to prevent switching to unavailable
+            return False
         return False
 
     async def async_turn_on(self, **kwargs):

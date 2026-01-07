@@ -127,9 +127,21 @@ class SkyCoockerSensor(SensorEntity):
     @property
     def available(self):
         """Return if sensor is available."""
+        # If the multicooker is not available, return False
         if not self.multicooker.available:
             return False
-         
+        
+        # For success rate and delayed launch time sensors, always return True if multicooker is available
+        if self.sensor_type in [SENSOR_TYPE_SUCCESS_RATE, SENSOR_TYPE_DELAYED_LAUNCH_TIME]:
+            return True
+        
+        # For other sensors, check if we have data
+        # But if multicooker is available, we should give it some time to get data
+        # So we return True if multicooker is available, even if data is not yet available
+        # This prevents sensors from becoming unavailable immediately after setup or connection issues
+        
+        # However, if we have never received any data for this sensor, we should return False
+        # to indicate that the sensor is not yet ready
         if self.sensor_type == SENSOR_TYPE_STATUS:
             return self.multicooker.status_code is not None
         elif self.sensor_type == SENSOR_TYPE_TEMPERATURE:
@@ -140,12 +152,7 @@ class SkyCoockerSensor(SensorEntity):
             return self.multicooker.total_time is not None
         elif self.sensor_type == SENSOR_TYPE_AUTO_WARM_TIME:
             return self.multicooker.auto_warm_enabled is not None
-        elif self.sensor_type == SENSOR_TYPE_SUCCESS_RATE:
-            return True
-        elif self.sensor_type == SENSOR_TYPE_DELAYED_LAUNCH_TIME:
-            # Always available, returns 0 when not in delayed launch mode
-            return True
-         
+        
         return False
 
     @property
@@ -194,41 +201,47 @@ class SkyCoockerSensor(SensorEntity):
         """Return the state of the sensor."""
         if self.sensor_type == SENSOR_TYPE_STATUS:
             status_code = self.multicooker.status_code
-            # Get status text from model-specific constants
-            if self.multicooker.model and self.multicooker.model in SUPPORTED_MODELS:
-                status_text = SUPPORTED_MODELS[self.multicooker.model]["status_codes"].get(status_code)
-                if status_text:
-                    return status_text
-            return STATUS_CODES.get(status_code, f"Неизвестно ({status_code})")
+            if status_code is not None:
+                # Get status text from model-specific constants
+                if self.multicooker.model and self.multicooker.model in SUPPORTED_MODELS:
+                    status_text = SUPPORTED_MODELS[self.multicooker.model]["status_codes"].get(status_code)
+                    if status_text:
+                        return status_text
+                return STATUS_CODES.get(status_code, f"Неизвестно ({status_code})")
+            return "Неизвестно"
         elif self.sensor_type == SENSOR_TYPE_TEMPERATURE:
-            return self.multicooker.current_temperature
+            return self.multicooker.current_temperature if self.multicooker.current_temperature is not None else 0
         elif self.sensor_type == SENSOR_TYPE_REMAINING_TIME:
-            return self.multicooker.remaining_time
+            return self.multicooker.remaining_time if self.multicooker.remaining_time is not None else 0
         elif self.sensor_type == SENSOR_TYPE_TOTAL_TIME:
-            return self.multicooker.total_time
+            return self.multicooker.total_time if self.multicooker.total_time is not None else 0
         elif self.sensor_type == SENSOR_TYPE_AUTO_WARM_TIME:
             status_code = self.multicooker.status_code
-            # Use model-specific status code for auto warm
-            auto_warm_code = None
-            if self.multicooker.model and self.multicooker.model in SUPPORTED_MODELS:
-                # Find the auto warm status code for this model
-                for code, text in SUPPORTED_MODELS[self.multicooker.model]["status_codes"].items():
-                    if "авто" in text.lower() or "warm" in text.lower():
-                        auto_warm_code = code
-                        break
-            return self.multicooker.remaining_time if status_code == (auto_warm_code or STATUS_AUTO_WARM) else 0
+            if status_code is not None:
+                # Use model-specific status code for auto warm
+                auto_warm_code = None
+                if self.multicooker.model and self.multicooker.model in SUPPORTED_MODELS:
+                    # Find the auto warm status code for this model
+                    for code, text in SUPPORTED_MODELS[self.multicooker.model]["status_codes"].items():
+                        if "авто" in text.lower() or "warm" in text.lower():
+                            auto_warm_code = code
+                            break
+                return self.multicooker.remaining_time if status_code == (auto_warm_code or STATUS_AUTO_WARM) else 0
+            return 0
         elif self.sensor_type == SENSOR_TYPE_SUCCESS_RATE:
-            return self.multicooker.success_rate
+            return self.multicooker.success_rate if self.multicooker.success_rate is not None else 0
         elif self.sensor_type == SENSOR_TYPE_DELAYED_LAUNCH_TIME:
             status_code = self.multicooker.status_code
-            # Use model-specific status code for delayed launch
-            delayed_launch_code = None
-            if self.multicooker.model and self.multicooker.model in SUPPORTED_MODELS:
-                # Find the delayed launch status code for this model
-                for code, text in SUPPORTED_MODELS[self.multicooker.model]["status_codes"].items():
-                    if "отложен" in text.lower() or "delayed" in text.lower():
-                        delayed_launch_code = code
-                        break
-            return self.multicooker.remaining_time if status_code == (delayed_launch_code or STATUS_DELAYED_LAUNCH) else 0
+            if status_code is not None:
+                # Use model-specific status code for delayed launch
+                delayed_launch_code = None
+                if self.multicooker.model and self.multicooker.model in SUPPORTED_MODELS:
+                    # Find the delayed launch status code for this model
+                    for code, text in SUPPORTED_MODELS[self.multicooker.model]["status_codes"].items():
+                        if "отложен" in text.lower() or "delayed" in text.lower():
+                            delayed_launch_code = code
+                            break
+                return self.multicooker.remaining_time if status_code == (delayed_launch_code or STATUS_DELAYED_LAUNCH) else 0
+            return 0
         
         return None

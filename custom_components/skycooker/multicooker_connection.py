@@ -68,6 +68,7 @@ class MulticookerConnection:
         self._disposed = False
         self._last_data = None
         self.model = model
+        self._last_successful_update = None
         
         # Динамически определённые UUID
         self._service_uuid = None
@@ -582,9 +583,12 @@ class MulticookerConnection:
                   
                 if self._status:
                     _LOGGER.debug(f"📊 Статус получен: режим={self._status.get('mode')}, температура={self._status.get('temperature')}°C")
+                    # Update last successful update time
+                    import time
+                    self._last_successful_update = time.monotonic()
                 else:
                     _LOGGER.warning("⚠️  Не удалось получить статус")
-                  
+                    
                 await self._disconnect_if_need()
                 self.add_stat(True)
                 return True
@@ -592,12 +596,28 @@ class MulticookerConnection:
         except Exception as ex:
             await self.disconnect()
             self.add_stat(False)
+            error_type = type(ex).__name__
+            error_message = str(ex)
+            
+            # More specific error handling
+            if "att error" in error_message.lower() or "0x0e" in error_message.lower():
+                _LOGGER.error(f"🚫 Ошибка ATT протокола при обновлении статуса: {error_message}")
+                _LOGGER.error("💡 Устройство может не быть готово к командам. Попробуем позже...")
+            elif "timeout" in error_message.lower():
+                _LOGGER.error(f"⏱️  Таймаут при обновлении статуса: {error_message}")
+                _LOGGER.error("💡 Устройство может быть занято или не отвечает. Попробуем позже...")
+            elif "connection" in error_message.lower():
+                _LOGGER.error(f"🔌 Ошибка подключения при обновлении статуса: {error_message}")
+                _LOGGER.error("💡 Проверьте подключение к устройству и попробуйте снова...")
+            else:
+                _LOGGER.error(f"🚫 Неизвестная ошибка при обновлении статуса: {error_type}: {error_message}")
+            
             if tries > 1:
-                _LOGGER.debug(f"🚫 {type(ex).__name__}: {str(ex)}, повтор #{MAX_TRIES - tries + 1}")
+                _LOGGER.debug(f"🔄 Повтор #{MAX_TRIES - tries + 1}")
                 await asyncio.sleep(TRIES_INTERVAL)
                 return await self.update(tries=tries-1)
             else:
-                _LOGGER.warning(f"🚫 Не удалось обновить статус, {type(ex).__name__}: {str(ex)}")
+                _LOGGER.warning(f"🚫 Не удалось обновить статус после {MAX_TRIES} попыток")
                 _LOGGER.debug(traceback.format_exc())
             return False
 
@@ -622,6 +642,14 @@ class MulticookerConnection:
         # If we never connected successfully, check if we're currently trying to connect
         if self._client and self._client.is_connected:
             return True
+        # If we have a recent successful update (within the last 2 scan intervals), consider available
+        if self._last_successful_update:
+            import time
+            current_time = time.monotonic()
+            # Use 2 * DEFAULT_SCAN_INTERVAL * 60 seconds as timeout (convert minutes to seconds)
+            timeout = 2 * DEFAULT_SCAN_INTERVAL * 60
+            if current_time - self._last_successful_update < timeout:
+                return True
         return False
 
     @property
