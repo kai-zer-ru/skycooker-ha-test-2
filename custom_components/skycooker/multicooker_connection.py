@@ -345,6 +345,11 @@ class MulticookerConnection:
         if self.hass and not self._disposed and not self._is_reconnecting:
             _LOGGER.debug("🔄 Запуск новой попытки переподключения...")
             _LOGGER.info(f"📋 Текущее состояние: попытка {self._reconnect_attempts + 1}/{self._max_reconnect_attempts}, задержка {self._reconnect_delay} секунд")
+            _LOGGER.info("💡 Если проблема сохраняется, проверьте:")
+            _LOGGER.info("   1. Устройство включено и находится в зоне действия Bluetooth")
+            _LOGGER.info("   2. Bluetooth-адаптер работает правильно")
+            _LOGGER.info("   3. Нет других процессов, использующих Bluetooth")
+            _LOGGER.info("   4. Проверьте логи Home Assistant на дополнительные ошибки")
             self._is_reconnecting = True
             
             async def attempt_reconnect():
@@ -373,13 +378,25 @@ class MulticookerConnection:
                     
                     if not self._disposed:
                         _LOGGER.info("🔌 Попытка переподключения...")
-                        await self._connect_if_need()
-                        if self._client and self._client.is_connected:
-                            _LOGGER.info("✅ Успешное переподключение")
-                            # Reset the reconnection attempt counter on successful connection
-                            self._reconnect_attempts = 0
-                        else:
-                            _LOGGER.error("🚫 Не удалось переподключиться")
+                        
+                        # Add timeout for the connection attempt
+                        try:
+                            await asyncio.wait_for(self._connect_if_need(), timeout=30.0)
+                            if self._client and self._client.is_connected:
+                                _LOGGER.info("✅ Успешное переподключение")
+                                # Reset the reconnection attempt counter on successful connection
+                                self._reconnect_attempts = 0
+                            else:
+                                _LOGGER.error("🚫 Не удалось переподключиться")
+                                _LOGGER.info("💡 Рекомендации:")
+                                _LOGGER.info("   1. Проверьте, что устройство включено и находится в зоне действия Bluetooth")
+                                _LOGGER.info("   2. Проверьте, что Bluetooth-адаптер работает правильно")
+                                _LOGGER.info("   3. Попробуйте перезагрузить устройство")
+                                _LOGGER.info("   4. Проверьте логи Home Assistant на дополнительные ошибки")
+                                _LOGGER.info("   5. Если проблема сохраняется, попробуйте перезагрузить Bluetooth-адаптер")
+                        except asyncio.TimeoutError:
+                            _LOGGER.error("⏱️  Таймаут при попытке переподключения")
+                            _LOGGER.error("💡 Устройство не отвечает или занято")
                             _LOGGER.info("💡 Рекомендации:")
                             _LOGGER.info("   1. Проверьте, что устройство включено и находится в зоне действия Bluetooth")
                             _LOGGER.info("   2. Проверьте, что Bluetooth-адаптер работает правильно")
