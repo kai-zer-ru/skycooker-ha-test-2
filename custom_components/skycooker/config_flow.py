@@ -43,7 +43,7 @@ class SkyCookerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             return False
         await self.async_set_unique_id(id)
         self.config[CONF_MAC] = mac
-        self.config[CONF_PASSWORD] = list(secrets.token_bytes(8))
+        self.config[CONF_PASSWORD] = list(bytes.fromhex("0000000000000000"))
         return True
 
     async def async_step_user(self, user_input=None):
