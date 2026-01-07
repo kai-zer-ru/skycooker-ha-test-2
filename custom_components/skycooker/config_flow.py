@@ -145,10 +145,9 @@ class SkyCoockerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             self.config[CONF_SCAN_INTERVAL] = user_input[CONF_SCAN_INTERVAL]
             self.config[CONF_PERSISTENT_CONNECTION] = user_input[CONF_PERSISTENT_CONNECTION]
             fname = f"{self.config.get(CONF_FRIENDLY_NAME, FRIENDLY_NAME)} ({self.config[CONF_MAC]})"
-            # _LOGGER.debug(f"saving config: {self.config}")
             if self.entry:
                 self.hass.config_entries.async_update_entry(self.entry, data=self.config)
-            _LOGGER.info(f"Config saved")
+            _LOGGER.info("✅ Конфигурация сохранена")
             return self.async_create_entry(
                 title=fname, data=self.config if not self.entry else {}
             )
