@@ -79,13 +79,19 @@ class SkyCooker(ABC):
         return status
 
     async def sync_time(self):
-        t = time.localtime()
-        offset = calendar.timegm(t) - calendar.timegm(time.gmtime(time.mktime(t)))
-        now = int(time.time())
-        data = pack("<ii", now, offset)
-        r = await self.command(COMMAND_SYNC_TIME, data)
-        if r[0] != 0: raise SkyCookerError("can't sync time")
-        _LOGGER.debug(f"Written time={now} ({datetime.fromtimestamp(now).strftime('%Y-%m-%d %H:%M:%S')}), offset={offset} (GMT{offset/60/60:+.2f})")
+        try:
+            t = time.localtime()
+            offset = calendar.timegm(t) - calendar.timegm(time.gmtime(time.mktime(t)))
+            now = int(time.time())
+            data = pack("<ii", now, offset)
+            _LOGGER.debug(f"🕒 Синхронизация времени: time={now}, offset={offset}")
+            r = await self.command(COMMAND_SYNC_TIME, data)
+            if r[0] != 0:
+                _LOGGER.warning(f"⚠️  Не удалось синхронизировать время. Код ответа: {r[0]}")
+                return
+            _LOGGER.debug(f"✅ Время синхронизировано: {now} ({datetime.fromtimestamp(now).strftime('%Y-%m-%d %H:%M:%S')}), offset={offset} (GMT{offset/60/60:+.2f})")
+        except Exception as e:
+            _LOGGER.warning(f"⚠️  Ошибка синхронизации времени: {e}")
 
     async def get_time(self):
         r = await self.command(COMMAND_GET_TIME)
