@@ -124,32 +124,7 @@ class SkyCookerConnection(SkyCooker):
                 _LOGGER.error("   4. Проверьте, что мультиварка находится в режиме сопряжения")
             raise
 
-    async def auth(self):
-        """Authenticate with the multicooker using correct key format."""
-        try:
-            _LOGGER.info("🔑 Начало аутентификации...")
-            _LOGGER.debug(f"🔑 Ключ аутентификации: {self._key}")
-            
-            # Convert key to bytes if it's a string
-            if isinstance(self._key, str):
-                key_bytes = list(bytes.fromhex(self._key))
-            elif isinstance(self._key, list):
-                key_bytes = self._key
-            else:
-                key_bytes = list(self._key)
-            
-            _LOGGER.debug(f"🔑 Ключ в формате байтов: {key_bytes}")
-            
-            auth_data = await self.command(COMMAND_AUTH, key_bytes)
-            if auth_data and auth_data[0] == 0x01:
-                _LOGGER.info("🔐 Аутентификация успешна")
-                return True
-            else:
-                _LOGGER.error(f"🚫 Аутентификация не удалась. Код ответа: {auth_data[0] if auth_data else 'None'}")
-                return False
-        except Exception as e:
-            _LOGGER.error(f"🚫 Ошибка аутентификации: {e}")
-            return False
+    auth = lambda self: super().auth(self._key)
 
     async def _cleanup_previous_connections(self):
         """Clean up any previous connections to free up slots."""
