@@ -12,32 +12,32 @@ MODEL_7 = 7
 
 # List of supported models
 SUPPORTED_MODELS = {
-    "RMC-M40S": {"supported": True, "type": 3},
-    "RMC-M42S": {"supported": True, "type": 3},
-    "RMC-M92S": {"supported": False, "type": 6},
-    "RMC-M92S-A": {"supported": False, "type": 6},
-    "RMC-M92S-C": {"supported": False, "type": 6},
-    "RMC-M92S-E": {"supported": False, "type": 6},
-    "RMC-M222S": {"supported": False, "type": 7},
-    "RMC-M222S-A": {"supported": False, "type": 7},
-    "RMC-M223S": {"supported": False, "type": 7},
-    "RMC-M223S-E": {"supported": False, "type": 7},
-    "RMC-M224S": {"supported": False, "type": 7},
-    "RFS-KMC001": {"supported": False, "type": 7},
-    "RMC-M225S": {"supported": False, "type": 7},
-    "RMC-M225S-E": {"supported": False, "type": 7},
-    "RMC-M226S": {"supported": False, "type": 7},
-    "RMC-M226S-E": {"supported": False, "type": 7},
-    "JK-MC501": {"supported": False, "type": 7},
-    "NK-MC10": {"supported": False, "type": 7},
-    "RMC-M227S": {"supported": False, "type": 7},
-    "RFS-KMC004": {"supported": False, "type": 7},
-    "RMC-M800S": {"supported": False, "type": 0},
-    "RMC-M903S": {"supported": False, "type": 5},
-    "RFS-KMC005": {"supported": False, "type": 5},
-    "RMC-961S": {"supported": False, "type": 4},
-    "RMC-CBD100S": {"supported": False, "type": 1},
-    "RMC-CBF390S": {"supported": False, "type": 2},
+    "RMC-M40S": {"supported": True, "type": MODEL_3},
+    "RMC-M42S": {"supported": True, "type": MODEL_3},
+    "RMC-M92S": {"supported": False, "type": MODEL_6},
+    "RMC-M92S-A": {"supported": False, "type": MODEL_6},
+    "RMC-M92S-C": {"supported": False, "type": MODEL_6},
+    "RMC-M92S-E": {"supported": False, "type": MODEL_6},
+    "RMC-M222S": {"supported": False, "type": MODEL_7},
+    "RMC-M222S-A": {"supported": False, "type": MODEL_7},
+    "RMC-M223S": {"supported": False, "type": MODEL_7},
+    "RMC-M223S-E": {"supported": False, "type": MODEL_7},
+    "RMC-M224S": {"supported": False, "type": MODEL_7},
+    "RFS-KMC001": {"supported": False, "type": MODEL_7},
+    "RMC-M225S": {"supported": False, "type": MODEL_7},
+    "RMC-M225S-E": {"supported": False, "type": MODEL_7},
+    "RMC-M226S": {"supported": False, "type": MODEL_7},
+    "RMC-M226S-E": {"supported": False, "type": MODEL_7},
+    "JK-MC501": {"supported": False, "type": MODEL_7},
+    "NK-MC10": {"supported": False, "type": MODEL_7},
+    "RMC-M227S": {"supported": False, "type": MODEL_7},
+    "RFS-KMC004": {"supported": False, "type": MODEL_7},
+    "RMC-M800S": {"supported": False, "type": MODEL_0},
+    "RMC-M903S": {"supported": False, "type": MODEL_5},
+    "RFS-KMC005": {"supported": False, "type": MODEL_5},
+    "RMC-961S": {"supported": False, "type": MODEL_4},
+    "RMC-CBD100S": {"supported": False, "type": MODEL_1},
+    "RMC-CBF390S": {"supported": False, "type": MODEL_2},
 }
 
 MODELS = {
@@ -321,22 +321,22 @@ PRODUCT_NAMES = {
 }
 
 # Status codes
-STATUS_OFF = 0
-STATUS_COOKING = 1
-STATUS_HEATING = 2
-STATUS_DELAYED_START = 3
-STATUS_KEEP_WARM = 4
-STATUS_ERROR = 5
-STATUS_READY = 6
+STATUS_OFF = 0x00
+STATUS_WAIT = 0x01
+STATUS_DELAYED_LAUNCH = 0x02
+STATUS_WARMING = 0x03
+STATUS_COOKING = 0x05
+STATUS_AUTO_WARM = 0x06
+STATUS_FULL_OFF = 0x0A
 
 STATUS_CODES = {
     STATUS_OFF: "Выключена",
     STATUS_COOKING: "Готовка",
-    STATUS_HEATING: "Разогрев",
-    STATUS_DELAYED_START: "Отложенный старт",
-    STATUS_KEEP_WARM: "Подогрев",
-    STATUS_ERROR: "Ошибка",
-    STATUS_READY: "Готова",
+    STATUS_WARMING: "Разогрев",
+    STATUS_DELAYED_LAUNCH: "Отложенный старт",
+    STATUS_AUTO_WARM: "Подогрев",
+    # STATUS_ERROR: "Ошибка",
+    # STATUS_READY: "Готова",
 }
 
 
@@ -348,6 +348,40 @@ CONF_MODEL = "model"
 DEFAULT_SCAN_INTERVAL = 30
 DEFAULT_PERSISTENT_CONNECTION = True
 
+# Friendly names
+FRIENDLY_NAME = "SkyCooker"
+SKYCOOKER_NAME = "SkyCooker"
+MANUFACTORER = "Redmond"
+
+# Button types
+BUTTON_TYPE_START = "start"
+BUTTON_TYPE_STOP = "stop"
+
+# Select types
+SELECT_TYPE_MODE = "mode"
+
+# Sensor types
+SENSOR_TYPE_STATUS = "status"
+SENSOR_TYPE_TEMPERATURE = "temperature"
+SENSOR_TYPE_REMAINING_TIME = "remaining_time"
+SENSOR_TYPE_TOTAL_TIME = "total_time"
+SENSOR_TYPE_AUTO_WARM_TIME = "auto_warm_time"
+SENSOR_TYPE_SUCCESS_RATE = "success_rate"
+SENSOR_TYPE_DELAYED_LAUNCH_TIME = "delayed_launch_time"
+
+# Switch types
+SWITCH_TYPE_POWER = "power"
+
+# BLE settings
+UUID_SERVICE = "6e400001-b5a3-f393-e0a9-e50e24dcca9e"
+UUID_TX = "6e400002-b5a3-f393-e0a9-e50e24dcca9e"
+UUID_RX = "6e400003-b5a3-f393-e0a9-e50e24dcca9e"
+BLE_RECV_TIMEOUT = 1.5
+MAX_TRIES = 3
+TRIES_INTERVAL = 0.5
+STATS_INTERVAL = 15
+TARGET_TTL = 30
+
 # Data keys
 DATA_CONNECTION = "connection"
 DATA_CANCEL = "cancel"
@@ -357,7 +391,12 @@ DATA_DEVICE_INFO = "device_info"
 # Dispatcher
 DISPATCHER_UPDATE = "update"
 
-# BLE settings
-BLE_RECV_TIMEOUT = 1.5
-MAX_TRIES = 3  # Like in working version
-TRIES_INTERVAL = 0.5
+# Commands
+COMMAND_GET_VERSION = 0x01
+COMMAND_TURN_ON = 0x03
+COMMAND_TURN_OFF = 0x04
+COMMAND_SET_MAIN_MODE = 0x05
+COMMAND_GET_STATUS = 0x06
+COMMAND_SYNC_TIME = 0x6E
+COMMAND_GET_TIME = 0x6F
+COMMAND_AUTH = 0xFF

@@ -10,8 +10,6 @@ from .const import *
 _LOGGER = logging.getLogger(__name__)
 
 
-BUTTON_TYPE_START = "start"
-BUTTON_TYPE_STOP = "stop"
 
 
 async def async_setup_entry(hass, entry, async_add_entities):
@@ -41,8 +39,8 @@ class SkyCookerButton(ButtonEntity):
         self.schedule_update_ha_state()
 
     @property
-    def multicooker(self):
-        """Get the multicooker connection."""
+    def skycooker(self):
+        """Get the skycooker connection."""
         return self.hass.data[DOMAIN][self.entry.entry_id][DATA_CONNECTION]
 
     @property
@@ -68,7 +66,7 @@ class SkyCookerButton(ButtonEntity):
     @property
     def name(self):
         """Return the name of the button entity."""
-        base_name = (FRIENDLY_NAME + " " + self.entry.data.get(CONF_FRIENDLY_NAME, "")).strip()
+        base_name = (SKYCOOKER_NAME + " " + self.entry.data.get(CONF_FRIENDLY_NAME, "")).strip()
         
         if self.button_type == BUTTON_TYPE_START:
             return f"{base_name} запуск"
@@ -89,13 +87,13 @@ class SkyCookerButton(ButtonEntity):
     @property
     def available(self):
         """Return if button entity is available."""
-        return self.multicooker.available
+        return self.skycooker.available
 
     async def async_press(self) -> None:
         """Press the button."""
         if self.button_type == BUTTON_TYPE_START:
-            await self.multicooker.start()
+            await self.skycooker.start()
         elif self.button_type == BUTTON_TYPE_STOP:
-            await self.multicooker.stop()
+            await self.skycooker.stop()
         
         self.update()

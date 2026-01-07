@@ -10,7 +10,6 @@ from .const import *
 _LOGGER = logging.getLogger(__name__)
 
 
-SWITCH_TYPE_POWER = "power"
 
 
 async def async_setup_entry(hass, entry, async_add_entities):
@@ -39,8 +38,8 @@ class SkyCookerSwitch(SwitchEntity):
         self.schedule_update_ha_state()
 
     @property
-    def multicooker(self):
-        """Get the multicooker connection."""
+    def skycooker(self):
+        """Get the skycooker connection."""
         return self.hass.data[DOMAIN][self.entry.entry_id][DATA_CONNECTION]
 
     @property
@@ -66,7 +65,7 @@ class SkyCookerSwitch(SwitchEntity):
     @property
     def name(self):
         """Return the name of the switch."""
-        base_name = (FRIENDLY_NAME + " " + self.entry.data.get(CONF_FRIENDLY_NAME, "")).strip()
+        base_name = (SKYCOOKER_NAME + " " + self.entry.data.get(CONF_FRIENDLY_NAME, "")).strip()
         
         if self.switch_type == SWITCH_TYPE_POWER:
             return f"{base_name} питание"
@@ -83,13 +82,13 @@ class SkyCookerSwitch(SwitchEntity):
     @property
     def available(self):
         """Return if switch is available."""
-        return self.multicooker.available
+        return self.skycooker.available
 
     @property
     def is_on(self):
         """Return true if switch is on."""
         if self.switch_type == SWITCH_TYPE_POWER:
-            status_code = self.multicooker.status_code
+            status_code = self.skycooker.status_code
             if status_code is not None:
                 return status_code not in [STATUS_OFF, STATUS_FULL_OFF]
             # If status_code is None, assume it's off to prevent switching to unavailable
@@ -99,11 +98,11 @@ class SkyCookerSwitch(SwitchEntity):
     async def async_turn_on(self, **kwargs):
         """Turn the switch on."""
         if self.switch_type == SWITCH_TYPE_POWER:
-            await self.multicooker.start()
+            await self.skycooker.start()
             self.update()
 
     async def async_turn_off(self, **kwargs):
         """Turn the switch off."""
         if self.switch_type == SWITCH_TYPE_POWER:
-            await self.multicooker.stop()
+            await self.skycooker.stop()
             self.update()

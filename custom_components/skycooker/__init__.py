@@ -12,7 +12,7 @@ from homeassistant.helpers.dispatcher import dispatcher_send
 from homeassistant.helpers.entity import DeviceInfo
 
 from .const import *
-from .multicooker_connection import MulticookerConnection
+from .skycooker_connection import SkyCookerConnection
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -52,20 +52,18 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
         _LOGGER.error(f"🚨 Модель {model_name} не поддерживается. Поддерживаемые модели: {list(MODELS.keys())}")
         return False
 
-    model_type = MODELS[model_name]
-    multicooker = MulticookerConnection(
+    skycooker = SkyCookerConnection(
         mac=entry.data[CONF_MAC],
         key=entry.data[CONF_PASSWORD],
         persistent=entry.data[CONF_PERSISTENT_CONNECTION],
         adapter=entry.data.get(CONF_DEVICE, None),
         hass=hass,
-        model=model_name,
-        model_type=model_type
+        model=model_name
     )
-    hass.data[DOMAIN][entry.entry_id][DATA_CONNECTION] = multicooker
+    hass.data[DOMAIN][entry.entry_id][DATA_CONNECTION] = skycooker
 
     async def poll(now, **kwargs) -> None:
-        await multicooker.update()
+        await skycooker.update()
         await hass.async_add_executor_job(dispatcher_send, hass, DISPATCHER_UPDATE)
         if hass.data[DOMAIN][DATA_WORKING]:
             schedule_poll(timedelta(seconds=entry.data[CONF_SCAN_INTERVAL]))
@@ -87,7 +85,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
 
 def device_info(entry):
     return DeviceInfo(
-        name=(FRIENDLY_NAME + " " + entry.data.get(CONF_FRIENDLY_NAME, "")).strip(),
+        name=(SKYCOOKER_NAME + " " + entry.data.get(CONF_FRIENDLY_NAME, "")).strip(),
         manufacturer=MANUFACTORER,
         model=entry.data.get(CONF_FRIENDLY_NAME, None),
         sw_version=entry.data.get(ATTR_SW_VERSION, None),
@@ -117,6 +115,6 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry):
 
 async def entry_update_listener(hass, entry):
     """Handle options update."""
-    multicooker = hass.data[DOMAIN][entry.entry_id][DATA_CONNECTION]
-    multicooker.persistent = entry.data.get(CONF_PERSISTENT_CONNECTION)
+    skycooker = hass.data[DOMAIN][entry.entry_id][DATA_CONNECTION]
+    skycooker.persistent = entry.data.get(CONF_PERSISTENT_CONNECTION)
     _LOGGER.debug("⚙️  Опции обновлены")

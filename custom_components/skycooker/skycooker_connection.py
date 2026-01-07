@@ -6,26 +6,17 @@ import logging
 import traceback
 from time import monotonic
 
-from bleak.exc import BleakError
 from bleak_retry_connector import establish_connection, BleakClientWithServiceCache
 
 from homeassistant.components import bluetooth
 
 from .const import *
-from .multicooker import SkyCooker
+from .skycooker import SkyCooker
 
 _LOGGER = logging.getLogger(__name__)
 
 
-class MulticookerConnection(SkyCooker):
-    UUID_SERVICE = "6e400001-b5a3-f393-e0a9-e50e24dcca9e"
-    UUID_TX = "6e400002-b5a3-f393-e0a9-e50e24dcca9e"
-    UUID_RX = "6e400003-b5a3-f393-e0a9-e50e24dcca9e"
-    BLE_RECV_TIMEOUT = 1.5
-    MAX_TRIES = 3
-    TRIES_INTERVAL = 0.5
-    STATS_INTERVAL = 15
-    TARGET_TTL = 30
+class SkyCookerConnection(SkyCooker):
 
     def __init__(self, mac, key, persistent=True, adapter=None, hass=None, model=None):
         super().__init__(model)
@@ -52,32 +43,47 @@ class MulticookerConnection(SkyCooker):
         self._disposed = False
         self._last_data = None
 
-    async def command(self, command, params=[]):
+    async def command(self, command, params=None):
+        if params is None:
+            params = []
         if self._disposed:
             raise DisposedError()
         if not self._client or not self._client.is_connected:
-            raise IOError("not connected")
+            raise IOError("🔌 Не подключено")
         self._iter = (self._iter + 1) % 256
-        _LOGGER.debug(f"Writing command {command:02x}, data: [{' '.join([f'{c:02x}' for c in params])}]")
+        _LOGGER.debug(f"📤 Отправка команды {command:02x}, данные: [{' '.join([f'{c:02x}' for c in params])}]")
         data = bytes([0x55, self._iter, command] + list(params) + [0xAA])
         self._last_data = None
-        await self._client.write_gatt_char(MulticookerConnection.UUID_TX, data)
-        timeout_time = monotonic() + MulticookerConnection.BLE_RECV_TIMEOUT
+        try:
+            await self._client.write_gatt_char(SkyCookerConnection.UUID_TX, data)
+            _LOGGER.debug(f"📋 Отправленный пакет: {data.hex().upper()}")
+        except Exception as e:
+            _LOGGER.error(f"🚫 Ошибка отправки команды: {e}")
+            raise IOError(f"Ошибка отправки команды: {e}")
+        timeout_time = monotonic() + SkyCookerConnection.BLE_RECV_TIMEOUT
         while True:
             await asyncio.sleep(0.05)
             if self._last_data:
                 r = self._last_data
-                if r[0] != 0x55 or r[-1] != 0xAA:
-                    raise IOError("Invalid response magic")
+                _LOGGER.debug(f"📥 Получен сырой ответ: {r.hex().upper()}")
+                if len(r) < 4 or r[0] != 0x55 or r[-1] != 0xAA:
+                    _LOGGER.error(f"❌ Некорректный формат ответа: {r.hex().upper()}")
+                    raise IOError("Некорректный формат ответа")
                 if r[1] == self._iter:
+                    _LOGGER.debug(f"✅ Правильный идентификатор запроса {self._iter} в ответе")
                     break
                 else:
+                    _LOGGER.warning(f"⚠️  Неправильный идентификатор запроса в ответе: ожидалось {self._iter}, получено {r[1]}")
+                    _LOGGER.warning(f"💡 Это может быть ответ на предыдущий запрос или от другого устройства")
                     self._last_data = None
-            if monotonic() >= timeout_time: raise IOError("Receive timeout")
+            if monotonic() >= timeout_time:
+                _LOGGER.error(f"⏱️  Таймаут приема ответа на команду {command:02x}")
+                raise IOError("Таймаут приема")
         if r[2] != command:
-            raise IOError("Invalid response command")
+            _LOGGER.error(f"❌ Некорректная команда ответа: ожидалось {command:02x}, получено {r[2]:02x}")
+            raise IOError("Некорректная команда ответа")
         clean = bytes(r[3:-1])
-        _LOGGER.debug(f"Received: {' '.join([f'{c:02x}' for c in clean])}")
+        _LOGGER.debug(f"📥 Очищенные данные ответа: {' '.join([f'{c:02x}' for c in clean])}")
         return clean
 
     def _rx_callback(self, sender, data):
@@ -88,15 +94,15 @@ class MulticookerConnection(SkyCooker):
             raise DisposedError()
         if self._client and self._client.is_connected: return
         self._device = bluetooth.async_ble_device_from_address(self.hass, self._mac)
-        _LOGGER.debug("Connecting to the Multicooker...")
+        _LOGGER.debug("Connecting to the SkyCooker...")
         self._client = await establish_connection(
             BleakClientWithServiceCache,
             self._device,
             self._device.name or "Unknown Device",
             max_attempts=3
         )
-        _LOGGER.debug("Connected to the Multicooker")
-        await self._client.start_notify(MulticookerConnection.UUID_RX, self._rx_callback)
+        _LOGGER.debug("Connected to the SkyCooker")
+        await self._client.start_notify(SkyCookerConnection.UUID_RX, self._rx_callback)
         _LOGGER.debug("Subscribed to RX")
 
     auth = lambda self: super().auth(self._key)
@@ -133,7 +139,7 @@ class MulticookerConnection(SkyCooker):
         if not self._auth_ok:
             self._last_auth_ok = self._auth_ok = await self.auth()
             if not self._auth_ok:
-                _LOGGER.error(f"Auth failed. You need to enable pairing mode on the multicooker.")
+                _LOGGER.error(f"Auth failed. You need to enable pairing mode on the SkyCooker.")
                 raise AuthError("Auth failed")
             _LOGGER.debug("Auth ok")
             self._sw_version = await self.get_version()
@@ -146,7 +152,7 @@ class MulticookerConnection(SkyCooker):
     async def update(self, tries=MAX_TRIES, force_stats=False, extra_action=None, commit=False):
         try:
             async with self._update_lock:
-                if self._disposed: return
+                if self._disposed: return None
                 _LOGGER.debug(f"Updating")
                 if not self.available: force_stats = True
                 await self._connect_if_need()
@@ -155,18 +161,18 @@ class MulticookerConnection(SkyCooker):
 
                 self._status = await self.get_status()
                 boil_time = self._status.boil_time
-                if self._target_boil_time != None and self._target_boil_time != boil_time:
+                if self._target_boil_time is not None and self._target_boil_time != boil_time:
                     try:
                         _LOGGER.debug(f"Need to update boil time from {boil_time} to {self._target_boil_time}")
                         boil_time = self._target_boil_time
-                        if self._target_state == None:
+                        if self._target_state is None:
                             self._target_state = self._status.mode if self._status.is_on else None, self._status.target_temp
                             self._last_set_target = monotonic()
                         if self._status.is_on:
                             await self.turn_off()
                             await asyncio.sleep(0.2)
                         await self.set_main_mode(self._status.mode, self._status.target_temp, boil_time)
-                        _LOGGER.info(f"Boil time is succesfully set to {boil_time}")
+                        _LOGGER.info(f"Boil time is successfully set to {boil_time}")
                     except Exception as ex:
                         _LOGGER.error(f"Can't update boil time ({type(ex).__name__}): {str(ex)}")
                     self._status = await self.get_status()
@@ -174,36 +180,36 @@ class MulticookerConnection(SkyCooker):
 
                 if commit: await self.commit()
 
-                if self._target_state != None:
+                if self._target_state is not None:
                     target_mode, target_temp = self._target_state
-                    if target_mode == None and self._status.is_on:
+                    if target_mode is None and self._status.is_on:
                         _LOGGER.info(f"State: {self._status} -> {self._target_state}")
-                        _LOGGER.info("Need to turn off the multicooker...")
+                        _LOGGER.info("Need to turn off the SkyCooker...")
                         await self.turn_off()
-                        _LOGGER.info("The multicooker was turned off")
+                        _LOGGER.info("The SkyCooker was turned off")
                         await asyncio.sleep(0.2)
                         self._status = await self.get_status()
-                    elif target_mode != None and not self._status.is_on:
+                    elif target_mode is not None and not self._status.is_on:
                         _LOGGER.info(f"State: {self._status} -> {self._target_state}")
-                        _LOGGER.info("Need to set mode and turn on the multicooker...")
+                        _LOGGER.info("Need to set mode and turn on the SkyCooker...")
                         await self.set_main_mode(target_mode, target_temp, boil_time)
                         _LOGGER.info("New mode was set")
                         await self.turn_on()
-                        _LOGGER.info("The multicooker was turned on")
+                        _LOGGER.info("The SkyCooker was turned on")
                         await asyncio.sleep(0.2)
                         self._status = await self.get_status()
-                    elif target_mode != None  and (
+                    elif target_mode is not None and (
                             target_mode != self._status.mode or
                             target_temp != self._status.target_temp):
                         _LOGGER.info(f"State: {self._status} -> {self._target_state}")
-                        _LOGGER.info("Need to switch mode of the multicooker and restart it")
+                        _LOGGER.info("Need to switch mode of the SkyCooker and restart it")
                         await self.turn_off()
-                        _LOGGER.info("The multicooker was turned off")
+                        _LOGGER.info("The SkyCooker was turned off")
                         await asyncio.sleep(0.2)
                         await self.set_main_mode(target_mode, target_temp, boil_time)
                         _LOGGER.info("New mode was set")
                         await self.turn_on()
-                        _LOGGER.info("The multicooker was turned on")
+                        _LOGGER.info("The SkyCooker was turned on")
                         await asyncio.sleep(0.2)
                         self._status = await self.get_status()
                     else:
@@ -216,14 +222,14 @@ class MulticookerConnection(SkyCooker):
 
         except Exception as ex:
             await self.disconnect()
-            if self._target_state != None and self._last_set_target + MulticookerConnection.TARGET_TTL < monotonic():
-                _LOGGER.warning(f"Can't set mode to {self._target_state} for {MulticookerConnection.TARGET_TTL} seconds, stop trying")
+            if self._target_state is not None and self._last_set_target + SkyCookerConnection.TARGET_TTL < monotonic():
+                _LOGGER.warning(f"Can't set mode to {self._target_state} for {SkyCookerConnection.TARGET_TTL} seconds, stop trying")
                 self._target_state = None
-            if type(ex) == AuthError: return
+            if type(ex) == AuthError: return None
             self.add_stat(False)
-            if tries > 1 and extra_action == None:
-                _LOGGER.debug(f"{type(ex).__name__}: {str(ex)}, retry #{MulticookerConnection.MAX_TRIES - tries + 1}")
-                await asyncio.sleep(MulticookerConnection.TRIES_INTERVAL)
+            if tries > 1 and extra_action is None:
+                _LOGGER.debug(f"{type(ex).__name__}: {str(ex)}, retry #{SkyCookerConnection.MAX_TRIES - tries + 1}")
+                await asyncio.sleep(SkyCookerConnection.TRIES_INTERVAL)
                 return await self.update(tries=tries-1, force_stats=force_stats, extra_action=extra_action, commit=commit)
             else:
                 _LOGGER.warning(f"Can't update status, {type(ex).__name__}: {str(ex)}")
@@ -243,6 +249,11 @@ class MulticookerConnection(SkyCooker):
         self._target_state = target_mode, target_temp
         self._last_set_target = monotonic()
         await self.update()
+
+    async def commit(self):
+        """Commit changes to the device."""
+        _LOGGER.debug("Committing changes")
+        await self.update(commit=True)
 
     async def cancel_target(self):
         self._target_state = None
@@ -277,7 +288,7 @@ class MulticookerConnection(SkyCooker):
                 return target_temp
             if target_mode == 2:
                 return 100
-            if target_mode == None:
+            if target_mode is None:
                 return 25
         if self._status:
             if self._status.is_on:
@@ -377,7 +388,7 @@ class MulticookerConnection(SkyCooker):
             target_temp = 0
         elif target_mode in [3, 4]:
             target_temp = 85
-        elif target_temp == None:
+        elif target_temp is None:
             target_temp = 90
         else:
             if target_temp > 90:

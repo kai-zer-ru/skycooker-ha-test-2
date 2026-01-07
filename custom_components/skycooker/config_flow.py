@@ -14,8 +14,8 @@ from homeassistant.const import (CONF_DEVICE, CONF_FRIENDLY_NAME, CONF_MAC,
 from homeassistant.core import callback
 
 from .const import *
-from .multicooker_connection import MulticookerConnection
-from .multicooker import SkyCooker
+from .skycooker_connection import SkyCookerConnection
+from .skycooker import SkyCooker
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -74,7 +74,7 @@ class SkyCookerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 return self.async_abort(reason='no_bluetooth')
             devices_filtered = [device for device in scanner.discovered_devices if device.name and (device.name.startswith("RMC-") or device.name.startswith("RFS-"))]
             if len(devices_filtered) == 0:
-                return self.async_abort(reason='multicooker_not_found')
+                return self.async_abort(reason='skycooker_not_found')
             mac_list = [f"{r.address} ({r.name})" for r in devices_filtered]
             schema = vol.Schema(
             {
@@ -93,7 +93,7 @@ class SkyCookerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         """Handle the connect step."""
         errors = {}
         if user_input is not None:
-            multicooker = MulticookerConnection(
+            skycooker = SkyCookerConnection(
                 mac=self.config[CONF_MAC],
                 key=self.config[CONF_PASSWORD],
                 persistent=True,
@@ -102,13 +102,13 @@ class SkyCookerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 model=self.config.get(CONF_FRIENDLY_NAME, None)
             )
             tries = 3
-            while tries > 0 and not multicooker._last_connect_ok:
-                await multicooker.update()
+            while tries > 0 and not skycooker._last_connect_ok:
+                await skycooker.update()
                 tries = tries - 1
              
-            connect_ok = multicooker._last_connect_ok
-            auth_ok = multicooker._last_auth_ok
-            multicooker.stop()
+            connect_ok = skycooker._last_connect_ok
+            auth_ok = skycooker._last_auth_ok
+            skycooker.stop()
          
             if not connect_ok:
                 errors["base"] = "cant_connect"
@@ -129,7 +129,7 @@ class SkyCookerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             self.config[CONF_SCAN_INTERVAL] = user_input[CONF_SCAN_INTERVAL]
             self.config[CONF_PERSISTENT_CONNECTION] = user_input[CONF_PERSISTENT_CONNECTION]
-            fname = f"{self.config.get(CONF_FRIENDLY_NAME, FRIENDLY_NAME)} ({self.config[CONF_MAC]})"
+            fname = f"{self.config.get(CONF_FRIENDLY_NAME, SKYCOOKER_NAME)} ({self.config[CONF_MAC]})"
             if self.entry:
                 self.hass.config_entries.async_update_entry(self.entry, data=self.config)
             _LOGGER.info(f"Config saved")

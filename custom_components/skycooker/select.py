@@ -9,10 +9,6 @@ from .const import *
 
 _LOGGER = logging.getLogger(__name__)
 
-
-SELECT_TYPE_MODE = "mode"
-
-
 async def async_setup_entry(hass, entry, async_add_entities):
     """Set up the SkyCooker select entities."""
     async_add_entities([
@@ -39,8 +35,8 @@ class SkyCookerSelect(SelectEntity):
         self.schedule_update_ha_state()
 
     @property
-    def multicooker(self):
-        """Get the multicooker connection."""
+    def skycooker(self):
+        """Get the skycooker connection."""
         return self.hass.data[DOMAIN][self.entry.entry_id][DATA_CONNECTION]
 
     @property
@@ -66,7 +62,7 @@ class SkyCookerSelect(SelectEntity):
     @property
     def name(self):
         """Return the name of the select entity."""
-        base_name = (FRIENDLY_NAME + " " + self.entry.data.get(CONF_FRIENDLY_NAME, "")).strip()
+        base_name = (SKYCOOKER_NAME + " " + self.entry.data.get(CONF_FRIENDLY_NAME, "")).strip()
         
         if self.select_type == SELECT_TYPE_MODE:
             return f"{base_name} режим"
@@ -83,13 +79,13 @@ class SkyCookerSelect(SelectEntity):
     @property
     def available(self):
         """Return if select entity is available."""
-        return self.multicooker.available
+        return self.skycooker.available
 
     @property
     def current_option(self):
         """Return the current selected option."""
         if self.select_type == SELECT_TYPE_MODE:
-            mode_id = self.multicooker.current_mode
+            mode_id = self.skycooker.current_mode
             if mode_id is not None:
                 return MODES.get(mode_id, f"Неизвестно ({mode_id})")
         return None
@@ -112,5 +108,5 @@ class SkyCookerSelect(SelectEntity):
                     break
             
             if mode_id is not None:
-                await self.multicooker.set_mode(mode_id)
+                await self.skycooker.set_mode(mode_id)
                 self.update()
