@@ -96,6 +96,9 @@ class SkyCookerConnection(SkyCooker):
             _LOGGER.debug("✅ Уже подключено к мультиварке")
             return
         try:
+            # Очистка предыдущих подключений
+            await self._cleanup_previous_connections()
+            
             self._device = bluetooth.async_ble_device_from_address(self.hass, self._mac)
             if not self._device:
                 _LOGGER.error("❌ Устройство %s не найдено", self._mac)
@@ -105,7 +108,7 @@ class SkyCookerConnection(SkyCooker):
                 BleakClientWithServiceCache,
                 self._device,
                 self._device.name or "Unknown Device",
-                max_attempts=10  # Увеличено количество попыток
+                max_attempts=5
             )
             _LOGGER.info("✅ Успешно подключено к мультиварке %s", self._mac)
             await self._client.start_notify(UUID_RX, self._rx_callback)
@@ -113,9 +116,27 @@ class SkyCookerConnection(SkyCooker):
         except Exception as e:
             _LOGGER.error("❌ Ошибка подключения к мультиварке: %s", e)
             _LOGGER.error("💡 Проверьте, что устройство находится в режиме сопряжения и рядом с адаптером")
+            if "out of connection slots" in str(e).lower():
+                _LOGGER.error("💡 Bluetooth адаптер исчерпал лимит соединений. Попробуйте:")
+                _LOGGER.error("   1. Перезагрузите Bluetooth адаптер")
+                _LOGGER.error("   2. Уменьшите количество активных Bluetooth устройств")
+                _LOGGER.error("   3. Используйте дополнительный Bluetooth прокси")
+                _LOGGER.error("   4. Проверьте, что мультиварка находится в режиме сопряжения")
             raise
 
     auth = lambda self: super().auth(self._key)
+
+    async def _cleanup_previous_connections(self):
+        """Clean up any previous connections to free up slots."""
+        try:
+            if self._client:
+                if self._client.is_connected:
+                    _LOGGER.debug("🧹 Очистка предыдущего соединения...")
+                    await self._client.disconnect()
+                self._client = None
+            self._device = None
+        except Exception as e:
+            _LOGGER.warning(f"⚠️  Ошибка очистки предыдущего соединения: {e}")
 
     async def _disconnect(self):
         try:
