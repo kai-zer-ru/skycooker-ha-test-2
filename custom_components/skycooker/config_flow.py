@@ -1,7 +1,6 @@
 """Config flow for SkyCoocker integration."""
 
 import logging
-import secrets
 import traceback
 
 import voluptuous as vol
