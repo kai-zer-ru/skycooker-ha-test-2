@@ -351,6 +351,12 @@ class MulticookerConnection:
             _LOGGER.info("   3. Нет других процессов, использующих Bluetooth")
             _LOGGER.info("   4. Проверьте логи Home Assistant на дополнительные ошибки")
             _LOGGER.debug(f"📋 Флаги состояния: _is_reconnecting={self._is_reconnecting}, _disposed={self._disposed}, _reconnect_attempts={self._reconnect_attempts}")
+            _LOGGER.info("💡 Если проблема сохраняется, попробуйте:")
+            _LOGGER.info("   1. Перезагрузите Bluetooth-адаптер (выключите и включите его)")
+            _LOGGER.info("   2. Перезагрузите службу Bluetooth (sudo systemctl restart bluetooth)")
+            _LOGGER.info("   3. Проверьте логи Bluetooth на ошибки (journalctl -u bluetooth -f)")
+            _LOGGER.info("   4. Попробуйте использовать другой Bluetooth-адаптер")
+            _LOGGER.info("   5. Настройте ESPHome Bluetooth прокси для увеличения количества доступных слотов")
             self._is_reconnecting = True
             
             async def attempt_reconnect():
@@ -508,9 +514,9 @@ class MulticookerConnection:
                 except asyncio.CancelledError:
                     _LOGGER.debug("🔄 Задача переподключения успешно отменена")
             
-            # Reset the reconnection flags
+            # Reset the reconnection flags, but keep the attempt counter
             self._is_reconnecting = False
-            self._reconnect_attempts = 0
+            # self._reconnect_attempts = 0  # Don't reset the counter here
             
             await self._disconnect()
         except:
