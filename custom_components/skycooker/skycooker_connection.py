@@ -768,8 +768,9 @@ class SkyCookerConnection(SkyCooker):
             self._target_delayed_start_hours = None
             self._target_delayed_start_minutes = None
             
-            # Set target state with the new values
-            await self._set_target_state(operation_mode, target_temp)
+            # Set target state with the new values, but don't start cooking automatically
+            self._target_state = (operation_mode, target_temp)
+            self._last_set_target = monotonic()
         else:
             # Fallback to old behavior if MODE_DATA is not available
             target_mode = operation_mode
@@ -781,13 +782,13 @@ class SkyCookerConnection(SkyCooker):
             elif target_temp is None:
                 target_temp = 90
             else:
-                if target_temp > 90:
-                    target_temp = 90
-                elif target_temp < 35:
+                if target_temp < 35:
                     target_temp = 35
             if target_temp != self.target_temp:
                 _LOGGER.info(f"Target temperature autoswitched to {target_temp}")
-            await self._set_target_state(target_mode, target_temp)
+            # Set target state with the new values, but don't start cooking automatically
+            self._target_state = (target_mode, target_temp)
+            self._last_set_target = monotonic()
 
 
 class AuthError(Exception):

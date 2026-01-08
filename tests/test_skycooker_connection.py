@@ -238,11 +238,11 @@ class TestSkyCookerConnection:
         mac = "AA:BB:CC:DD:EE:FF"
         key = [0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F]
         connection = SkyCookerConnection(mac, key, persistent=True, model="RMC-M40S")
-        connection.update = AsyncMock()
 
         await connection.set_target_mode(1)
 
-        connection.update.assert_called_once()
+        # Verify that target_state was set correctly
+        assert connection._target_state == (1, 101)
 
     def test_connection_sw_version(self):
         """Test that the connection returns the correct software version."""
