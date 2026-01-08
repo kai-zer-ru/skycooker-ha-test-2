@@ -229,16 +229,17 @@ class SkyCookerSelect(SelectEntity):
                     break
                
             if mode_id is not None:
-                # Reset target_state and target_boil_time to None so that Number entities use MODE_DATA values
-                self.skycooker.target_state = None
-                self.skycooker.target_boil_time = None
-                 
-                # Log the selected mode and its data
+                # Set target_state and target_boil_time from MODE_DATA for the selected mode
                 model_type = self.skycooker.model_code
                 if model_type and model_type in MODE_DATA and mode_id < len(MODE_DATA[model_type]):
                     mode_data = MODE_DATA[model_type][mode_id]
                     _LOGGER.info(f"Selected mode {mode_id} for model {model_type}: temperature={mode_data[0]}, hours={mode_data[1]}, minutes={mode_data[2]}")
-                 
+                    
+                    # Update target_state and target_boil_time with mode data
+                    self.skycooker.target_state = (mode_id, mode_data[0])
+                    self.skycooker.target_boil_time = mode_data[1] * 60 + mode_data[2]
+                    self.skycooker.target_cooking_time = self.skycooker.target_boil_time
+                  
                 await self.skycooker.set_target_mode(mode_id)
                  
                 # Trigger dispatcher update to notify Number entities about the mode change
