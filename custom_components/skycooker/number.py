@@ -153,6 +153,10 @@ class SkyCookerNumber(NumberEntity):
             return 0
         elif self.number_type == NUMBER_TYPE_COOKING_TIME_MINUTES:
             return 0
+        elif self.number_type == NUMBER_TYPE_DELAYED_START_HOURS:
+            return 0
+        elif self.number_type == NUMBER_TYPE_DELAYED_START_MINUTES:
+            return 0
         return 0
 
     @property
@@ -163,6 +167,10 @@ class SkyCookerNumber(NumberEntity):
         elif self.number_type == NUMBER_TYPE_COOKING_TIME_HOURS:
             return 24
         elif self.number_type == NUMBER_TYPE_COOKING_TIME_MINUTES:
+            return 59
+        elif self.number_type == NUMBER_TYPE_DELAYED_START_HOURS:
+            return 12
+        elif self.number_type == NUMBER_TYPE_DELAYED_START_MINUTES:
             return 59
         return 100
 

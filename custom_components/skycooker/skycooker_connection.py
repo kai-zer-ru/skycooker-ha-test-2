@@ -195,7 +195,12 @@ class SkyCookerConnection(SkyCooker):
 
                 if extra_action: await extra_action
 
-                self._status = await self.get_status()
+                try:
+                    self._status = await self.get_status()
+                except Exception as e:
+                    _LOGGER.warning(f"⚠️  Ошибка получения статуса: {e}")
+                    self._status = None
+                    raise
                 boil_time = self._status.boil_time
                 if self._target_boil_time is not None and self._target_boil_time != boil_time:
                     try:
