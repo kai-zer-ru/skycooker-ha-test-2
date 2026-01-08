@@ -128,13 +128,19 @@ class SkyCookerNumber(NumberEntity):
             elif model_type and model_type in MODE_DATA and current_mode < len(MODE_DATA[model_type]):
                 return MODE_DATA[model_type][current_mode][2]
         elif self.number_type == NUMBER_TYPE_DELAYED_START_HOURS:
-            # For delayed start, always return from MODE_DATA
+            # For delayed start, always return from MODE_DATA if available, otherwise 0
             if model_type and model_type in MODE_DATA and current_mode < len(MODE_DATA[model_type]):
-                return MODE_DATA[model_type][current_mode][3]
+                mode_data = MODE_DATA[model_type][current_mode]
+                if len(mode_data) > 3:
+                    return mode_data[3]
+            return 0
         elif self.number_type == NUMBER_TYPE_DELAYED_START_MINUTES:
-            # For delayed start, always return from MODE_DATA
+            # For delayed start, always return from MODE_DATA if available, otherwise 0
             if model_type and model_type in MODE_DATA and current_mode < len(MODE_DATA[model_type]):
-                return MODE_DATA[model_type][current_mode][4]
+                mode_data = MODE_DATA[model_type][current_mode]
+                if len(mode_data) > 4:
+                    return mode_data[4]
+            return 0
          
         return 0
 

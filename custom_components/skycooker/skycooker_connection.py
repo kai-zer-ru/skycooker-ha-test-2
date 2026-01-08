@@ -176,7 +176,10 @@ class SkyCookerConnection(SkyCooker):
                 raise AuthError("Ошибка аутентификации")
             _LOGGER.info("✅ Аутентификация успешна")
             self._sw_version = await self.get_version()
-            await self.sync_time()
+            try:
+                await self.sync_time()
+            except Exception as e:
+                _LOGGER.warning(f"⚠️  Ошибка синхронизации времени: {e}")
 
     async def _disconnect_if_need(self):
         if not self.persistent:
