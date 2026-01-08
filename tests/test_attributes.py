@@ -217,3 +217,53 @@ class TestDeviceInfo:
 
         # Check that the device_info does not contain the software version
         assert device_info_result.sw_version is None, "Device info should not contain the software version if connection is None"
+
+
+class TestSkyCookerConnectionMethods:
+    """Test class for checking SkyCookerConnection methods."""
+
+    def test_add_stat_method(self):
+        """Test that the add_stat method works correctly."""
+        from custom_components.skycooker.skycooker_connection import SkyCookerConnection
+
+        # Create a mock SkyCookerConnection object
+        connection = SkyCookerConnection("test_mac", "test_key", persistent=False, model="RMC-M40S")
+
+        # Test adding a successful stat
+        connection.add_stat(True)
+        assert len(connection._successes) == 1, "Adding a stat should increase the list length"
+        assert connection._successes[0] is True, "The added stat should be True"
+
+        # Test adding multiple stats
+        connection.add_stat(False)
+        connection.add_stat(True)
+        assert len(connection._successes) == 3, "Adding multiple stats should increase the list length"
+
+        # Test that the list is limited to 100 elements
+        for i in range(100):
+            connection.add_stat(True)
+        assert len(connection._successes) == 100, "The list should be limited to 100 elements"
+
+    def test_success_rate_property(self):
+        """Test that the success_rate property works correctly."""
+        from custom_components.skycooker.skycooker_connection import SkyCookerConnection
+
+        # Create a mock SkyCookerConnection object
+        connection = SkyCookerConnection("test_mac", "test_key", persistent=False, model="RMC-M40S")
+
+        # Test with no stats
+        assert connection.success_rate == 0, "Success rate should be 0 with no stats"
+
+        # Test with all successful stats
+        connection.add_stat(True)
+        connection.add_stat(True)
+        connection.add_stat(True)
+        assert connection.success_rate == 100, "Success rate should be 100 with all successful stats"
+
+        # Test with mixed stats
+        connection.add_stat(False)
+        assert connection.success_rate == 75, "Success rate should be 75 with 3 successful and 1 failed stats"
+
+        # Test with all failed stats
+        connection._successes = [False, False, False]
+        assert connection.success_rate == 0, "Success rate should be 0 with all failed stats"
