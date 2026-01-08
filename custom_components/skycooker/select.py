@@ -3,7 +3,7 @@ import logging
 
 from homeassistant.components.select import SelectEntity
 from homeassistant.const import CONF_FRIENDLY_NAME
-from homeassistant.helpers.dispatcher import async_dispatcher_connect
+from homeassistant.helpers.dispatcher import async_dispatcher_connect, async_dispatcher_send
 
 from .const import *
 
@@ -13,6 +13,11 @@ async def async_setup_entry(hass, entry, async_add_entities):
     """Set up the SkyCooker select entities."""
     async_add_entities([
         SkyCookerSelect(hass, entry, SELECT_TYPE_MODE),
+        SkyCookerSelect(hass, entry, SELECT_TYPE_TEMPERATURE),
+        SkyCookerSelect(hass, entry, SELECT_TYPE_COOKING_TIME_HOURS),
+        SkyCookerSelect(hass, entry, SELECT_TYPE_COOKING_TIME_MINUTES),
+        SkyCookerSelect(hass, entry, SELECT_TYPE_DELAYED_START_HOURS),
+        SkyCookerSelect(hass, entry, SELECT_TYPE_DELAYED_START_MINUTES),
     ])
 
 
@@ -64,8 +69,22 @@ class SkyCookerSelect(SelectEntity):
         """Return the name of the select entity."""
         base_name = (SKYCOOKER_NAME + " " + self.entry.data.get(CONF_FRIENDLY_NAME, "")).strip()
         
+        # Determine the language index (0 for English, 1 for Russian)
+        language = self.hass.config.language
+        is_russian = language == "ru"
+        
         if self.select_type == SELECT_TYPE_MODE:
-            return f"{base_name} режим"
+            return f"{base_name} {'режим' if is_russian else 'mode'}"
+        elif self.select_type == SELECT_TYPE_TEMPERATURE:
+            return f"{base_name} {'температура' if is_russian else 'temperature'}"
+        elif self.select_type == SELECT_TYPE_COOKING_TIME_HOURS:
+            return f"{base_name} {'время приготовления' if is_russian else 'cooking time'} {'(часы)' if is_russian else '(hours)'}"
+        elif self.select_type == SELECT_TYPE_COOKING_TIME_MINUTES:
+            return f"{base_name} {'время приготовления' if is_russian else 'cooking time'} {'(минуты)' if is_russian else '(minutes)'}"
+        elif self.select_type == SELECT_TYPE_DELAYED_START_HOURS:
+            return f"{base_name} {'отложенный старт' if is_russian else 'delayed start'} {'(часы)' if is_russian else '(hours)'}"
+        elif self.select_type == SELECT_TYPE_DELAYED_START_MINUTES:
+            return f"{base_name} {'отложенный старт' if is_russian else 'delayed start'} {'(минуты)' if is_russian else '(minutes)'}"
         
         return base_name
 
@@ -74,6 +93,12 @@ class SkyCookerSelect(SelectEntity):
         """Return the icon."""
         if self.select_type == SELECT_TYPE_MODE:
             return "mdi:chef-hat"
+        elif self.select_type == SELECT_TYPE_TEMPERATURE:
+            return "mdi:thermometer"
+        elif self.select_type in [SELECT_TYPE_COOKING_TIME_HOURS, SELECT_TYPE_COOKING_TIME_MINUTES]:
+            return "mdi:timer"
+        elif self.select_type in [SELECT_TYPE_DELAYED_START_HOURS, SELECT_TYPE_DELAYED_START_MINUTES]:
+            return "mdi:timer-sand"
         return None
 
     @property
@@ -104,6 +129,43 @@ class SkyCookerSelect(SelectEntity):
                 if mode_id < len(mode_names[lang_index]):
                     return mode_names[lang_index][mode_id]
                 return f"Unknown ({mode_id})"
+        elif self.select_type == SELECT_TYPE_TEMPERATURE:
+            # Return current temperature from connection if set, otherwise from MODE_DATA
+            if self.skycooker.target_state:
+                return str(self.skycooker.target_state[1])
+            else:
+                current_mode = self.skycooker.status.mode if self.skycooker.status else 0
+                model_type = self.skycooker.model_code
+                if model_type and model_type in MODE_DATA and current_mode < len(MODE_DATA[model_type]):
+                    return str(MODE_DATA[model_type][current_mode][0])
+        elif self.select_type == SELECT_TYPE_COOKING_TIME_HOURS:
+            # Return current hours from target boil time if set, otherwise from MODE_DATA
+            if self.skycooker.target_boil_time:
+                return str(self.skycooker.target_boil_time // 60)
+            else:
+                current_mode = self.skycooker.status.mode if self.skycooker.status else 0
+                model_type = self.skycooker.model_code
+                if model_type and model_type in MODE_DATA and current_mode < len(MODE_DATA[model_type]):
+                    return str(MODE_DATA[model_type][current_mode][1])
+        elif self.select_type == SELECT_TYPE_COOKING_TIME_MINUTES:
+            # Return current minutes from target boil time if set, otherwise from MODE_DATA
+            if self.skycooker.target_boil_time:
+                return str(self.skycooker.target_boil_time % 60)
+            else:
+                current_mode = self.skycooker.status.mode if self.skycooker.status else 0
+                model_type = self.skycooker.model_code
+                if model_type and model_type in MODE_DATA and current_mode < len(MODE_DATA[model_type]):
+                    return str(MODE_DATA[model_type][current_mode][2])
+        elif self.select_type == SELECT_TYPE_DELAYED_START_HOURS:
+            # Return current delayed start hours from connection if set, otherwise 0
+            if self.skycooker.target_delayed_start_hours is not None:
+                return str(self.skycooker.target_delayed_start_hours)
+            return "0"
+        elif self.select_type == SELECT_TYPE_DELAYED_START_MINUTES:
+            # Return current delayed start minutes from connection if set, otherwise 0
+            if self.skycooker.target_delayed_start_minutes is not None:
+                return str(self.skycooker.target_delayed_start_minutes)
+            return "0"
         return None
 
     @property
@@ -125,6 +187,21 @@ class SkyCookerSelect(SelectEntity):
             lang_index = 0 if language == "en" else 1
             
             return mode_names[lang_index]
+        elif self.select_type == SELECT_TYPE_TEMPERATURE:
+            # Temperature options from 40 to 200 with step 5
+            return [str(temp) for temp in range(40, 201, 5)]
+        elif self.select_type == SELECT_TYPE_COOKING_TIME_HOURS:
+            # Hours options from 0 to 23
+            return [str(hour) for hour in range(0, 24)]
+        elif self.select_type == SELECT_TYPE_COOKING_TIME_MINUTES:
+            # Minutes options from 0 to 59
+            return [str(minute) for minute in range(0, 60)]
+        elif self.select_type == SELECT_TYPE_DELAYED_START_HOURS:
+            # Delayed start hours options from 0 to 23
+            return [str(hour) for hour in range(0, 24)]
+        elif self.select_type == SELECT_TYPE_DELAYED_START_MINUTES:
+            # Delayed start minutes options from 0 to 59
+            return [str(minute) for minute in range(0, 60)]
         return []
 
     async def async_select_option(self, option: str) -> None:
@@ -134,7 +211,7 @@ class SkyCookerSelect(SelectEntity):
             model_type = self.skycooker.model_code
             if model_type is None:
                 return
-             
+            
             # Get the mode names for the current model
             mode_names = MODE_NAMES.get(model_type, [None, None])
             if not mode_names or len(mode_names) < 2:
@@ -150,10 +227,56 @@ class SkyCookerSelect(SelectEntity):
                 if value == option:
                     mode_id = idx
                     break
-              
+               
             if mode_id is not None:
                 # Reset target_state and target_boil_time to None so that Number entities use MODE_DATA values
                 self.skycooker.target_state = None
                 self.skycooker.target_boil_time = None
+                 
+                # Log the selected mode and its data
+                model_type = self.skycooker.model_code
+                if model_type and model_type in MODE_DATA and mode_id < len(MODE_DATA[model_type]):
+                    mode_data = MODE_DATA[model_type][mode_id]
+                    _LOGGER.info(f"Selected mode {mode_id} for model {model_type}: temperature={mode_data[0]}, hours={mode_data[1]}, minutes={mode_data[2]}")
+                 
                 await self.skycooker.set_target_mode(mode_id)
+                 
+                # Trigger dispatcher update to notify Number entities about the mode change
+                async_dispatcher_send(self.hass, DISPATCHER_UPDATE)
                 self.update()
+        elif self.select_type == SELECT_TYPE_TEMPERATURE:
+            # Set temperature in target state
+            current_mode = self.skycooker.status.mode if self.skycooker.status else 0
+            self.skycooker.target_state = (current_mode, int(option))
+        elif self.select_type == SELECT_TYPE_COOKING_TIME_HOURS:
+            # Update hours in target boil time
+            current_minutes = self.skycooker.target_boil_time % 60 if self.skycooker.target_boil_time else 0
+            self.skycooker.target_boil_time = int(option) * 60 + current_minutes
+            self.skycooker.target_cooking_time = self.skycooker.target_boil_time
+        elif self.select_type == SELECT_TYPE_COOKING_TIME_MINUTES:
+            # Update minutes in target boil time
+            current_hours = self.skycooker.target_boil_time // 60 if self.skycooker.target_boil_time else 0
+            self.skycooker.target_boil_time = current_hours * 60 + int(option)
+            self.skycooker.target_cooking_time = self.skycooker.target_boil_time
+        elif self.select_type == SELECT_TYPE_DELAYED_START_HOURS:
+            # Set delayed start hours
+            self.skycooker.target_delayed_start_hours = int(option)
+        elif self.select_type == SELECT_TYPE_DELAYED_START_MINUTES:
+            # Set delayed start minutes
+            self.skycooker.target_delayed_start_minutes = int(option)
+        
+        # Ensure default values for delayed start hours and minutes if not set
+        if self.select_type == SELECT_TYPE_DELAYED_START_HOURS and self.skycooker.target_delayed_start_hours is None:
+            self.skycooker.target_delayed_start_hours = 0
+        if self.select_type == SELECT_TYPE_DELAYED_START_MINUTES and self.skycooker.target_delayed_start_minutes is None:
+            self.skycooker.target_delayed_start_minutes = 0
+        
+        # Schedule an update to refresh the entity state
+        self.async_schedule_update_ha_state(True)
+        
+        # Log the new values for debugging
+        _LOGGER.debug(f"Updated {self.select_type}: {option}")
+        _LOGGER.debug(f"Current target_state: {self.skycooker.target_state}")
+        _LOGGER.debug(f"Current target_boil_time: {self.skycooker.target_boil_time}")
+        _LOGGER.debug(f"Current target_delayed_start_hours: {self.skycooker.target_delayed_start_hours}")
+        _LOGGER.debug(f"Current target_delayed_start_minutes: {self.skycooker.target_delayed_start_minutes}")

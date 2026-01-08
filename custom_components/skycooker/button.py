@@ -99,8 +99,8 @@ class SkyCookerButton(ButtonEntity):
         if self.button_type == BUTTON_TYPE_START:
             await self.skycooker.start()
         elif self.button_type == BUTTON_TYPE_STOP:
-            await self.skycooker.stop()
+            await self.skycooker.stop_cooking()
         elif self.button_type == BUTTON_TYPE_START_DELAYED:
             await self.skycooker.start_delayed()
-        
+         
         self.update()

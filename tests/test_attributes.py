@@ -118,41 +118,6 @@ class TestSensorAttributes:
         assert sensor.skycooker.current_temp == 25, "SkyCookerConnection should have 'current_temp' attribute with correct value"
 
 
-class TestNumberAttributes:
-    """Test class for checking number attributes."""
-
-    def test_number_uses_correct_attributes(self):
-        """Test that numbers use the correct attributes from SkyCookerConnection."""
-        from custom_components.skycooker.number import SkyCookerNumber
-        from custom_components.skycooker.const import NUMBER_TYPE_TEMPERATURE
-
-        # Create a mock hass and entry
-        mock_hass = MagicMock()
-        mock_entry = MagicMock()
-        mock_entry.entry_id = "test_entry"
-        mock_entry.data = {}
-
-        # Create a mock connection
-        mock_connection = MagicMock()
-        mock_connection.available = True
-        mock_connection.status = MagicMock()
-        mock_connection.status.mode = 0
-        mock_connection.model_code = "RMC-M40S"
-
-        # Mock the hass.data to return the connection
-        mock_hass.data = {
-            "skycooker": {
-                "test_entry": {
-                    "connection": mock_connection
-                }
-            }
-        }
-
-        # Create a number instance
-        number = SkyCookerNumber(mock_hass, mock_entry, NUMBER_TYPE_TEMPERATURE)
-
-        # Check that the number uses status, not _status
-        assert hasattr(number.skycooker, 'status'), "SkyCookerConnection should have 'status' property"
 
 
 class TestDeviceInfo:

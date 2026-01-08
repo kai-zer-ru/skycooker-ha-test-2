@@ -114,11 +114,11 @@ class TestSkyCookerButton:
         mock_hass = MagicMock()
         mock_entry = MagicMock()
         mock_entry.entry_id = "test_entry"
-
+        
         mock_connection = MagicMock()
         mock_connection.available = True
-        mock_connection.stop = AsyncMock()
-
+        mock_connection.stop_cooking = AsyncMock()
+        
         mock_hass.data = {
             "skycooker": {
                 "test_entry": {
@@ -126,12 +126,12 @@ class TestSkyCookerButton:
                 }
             }
         }
-
+        
         button = SkyCookerButton(mock_hass, mock_entry, BUTTON_TYPE_STOP)
-
+        
         await button.async_press()
-
-        mock_connection.stop.assert_called_once()
+        
+        mock_connection.stop_cooking.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_button_press_delayed(self):

@@ -571,6 +571,66 @@ class SkyCookerConnection(SkyCooker):
         # For now, we'll just log it
         await self.update(commit=True)
 
+    async def start(self):
+        """Start cooking with current settings."""
+        _LOGGER.info("Starting cooking with current settings")
+        
+        # Get current mode
+        current_mode = self._status.mode if self._status else 0
+        model_type = self.model_code
+        
+        # Get current values from the connection (which should be set by Number components)
+        # These values may have been modified by the user
+        target_temp = self._target_state[1] if self._target_state else None
+        cook_hours = self._target_boil_time // 60 if self._target_boil_time else 0
+        cook_minutes = self._target_boil_time % 60 if self._target_boil_time else 0
+        
+        # If user hasn't set custom temperature, use default from MODE_DATA
+        if target_temp is None:
+            if model_type and model_type in MODE_DATA and current_mode < len(MODE_DATA[model_type]):
+                target_temp = MODE_DATA[model_type][current_mode][0]
+        
+        # If user hasn't set custom cooking time, use default from MODE_DATA
+        if cook_hours == 0 and cook_minutes == 0:
+            if model_type and model_type in MODE_DATA and current_mode < len(MODE_DATA[model_type]):
+                cook_hours = MODE_DATA[model_type][current_mode][1]
+                cook_minutes = MODE_DATA[model_type][current_mode][2]
+        
+        # Ensure all values are integers (not None)
+        cook_hours = cook_hours or 0
+        cook_minutes = cook_minutes or 0
+        
+        _LOGGER.info(f"Starting cooking: mode={current_mode}, temp={target_temp}, time={cook_hours}:{cook_minutes:02d}")
+        
+        # Set target mode and temperature
+        await self._set_target_state(current_mode, target_temp)
+        
+        # Set the boil time
+        self._target_boil_time = cook_hours * 60 + cook_minutes
+        
+        # Update to apply the changes
+        await self.update(commit=True)
+        
+        # After starting, reset the values to defaults from MODE_DATA
+        # This will make Number components show default values again
+        self._target_state = None
+        self._target_boil_time = None
+
+    async def stop_cooking(self):
+        """Stop cooking."""
+        _LOGGER.info("Stopping cooking")
+        
+        # Turn off the device
+        await self.turn_off()
+        
+        # Reset target state
+        self._target_state = None
+        self._target_boil_time = None
+        if hasattr(self, '_target_delayed_start_hours'):
+            delattr(self, '_target_delayed_start_hours')
+        if hasattr(self, '_target_delayed_start_minutes'):
+            delattr(self, '_target_delayed_start_minutes')
+
     async def start_delayed(self):
         """Start cooking with delayed start."""
         _LOGGER.info("Starting cooking with delayed start")
@@ -686,22 +746,48 @@ class SkyCookerConnection(SkyCooker):
     async def set_target_mode(self, operation_mode):
         if operation_mode == self.target_mode: return
         _LOGGER.info(f"Setting target mode to {operation_mode}")
-        target_mode = operation_mode
-        target_temp = self.target_temp
-        if target_mode in [2]:
-            target_temp = 0
-        elif target_mode in [3, 4]:
-            target_temp = 85
-        elif target_temp is None:
-            target_temp = 90
+        
+        # Get MODE_DATA values for the selected mode
+        model_type = self.model_code
+        if model_type and model_type in MODE_DATA and operation_mode < len(MODE_DATA[model_type]):
+            mode_data = MODE_DATA[model_type][operation_mode]
+            _LOGGER.info(f"Mode {operation_mode} data: temperature={mode_data[0]}, hours={mode_data[1]}, minutes={mode_data[2]}")
+            
+            # Set temperature from MODE_DATA
+            target_temp = mode_data[0]
+            
+            # Set cooking time from MODE_DATA
+            cook_hours = mode_data[1]
+            cook_minutes = mode_data[2]
+            
+            # Reset custom values so Number entities show MODE_DATA values
+            self._target_state = None
+            self._target_boil_time = None
+            
+            # Also reset delayed start values
+            self._target_delayed_start_hours = None
+            self._target_delayed_start_minutes = None
+            
+            # Set target state with the new values
+            await self._set_target_state(operation_mode, target_temp)
         else:
-            if target_temp > 90:
+            # Fallback to old behavior if MODE_DATA is not available
+            target_mode = operation_mode
+            target_temp = self.target_temp
+            if target_mode in [2]:
+                target_temp = 0
+            elif target_mode in [3, 4]:
+                target_temp = 85
+            elif target_temp is None:
                 target_temp = 90
-            elif target_temp < 35:
-                target_temp = 35
-        if target_temp != self.target_temp:
-            _LOGGER.info(f"Target temperature autoswitched to {target_temp}")
-        await self._set_target_state(target_mode, target_temp)
+            else:
+                if target_temp > 90:
+                    target_temp = 90
+                elif target_temp < 35:
+                    target_temp = 35
+            if target_temp != self.target_temp:
+                _LOGGER.info(f"Target temperature autoswitched to {target_temp}")
+            await self._set_target_state(target_mode, target_temp)
 
 
 class AuthError(Exception):

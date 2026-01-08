@@ -58,7 +58,7 @@ def test_select_initialization(hass, entry, skycooker_connection):
     
     select = SkyCookerSelect(hass, entry, SELECT_TYPE_MODE)
     assert select.unique_id == "test_entry_mode"
-    assert select.name == "SkyCooker Test Device режим"
+    assert select.name == "SkyCooker Test Device mode"
     assert select.icon == "mdi:chef-hat"
 
 
@@ -133,3 +133,202 @@ def test_select_russian_language(hass, entry, skycooker_connection):
     
     select = SkyCookerSelect(hass, entry, SELECT_TYPE_MODE)
     assert select.current_option == "Мультиповар"
+
+
+def test_temperature_select_initialization(hass, entry, skycooker_connection):
+    """Test temperature select entity initialization."""
+    hass.data[DOMAIN][entry.entry_id] = {
+        DATA_CONNECTION: skycooker_connection,
+        DATA_DEVICE_INFO: lambda: {"name": "Test Device"}
+    }
+    
+    select = SkyCookerSelect(hass, entry, SELECT_TYPE_TEMPERATURE)
+    assert select.unique_id == "test_entry_temperature"
+    assert select.name == "SkyCooker Test Device temperature"
+    assert select.icon == "mdi:thermometer"
+
+
+def test_cooking_time_hours_select_initialization(hass, entry, skycooker_connection):
+    """Test cooking time hours select entity initialization."""
+    hass.data[DOMAIN][entry.entry_id] = {
+        DATA_CONNECTION: skycooker_connection,
+        DATA_DEVICE_INFO: lambda: {"name": "Test Device"}
+    }
+    
+    select = SkyCookerSelect(hass, entry, SELECT_TYPE_COOKING_TIME_HOURS)
+    assert select.unique_id == "test_entry_cooking_time_hours"
+    assert select.name == "SkyCooker Test Device cooking time (hours)"
+    assert select.icon == "mdi:timer"
+
+
+def test_cooking_time_minutes_select_initialization(hass, entry, skycooker_connection):
+    """Test cooking time minutes select entity initialization."""
+    hass.data[DOMAIN][entry.entry_id] = {
+        DATA_CONNECTION: skycooker_connection,
+        DATA_DEVICE_INFO: lambda: {"name": "Test Device"}
+    }
+    
+    select = SkyCookerSelect(hass, entry, SELECT_TYPE_COOKING_TIME_MINUTES)
+    assert select.unique_id == "test_entry_cooking_time_minutes"
+    assert select.name == "SkyCooker Test Device cooking time (minutes)"
+    assert select.icon == "mdi:timer"
+
+
+def test_delayed_start_hours_select_initialization(hass, entry, skycooker_connection):
+    """Test delayed start hours select entity initialization."""
+    hass.data[DOMAIN][entry.entry_id] = {
+        DATA_CONNECTION: skycooker_connection,
+        DATA_DEVICE_INFO: lambda: {"name": "Test Device"}
+    }
+    
+    select = SkyCookerSelect(hass, entry, SELECT_TYPE_DELAYED_START_HOURS)
+    assert select.unique_id == "test_entry_delayed_start_hours"
+    assert select.name == "SkyCooker Test Device delayed start (hours)"
+    assert select.icon == "mdi:timer-sand"
+
+
+def test_delayed_start_minutes_select_initialization(hass, entry, skycooker_connection):
+    """Test delayed start minutes select entity initialization."""
+    hass.data[DOMAIN][entry.entry_id] = {
+        DATA_CONNECTION: skycooker_connection,
+        DATA_DEVICE_INFO: lambda: {"name": "Test Device"}
+    }
+    
+    select = SkyCookerSelect(hass, entry, SELECT_TYPE_DELAYED_START_MINUTES)
+    assert select.unique_id == "test_entry_delayed_start_minutes"
+    assert select.name == "SkyCooker Test Device delayed start (minutes)"
+    assert select.icon == "mdi:timer-sand"
+
+
+def test_temperature_select_options(hass, entry, skycooker_connection):
+    """Test temperature select entity options."""
+    hass.data[DOMAIN][entry.entry_id] = {
+        DATA_CONNECTION: skycooker_connection,
+        DATA_DEVICE_INFO: lambda: {"name": "Test Device"}
+    }
+    
+    select = SkyCookerSelect(hass, entry, SELECT_TYPE_TEMPERATURE)
+    assert len(select.options) == 33  # (200 - 40) / 5 + 1 = 33
+    assert "40" in select.options
+    assert "200" in select.options
+
+
+def test_cooking_time_hours_select_options(hass, entry, skycooker_connection):
+    """Test cooking time hours select entity options."""
+    hass.data[DOMAIN][entry.entry_id] = {
+        DATA_CONNECTION: skycooker_connection,
+        DATA_DEVICE_INFO: lambda: {"name": "Test Device"}
+    }
+    
+    select = SkyCookerSelect(hass, entry, SELECT_TYPE_COOKING_TIME_HOURS)
+    assert len(select.options) == 24  # 0 to 23
+    assert "0" in select.options
+    assert "23" in select.options
+
+
+def test_cooking_time_minutes_select_options(hass, entry, skycooker_connection):
+    """Test cooking time minutes select entity options."""
+    hass.data[DOMAIN][entry.entry_id] = {
+        DATA_CONNECTION: skycooker_connection,
+        DATA_DEVICE_INFO: lambda: {"name": "Test Device"}
+    }
+    
+    select = SkyCookerSelect(hass, entry, SELECT_TYPE_COOKING_TIME_MINUTES)
+    assert len(select.options) == 60  # 0 to 59
+    assert "0" in select.options
+    assert "59" in select.options
+
+
+def test_delayed_start_hours_select_options(hass, entry, skycooker_connection):
+    """Test delayed start hours select entity options."""
+    hass.data[DOMAIN][entry.entry_id] = {
+        DATA_CONNECTION: skycooker_connection,
+        DATA_DEVICE_INFO: lambda: {"name": "Test Device"}
+    }
+    
+    select = SkyCookerSelect(hass, entry, SELECT_TYPE_DELAYED_START_HOURS)
+    assert len(select.options) == 24  # 0 to 23
+    assert "0" in select.options
+    assert "23" in select.options
+
+
+def test_delayed_start_minutes_select_options(hass, entry, skycooker_connection):
+    """Test delayed start minutes select entity options."""
+    hass.data[DOMAIN][entry.entry_id] = {
+        DATA_CONNECTION: skycooker_connection,
+        DATA_DEVICE_INFO: lambda: {"name": "Test Device"}
+    }
+    
+    select = SkyCookerSelect(hass, entry, SELECT_TYPE_DELAYED_START_MINUTES)
+    assert len(select.options) == 60  # 0 to 59
+    assert "0" in select.options
+    assert "59" in select.options
+
+
+@pytest.mark.asyncio
+async def test_temperature_select_option(hass, entry, skycooker_connection):
+    """Test temperature select entity option selection."""
+    hass.data[DOMAIN][entry.entry_id] = {
+        DATA_CONNECTION: skycooker_connection,
+        DATA_DEVICE_INFO: lambda: {"name": "Test Device"}
+    }
+    
+    # Mock the status.mode to return 0
+    skycooker_connection.status = MagicMock()
+    skycooker_connection.status.mode = 0
+    
+    select = SkyCookerSelect(hass, entry, SELECT_TYPE_TEMPERATURE)
+    await select.async_select_option("100")
+    assert skycooker_connection.target_state == (0, 100)
+
+
+@pytest.mark.asyncio
+async def test_cooking_time_hours_select_option(hass, entry, skycooker_connection):
+    """Test cooking time hours select entity option selection."""
+    hass.data[DOMAIN][entry.entry_id] = {
+        DATA_CONNECTION: skycooker_connection,
+        DATA_DEVICE_INFO: lambda: {"name": "Test Device"}
+    }
+    
+    select = SkyCookerSelect(hass, entry, SELECT_TYPE_COOKING_TIME_HOURS)
+    await select.async_select_option("2")
+    assert skycooker_connection.target_boil_time == 120  # 2 hours = 120 minutes
+
+
+@pytest.mark.asyncio
+async def test_cooking_time_minutes_select_option(hass, entry, skycooker_connection):
+    """Test cooking time minutes select entity option selection."""
+    hass.data[DOMAIN][entry.entry_id] = {
+        DATA_CONNECTION: skycooker_connection,
+        DATA_DEVICE_INFO: lambda: {"name": "Test Device"}
+    }
+    
+    select = SkyCookerSelect(hass, entry, SELECT_TYPE_COOKING_TIME_MINUTES)
+    await select.async_select_option("30")
+    assert skycooker_connection.target_boil_time == 30
+
+
+@pytest.mark.asyncio
+async def test_delayed_start_hours_select_option(hass, entry, skycooker_connection):
+    """Test delayed start hours select entity option selection."""
+    hass.data[DOMAIN][entry.entry_id] = {
+        DATA_CONNECTION: skycooker_connection,
+        DATA_DEVICE_INFO: lambda: {"name": "Test Device"}
+    }
+    
+    select = SkyCookerSelect(hass, entry, SELECT_TYPE_DELAYED_START_HOURS)
+    await select.async_select_option("2")
+    assert skycooker_connection.target_delayed_start_hours == 2
+
+
+@pytest.mark.asyncio
+async def test_delayed_start_minutes_select_option(hass, entry, skycooker_connection):
+    """Test delayed start minutes select entity option selection."""
+    hass.data[DOMAIN][entry.entry_id] = {
+        DATA_CONNECTION: skycooker_connection,
+        DATA_DEVICE_INFO: lambda: {"name": "Test Device"}
+    }
+    
+    select = SkyCookerSelect(hass, entry, SELECT_TYPE_DELAYED_START_MINUTES)
+    await select.async_select_option("30")
+    assert skycooker_connection.target_delayed_start_minutes == 30

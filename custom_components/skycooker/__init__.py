@@ -20,8 +20,7 @@ PLATFORMS = [
     Platform.SENSOR,
     Platform.SWITCH,
     Platform.SELECT,
-    Platform.BUTTON,
-    Platform.NUMBER
+    Platform.BUTTON
 ]
 
 async def async_setup(hass, config):
