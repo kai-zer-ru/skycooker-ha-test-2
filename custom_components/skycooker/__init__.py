@@ -87,8 +87,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
 def device_info(entry):
     # Get the SkyCooker connection to access the software version
     skycooker = None
-    if DOMAIN in entry.hass.data and entry.entry_id in entry.hass.data[DOMAIN]:
-        skycooker = entry.hass.data[DOMAIN][entry.entry_id].get(DATA_CONNECTION)
+    if DOMAIN in hass.data and entry.entry_id in hass.data[DOMAIN]:
+        skycooker = hass.data[DOMAIN][entry.entry_id].get(DATA_CONNECTION)
     
     # Get the software version from the connection if available
     sw_version = None
