@@ -90,14 +90,21 @@ class SkyCookerSelect(SelectEntity):
                 # Get the model type from the connection
                 model_type = self.skycooker.model_code.split('_')[1] if self.skycooker.model_code else None
                 if model_type is None:
-                    return f"Неизвестно ({mode_id})"
+                    return f"Unknown ({mode_id})"
                 
                 model_type = int(model_type)
                 # Get the mode names for the current model
                 mode_names = MODE_NAMES.get(model_type, [None, None])
-                if mode_names and len(mode_names) > 1 and mode_id < len(mode_names[1]):
-                    return mode_names[1][mode_id]
-                return f"Неизвестно ({mode_id})"
+                if not mode_names or len(mode_names) < 2:
+                    return f"Unknown ({mode_id})"
+                
+                # Determine the language index (0 for English, 1 for Russian)
+                language = self.hass.config.language
+                lang_index = 0 if language == "en" else 1
+                
+                if mode_id < len(mode_names[lang_index]):
+                    return mode_names[lang_index][mode_id]
+                return f"Unknown ({mode_id})"
         return None
 
     @property
@@ -112,9 +119,14 @@ class SkyCookerSelect(SelectEntity):
             model_type = int(model_type)
             # Get the mode names for the current model
             mode_names = MODE_NAMES.get(model_type, [None, None])
-            if mode_names and len(mode_names) > 1:
-                return mode_names[1]
-            return []
+            if not mode_names or len(mode_names) < 2:
+                return []
+            
+            # Determine the language index (0 for English, 1 for Russian)
+            language = self.hass.config.language
+            lang_index = 0 if language == "en" else 1
+            
+            return mode_names[lang_index]
         return []
 
     async def async_select_option(self, option: str) -> None:

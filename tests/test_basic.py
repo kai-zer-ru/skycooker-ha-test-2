@@ -25,9 +25,14 @@ class TestConstants(unittest.TestCase):
     
     def test_status_codes(self):
         """Test status codes."""
-        self.assertEqual(len(STATUS_CODES), 5)
-        self.assertEqual(STATUS_CODES[STATUS_OFF], "Выключена")
-        self.assertEqual(STATUS_CODES[STATUS_COOKING], "Готовка")
+        # STATUS_CODES is now a list of dictionaries for different languages
+        self.assertEqual(len(STATUS_CODES), 2)  # English and Russian
+        self.assertEqual(len(STATUS_CODES[0]), 5)  # English status codes
+        self.assertEqual(len(STATUS_CODES[1]), 5)  # Russian status codes
+        self.assertEqual(STATUS_CODES[0][STATUS_OFF], "Off")
+        self.assertEqual(STATUS_CODES[1][STATUS_OFF], "Выключена")
+        self.assertEqual(STATUS_CODES[0][STATUS_COOKING], "Cooking")
+        self.assertEqual(STATUS_CODES[1][STATUS_COOKING], "Готовка")
 
 
 class TestMulticookerConnection(unittest.TestCase):

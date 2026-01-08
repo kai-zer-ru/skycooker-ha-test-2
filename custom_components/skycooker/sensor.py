@@ -195,13 +195,17 @@ class SkyCookerSensor(SensorEntity):
         if self.sensor_type == SENSOR_TYPE_STATUS:
             status_code = self.skycooker.status_code
             if status_code is not None:
+                # Determine the language index (0 for English, 1 for Russian)
+                language = self.hass.config.language
+                lang_index = 0 if language == "en" else 1
+                
                 # Get status text from model-specific constants
                 if self.skycooker.model and self.skycooker.model in SUPPORTED_MODELS:
                     status_text = SUPPORTED_MODELS[self.skycooker.model]["status_codes"].get(status_code)
                     if status_text:
                         return status_text
-                return STATUS_CODES.get(status_code, f"Неизвестно ({status_code})")
-            return "Неизвестно"
+                return STATUS_CODES[lang_index].get(status_code, f"Unknown ({status_code})" if lang_index == 0 else f"Неизвестно ({status_code})")
+            return "Unknown" if self.hass.config.language == "en" else "Неизвестно"
         elif self.sensor_type == SENSOR_TYPE_TEMPERATURE:
             return self.skycooker.current_temperature if self.skycooker.current_temperature is not None else 0
         elif self.sensor_type == SENSOR_TYPE_REMAINING_TIME:

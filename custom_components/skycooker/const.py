@@ -329,15 +329,22 @@ STATUS_COOKING = 0x05
 STATUS_AUTO_WARM = 0x06
 STATUS_FULL_OFF = 0x0A
 
-STATUS_CODES = {
-    STATUS_OFF: "Выключена",
-    STATUS_COOKING: "Готовка",
-    STATUS_WARMING: "Разогрев",
-    STATUS_DELAYED_LAUNCH: "Отложенный старт",
-    STATUS_AUTO_WARM: "Подогрев",
-    # STATUS_ERROR: "Ошибка",
-    # STATUS_READY: "Готова",
-}
+STATUS_CODES = [
+    {
+        STATUS_OFF: "Off",
+        STATUS_COOKING: "Cooking",
+        STATUS_WARMING: "Warming",
+        STATUS_DELAYED_LAUNCH: "Delayed Launch",
+        STATUS_AUTO_WARM: "Auto Warm",
+    },
+    {
+        STATUS_OFF: "Выключена",
+        STATUS_COOKING: "Готовка",
+        STATUS_WARMING: "Разогрев",
+        STATUS_DELAYED_LAUNCH: "Отложенный старт",
+        STATUS_AUTO_WARM: "Подогрев",
+    }
+]
 
 
 # Config flow constants
