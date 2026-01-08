@@ -392,6 +392,10 @@ class SkyCookerConnection(SkyCooker):
         self._target_cooking_time = value
 
     @property
+    def status(self):
+        return self._status
+
+    @property
     def connected(self):
         return True if self._client and self._client.is_connected else False
 

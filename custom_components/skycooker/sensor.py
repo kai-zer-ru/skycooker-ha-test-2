@@ -142,7 +142,7 @@ class SkyCookerSensor(SensorEntity):
         if self.sensor_type == SENSOR_TYPE_STATUS:
             return self.skycooker.status_code is not None
         elif self.sensor_type == SENSOR_TYPE_TEMPERATURE:
-            return self.skycooker.current_temperature is not None
+            return self.skycooker.current_temp is not None
         elif self.sensor_type == SENSOR_TYPE_REMAINING_TIME:
             return self.skycooker.remaining_time is not None
         elif self.sensor_type == SENSOR_TYPE_TOTAL_TIME:
@@ -202,16 +202,10 @@ class SkyCookerSensor(SensorEntity):
                 # Determine the language index (0 for English, 1 for Russian)
                 language = self.hass.config.language
                 lang_index = 0 if language == "en" else 1
-                
-                # Get status text from model-specific constants
-                if self.skycooker.model and self.skycooker.model in SUPPORTED_MODELS:
-                    status_text = SUPPORTED_MODELS[self.skycooker.model]["status_codes"].get(status_code)
-                    if status_text:
-                        return status_text
                 return STATUS_CODES[lang_index].get(status_code, f"Unknown ({status_code})" if lang_index == 0 else f"Неизвестно ({status_code})")
             return "Unknown" if self.hass.config.language == "en" else "Неизвестно"
         elif self.sensor_type == SENSOR_TYPE_TEMPERATURE:
-            return self.skycooker.current_temperature if self.skycooker.current_temperature is not None else 0
+            return self.skycooker.current_temp if self.skycooker.current_temp is not None else 0
         elif self.sensor_type == SENSOR_TYPE_REMAINING_TIME:
             return self.skycooker.remaining_time if self.skycooker.remaining_time is not None else 0
         elif self.sensor_type == SENSOR_TYPE_TOTAL_TIME:
@@ -219,30 +213,14 @@ class SkyCookerSensor(SensorEntity):
         elif self.sensor_type == SENSOR_TYPE_AUTO_WARM_TIME:
             status_code = self.skycooker.status_code
             if status_code is not None:
-                # Use model-specific status code for auto warm
-                auto_warm_code = None
-                if self.skycooker.model and self.skycooker.model in SUPPORTED_MODELS:
-                    # Find the auto warm status code for this model
-                    for code, text in SUPPORTED_MODELS[self.skycooker.model]["status_codes"].items():
-                        if "авто" in text.lower() or "warm" in text.lower():
-                            auto_warm_code = code
-                            break
-                return self.skycooker.remaining_time if status_code == (auto_warm_code or STATUS_AUTO_WARM) else 0
+                return self.skycooker.remaining_time if status_code == STATUS_AUTO_WARM else 0
             return 0
         elif self.sensor_type == SENSOR_TYPE_SUCCESS_RATE:
             return self.skycooker.success_rate if self.skycooker.success_rate is not None else 0
         elif self.sensor_type == SENSOR_TYPE_DELAYED_LAUNCH_TIME:
             status_code = self.skycooker.status_code
             if status_code is not None:
-                # Use model-specific status code for delayed launch
-                delayed_launch_code = None
-                if self.skycooker.model and self.skycooker.model in SUPPORTED_MODELS:
-                    # Find the delayed launch status code for this model
-                    for code, text in SUPPORTED_MODELS[self.skycooker.model]["status_codes"].items():
-                        if "отложен" in text.lower() or "delayed" in text.lower():
-                            delayed_launch_code = code
-                            break
-                return self.skycooker.remaining_time if status_code == (delayed_launch_code or STATUS_DELAYED_LAUNCH) else 0
+                return self.skycooker.remaining_time if status_code == STATUS_DELAYED_LAUNCH else 0
             return 0
          
         return None
