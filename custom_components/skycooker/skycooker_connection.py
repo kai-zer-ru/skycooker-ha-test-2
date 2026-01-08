@@ -568,12 +568,10 @@ class SkyCookerConnection(SkyCooker):
         target_mode = self.target_mode
         
         # Get model type from model_code
-        model_type = self.model_code.split('_')[1] if self.model_code else None
+        model_type = self.model_code
         if model_type is None:
             _LOGGER.error("Unknown model type")
             return
-        
-        model_type = int(model_type)
         
         # Find the appropriate mode based on temperature
         if target_temp < 35:

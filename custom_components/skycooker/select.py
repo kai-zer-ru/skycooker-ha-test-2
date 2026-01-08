@@ -88,11 +88,10 @@ class SkyCookerSelect(SelectEntity):
             mode_id = self.skycooker.current_mode
             if mode_id is not None:
                 # Get the model type from the connection
-                model_type = self.skycooker.model_code.split('_')[1] if self.skycooker.model_code else None
+                model_type = self.skycooker.model_code
                 if model_type is None:
                     return f"Unknown ({mode_id})"
                 
-                model_type = int(model_type)
                 # Get the mode names for the current model
                 mode_names = MODE_NAMES.get(model_type, [None, None])
                 if not mode_names or len(mode_names) < 2:
@@ -112,11 +111,10 @@ class SkyCookerSelect(SelectEntity):
         """Return the available options."""
         if self.select_type == SELECT_TYPE_MODE:
             # Get the model type from the connection
-            model_type = self.skycooker.model_code.split('_')[1] if self.skycooker.model_code else None
+            model_type = self.skycooker.model_code
             if model_type is None:
                 return []
             
-            model_type = int(model_type)
             # Get the mode names for the current model
             mode_names = MODE_NAMES.get(model_type, [None, None])
             if not mode_names or len(mode_names) < 2:
@@ -133,11 +131,10 @@ class SkyCookerSelect(SelectEntity):
         """Change the selected option."""
         if self.select_type == SELECT_TYPE_MODE:
             # Get the model type from the connection
-            model_type = self.skycooker.model_code.split('_')[1] if self.skycooker.model_code else None
+            model_type = self.skycooker.model_code
             if model_type is None:
                 return
             
-            model_type = int(model_type)
             # Get the mode names for the current model
             mode_names = MODE_NAMES.get(model_type, [None, None])
             if not mode_names or len(mode_names) < 2:
