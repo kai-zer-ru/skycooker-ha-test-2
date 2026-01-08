@@ -3,6 +3,7 @@
 
 import calendar
 import logging
+import struct
 import time
 from abc import ABC, abstractmethod
 from collections import namedtuple
