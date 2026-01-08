@@ -240,7 +240,11 @@ class SkyCookerSelect(SelectEntity):
                     self.skycooker.target_cooking_time = self.skycooker.target_boil_time
                   
                 await self.skycooker.set_target_mode(mode_id)
-                 
+                
+                # Ensure default values for delayed start hours and minutes
+                self.skycooker.target_delayed_start_hours = 0
+                self.skycooker.target_delayed_start_minutes = 0
+                
                 # Trigger dispatcher update to notify Number entities about the mode change
                 async_dispatcher_send(self.hass, DISPATCHER_UPDATE)
                 self.update()
