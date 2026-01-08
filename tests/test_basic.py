@@ -113,6 +113,8 @@ class TestMulticookerConnection(unittest.TestCase):
         #
         # await connection.set_cooking_time(1, 30)
         # self.assertEqual(connection._target_boil_time, 90)
+        #
+        # await connection.start_delayed()
 
 
 if __name__ == '__main__':

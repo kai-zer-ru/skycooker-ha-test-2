@@ -106,7 +106,10 @@ class SkyCookerSelect(SelectEntity):
                 if value == option:
                     mode_id = key
                     break
-            
+             
             if mode_id is not None:
-                await self.skycooker.set_mode(mode_id)
+                # Reset target_state and target_boil_time to None so that Number entities use MODE_DATA values
+                self.skycooker.target_state = None
+                self.skycooker.target_boil_time = None
+                await self.skycooker.set_target_mode(mode_id)
                 self.update()

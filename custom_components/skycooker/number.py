@@ -16,6 +16,8 @@ async def async_setup_entry(hass, entry, async_add_entities):
         SkyCookerNumber(hass, entry, NUMBER_TYPE_TEMPERATURE),
         SkyCookerNumber(hass, entry, NUMBER_TYPE_COOKING_TIME_HOURS),
         SkyCookerNumber(hass, entry, NUMBER_TYPE_COOKING_TIME_MINUTES),
+        SkyCookerNumber(hass, entry, NUMBER_TYPE_DELAYED_START_HOURS),
+        SkyCookerNumber(hass, entry, NUMBER_TYPE_DELAYED_START_MINUTES),
     ])
 
 
@@ -73,6 +75,10 @@ class SkyCookerNumber(NumberEntity):
             return f"{base_name} время приготовления часы"
         elif self.number_type == NUMBER_TYPE_COOKING_TIME_MINUTES:
             return f"{base_name} время приготовления минуты"
+        elif self.number_type == NUMBER_TYPE_DELAYED_START_HOURS:
+            return f"{base_name} отложенный старт часы"
+        elif self.number_type == NUMBER_TYPE_DELAYED_START_MINUTES:
+            return f"{base_name} отложенный старт минуты"
         
         return base_name
 
@@ -83,6 +89,8 @@ class SkyCookerNumber(NumberEntity):
             return "mdi:thermometer"
         elif self.number_type in [NUMBER_TYPE_COOKING_TIME_HOURS, NUMBER_TYPE_COOKING_TIME_MINUTES]:
             return "mdi:timer"
+        elif self.number_type in [NUMBER_TYPE_DELAYED_START_HOURS, NUMBER_TYPE_DELAYED_START_MINUTES]:
+            return "mdi:timer-sand"
         return None
 
     @property
@@ -93,16 +101,37 @@ class SkyCookerNumber(NumberEntity):
     @property
     def native_value(self):
         """Return the current value."""
+        current_mode = self.skycooker.status.mode if self.skycooker.status else 0
+        model_type = self.skycooker.model_code
+         
+        # Check if we have custom values set
         if self.number_type == NUMBER_TYPE_TEMPERATURE:
-            return self.skycooker.target_temperature if self.skycooker.target_temperature is not None else 0
+            # Return target temperature from connection if set, otherwise from MODE_DATA
+            if self.skycooker.target_state:
+                return self.skycooker.target_state[1]
+            elif model_type and model_type in MODE_DATA and current_mode < len(MODE_DATA[model_type]):
+                return MODE_DATA[model_type][current_mode][0]
         elif self.number_type == NUMBER_TYPE_COOKING_TIME_HOURS:
-            # Return hours from total cooking time
-            total_minutes = self.skycooker.remaining_time if self.skycooker.remaining_time is not None else 0
-            return total_minutes // 60
+            # Return hours from target boil time if set, otherwise from MODE_DATA
+            if self.skycooker.target_boil_time:
+                return self.skycooker.target_boil_time // 60
+            elif model_type and model_type in MODE_DATA and current_mode < len(MODE_DATA[model_type]):
+                return MODE_DATA[model_type][current_mode][1]
         elif self.number_type == NUMBER_TYPE_COOKING_TIME_MINUTES:
-            # Return minutes from total cooking time
-            total_minutes = self.skycooker.remaining_time if self.skycooker.remaining_time is not None else 0
-            return total_minutes % 60
+            # Return minutes from target boil time if set, otherwise from MODE_DATA
+            if self.skycooker.target_boil_time:
+                return self.skycooker.target_boil_time % 60
+            elif model_type and model_type in MODE_DATA and current_mode < len(MODE_DATA[model_type]):
+                return MODE_DATA[model_type][current_mode][2]
+        elif self.number_type == NUMBER_TYPE_DELAYED_START_HOURS:
+            # For delayed start, always return from MODE_DATA
+            if model_type and model_type in MODE_DATA and current_mode < len(MODE_DATA[model_type]):
+                return MODE_DATA[model_type][current_mode][3]
+        elif self.number_type == NUMBER_TYPE_DELAYED_START_MINUTES:
+            # For delayed start, always return from MODE_DATA
+            if model_type and model_type in MODE_DATA and current_mode < len(MODE_DATA[model_type]):
+                return MODE_DATA[model_type][current_mode][4]
+         
         return 0
 
     @property
@@ -155,14 +184,30 @@ class SkyCookerNumber(NumberEntity):
     async def async_set_native_value(self, value: float) -> None:
         """Set the value."""
         if self.number_type == NUMBER_TYPE_TEMPERATURE:
-            await self.skycooker.set_temperature(int(value))
+            # Set temperature in target state
+            current_mode = self.skycooker.status.mode if self.skycooker.status else 0
+            self.skycooker.target_state = (current_mode, int(value))
+            self.skycooker.target_temperature = int(value)
         elif self.number_type == NUMBER_TYPE_COOKING_TIME_HOURS:
-            # Get current minutes
-            current_minutes = self.native_value if self.number_type == NUMBER_TYPE_COOKING_TIME_MINUTES else 0
-            await self.skycooker.set_cooking_time(int(value), current_minutes)
+            # Update hours in target boil time
+            current_minutes = self.skycooker.target_boil_time % 60 if self.skycooker.target_boil_time else 0
+            self.skycooker.target_boil_time = int(value) * 60 + current_minutes
+            self.skycooker.target_cooking_time = self.skycooker.target_boil_time
         elif self.number_type == NUMBER_TYPE_COOKING_TIME_MINUTES:
-            # Get current hours
-            current_hours = self.native_value if self.number_type == NUMBER_TYPE_COOKING_TIME_HOURS else 0
-            await self.skycooker.set_cooking_time(current_hours, int(value))
+            # Update minutes in target boil time
+            current_hours = self.skycooker.target_boil_time // 60 if self.skycooker.target_boil_time else 0
+            self.skycooker.target_boil_time = current_hours * 60 + int(value)
+            self.skycooker.target_cooking_time = self.skycooker.target_boil_time
+        elif self.number_type in [NUMBER_TYPE_DELAYED_START_HOURS, NUMBER_TYPE_DELAYED_START_MINUTES]:
+            # For delayed start, we can't change it directly - it's defined in MODE_DATA
+            # So we just update the display
+            pass
+         
+        # Schedule an update to refresh the entity state
+        self.async_schedule_update_ha_state(True)
+         
+        # Log the new values for debugging
+        _LOGGER.debug(f"Updated {self.number_type}: {value}")
+        _LOGGER.debug(f"Current target_state: {self.skycooker.target_state}")
+        _LOGGER.debug(f"Current target_boil_time: {self.skycooker.target_boil_time}")
         
-        self.update()

@@ -352,6 +352,46 @@ class SkyCookerConnection(SkyCooker):
         return None
 
     @property
+    def target_state(self):
+        """Return the target state."""
+        return self._target_state
+
+    @target_state.setter
+    def target_state(self, value):
+        """Set the target state."""
+        self._target_state = value
+
+    @property
+    def target_boil_time(self):
+        """Return the target boil time."""
+        return self._target_boil_time
+
+    @target_boil_time.setter
+    def target_boil_time(self, value):
+        """Set the target boil time."""
+        self._target_boil_time = value
+
+    @property
+    def target_temperature(self):
+        """Return the target temperature."""
+        return self._target_temperature if hasattr(self, '_target_temperature') else None
+
+    @target_temperature.setter
+    def target_temperature(self, value):
+        """Set the target temperature."""
+        self._target_temperature = value
+
+    @property
+    def target_cooking_time(self):
+        """Return the target cooking time."""
+        return self._target_cooking_time if hasattr(self, '_target_cooking_time') else None
+
+    @target_cooking_time.setter
+    def target_cooking_time(self, value):
+        """Set the target cooking time."""
+        self._target_cooking_time = value
+
+    @property
     def connected(self):
         return True if self._client and self._client.is_connected else False
 
@@ -456,6 +496,71 @@ class SkyCookerConnection(SkyCooker):
         total_minutes = hours * 60 + minutes
         self._target_boil_time = total_minutes
         await self.update(commit=True)
+
+    async def set_delayed_start(self, hours, minutes):
+        """Set delayed start time."""
+        hours = int(hours)
+        minutes = int(minutes)
+        _LOGGER.info(f"Setting delayed start time to {hours}:{minutes:02d}")
+        # In a real implementation, this should send the proper command
+        # For now, we'll just log it
+        await self.update(commit=True)
+
+    async def start_delayed(self):
+        """Start cooking with delayed start."""
+        _LOGGER.info("Starting cooking with delayed start")
+        
+        # Get current mode
+        current_mode = self._status.mode if self._status else 0
+        model_type = self.model_code
+        
+        # Get current values from the connection (which should be set by Number components)
+        # These values may have been modified by the user
+        target_temp = self._target_state[1] if self._target_state else None
+        cook_hours = self._target_boil_time // 60 if self._target_boil_time else 0
+        cook_minutes = self._target_boil_time % 60 if self._target_boil_time else 0
+        
+        # Get delayed start time from MODE_DATA (these are the default values)
+        wait_hours = 0
+        wait_minutes = 0
+        
+        if model_type and model_type in MODE_DATA and current_mode < len(MODE_DATA[model_type]):
+            mode_data = MODE_DATA[model_type][current_mode]
+            wait_hours = mode_data[3]
+            wait_minutes = mode_data[4]
+            
+            # If user hasn't set custom temperature, use default from MODE_DATA
+            if target_temp is None:
+                target_temp = mode_data[0]
+            
+            # If user hasn't set custom cooking time, use default from MODE_DATA
+            if cook_hours == 0 and cook_minutes == 0:
+                cook_hours = mode_data[1]
+                cook_minutes = mode_data[2]
+        
+        # Calculate total time (as in ESPHome implementation)
+        total_hours = wait_hours + cook_hours
+        total_minutes = wait_minutes + cook_minutes
+        
+        if total_minutes >= 60:
+            total_hours += 1
+            total_minutes -= 60
+        
+        _LOGGER.info(f"Delayed start: wait {wait_hours}:{wait_minutes:02d}, cook {cook_hours}:{cook_minutes:02d}, total {total_hours}:{total_minutes:02d}")
+        
+        # Set target mode and temperature
+        await self._set_target_state(current_mode, target_temp)
+        
+        # Set the boil time to the total calculated time
+        self._target_boil_time = total_hours * 60 + total_minutes
+        
+        # Update to apply the changes
+        await self.update(commit=True)
+        
+        # After starting, reset the values to defaults from MODE_DATA
+        # This will make Number components show default values again
+        self._target_state = None
+        self._target_boil_time = None
 
     async def set_target_temp(self, target_temp, operation_mode = None):
         if target_temp == self.target_temp: return

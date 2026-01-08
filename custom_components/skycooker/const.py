@@ -356,6 +356,7 @@ MANUFACTORER = "Redmond"
 # Button types
 BUTTON_TYPE_START = "start"
 BUTTON_TYPE_STOP = "stop"
+BUTTON_TYPE_START_DELAYED = "start_delayed"
 
 # Select types
 SELECT_TYPE_MODE = "mode"
@@ -364,6 +365,8 @@ SELECT_TYPE_MODE = "mode"
 NUMBER_TYPE_TEMPERATURE = "temperature"
 NUMBER_TYPE_COOKING_TIME_HOURS = "cooking_time_hours"
 NUMBER_TYPE_COOKING_TIME_MINUTES = "cooking_time_minutes"
+NUMBER_TYPE_DELAYED_START_HOURS = "delayed_start_hours"
+NUMBER_TYPE_DELAYED_START_MINUTES = "delayed_start_minutes"
 
 # Sensor types
 SENSOR_TYPE_STATUS = "status"

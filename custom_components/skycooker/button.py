@@ -17,6 +17,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
     async_add_entities([
         SkyCookerButton(hass, entry, BUTTON_TYPE_START),
         SkyCookerButton(hass, entry, BUTTON_TYPE_STOP),
+        SkyCookerButton(hass, entry, BUTTON_TYPE_START_DELAYED),
     ])
 
 
@@ -72,6 +73,8 @@ class SkyCookerButton(ButtonEntity):
             return f"{base_name} запуск"
         elif self.button_type == BUTTON_TYPE_STOP:
             return f"{base_name} стоп"
+        elif self.button_type == BUTTON_TYPE_START_DELAYED:
+            return f"{base_name} запуск с отложенным стартом"
         
         return base_name
 
@@ -82,6 +85,8 @@ class SkyCookerButton(ButtonEntity):
             return "mdi:play"
         elif self.button_type == BUTTON_TYPE_STOP:
             return "mdi:stop"
+        elif self.button_type == BUTTON_TYPE_START_DELAYED:
+            return "mdi:timer-play"
         return None
 
     @property
@@ -95,5 +100,7 @@ class SkyCookerButton(ButtonEntity):
             await self.skycooker.start()
         elif self.button_type == BUTTON_TYPE_STOP:
             await self.skycooker.stop()
+        elif self.button_type == BUTTON_TYPE_START_DELAYED:
+            await self.skycooker.start_delayed()
         
         self.update()
