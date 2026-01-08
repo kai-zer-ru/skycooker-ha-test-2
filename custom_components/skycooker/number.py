@@ -128,15 +128,19 @@ class SkyCookerNumber(NumberEntity):
             elif model_type and model_type in MODE_DATA and current_mode < len(MODE_DATA[model_type]):
                 return MODE_DATA[model_type][current_mode][2]
         elif self.number_type == NUMBER_TYPE_DELAYED_START_HOURS:
-            # For delayed start, always return from MODE_DATA if available, otherwise 0
-            if model_type and model_type in MODE_DATA and current_mode < len(MODE_DATA[model_type]):
+            # Return delayed start hours from connection if set, otherwise from MODE_DATA
+            if self.skycooker.target_delayed_start_hours is not None:
+                return self.skycooker.target_delayed_start_hours
+            elif model_type and model_type in MODE_DATA and current_mode < len(MODE_DATA[model_type]):
                 mode_data = MODE_DATA[model_type][current_mode]
                 if len(mode_data) > 3:
                     return mode_data[3]
             return 0
         elif self.number_type == NUMBER_TYPE_DELAYED_START_MINUTES:
-            # For delayed start, always return from MODE_DATA if available, otherwise 0
-            if model_type and model_type in MODE_DATA and current_mode < len(MODE_DATA[model_type]):
+            # Return delayed start minutes from connection if set, otherwise from MODE_DATA
+            if self.skycooker.target_delayed_start_minutes is not None:
+                return self.skycooker.target_delayed_start_minutes
+            elif model_type and model_type in MODE_DATA and current_mode < len(MODE_DATA[model_type]):
                 mode_data = MODE_DATA[model_type][current_mode]
                 if len(mode_data) > 4:
                     return mode_data[4]
@@ -216,16 +220,20 @@ class SkyCookerNumber(NumberEntity):
             current_hours = self.skycooker.target_boil_time // 60 if self.skycooker.target_boil_time else 0
             self.skycooker.target_boil_time = current_hours * 60 + int(value)
             self.skycooker.target_cooking_time = self.skycooker.target_boil_time
-        elif self.number_type in [NUMBER_TYPE_DELAYED_START_HOURS, NUMBER_TYPE_DELAYED_START_MINUTES]:
-            # For delayed start, we can't change it directly - it's defined in MODE_DATA
-            # So we just update the display
-            pass
-         
+        elif self.number_type == NUMBER_TYPE_DELAYED_START_HOURS:
+            # Set delayed start hours
+            self.skycooker.target_delayed_start_hours = int(value)
+        elif self.number_type == NUMBER_TYPE_DELAYED_START_MINUTES:
+            # Set delayed start minutes
+            self.skycooker.target_delayed_start_minutes = int(value)
+        
         # Schedule an update to refresh the entity state
         self.async_schedule_update_ha_state(True)
-         
+        
         # Log the new values for debugging
         _LOGGER.debug(f"Updated {self.number_type}: {value}")
         _LOGGER.debug(f"Current target_state: {self.skycooker.target_state}")
         _LOGGER.debug(f"Current target_boil_time: {self.skycooker.target_boil_time}")
+        _LOGGER.debug(f"Current target_delayed_start_hours: {self.skycooker.target_delayed_start_hours}")
+        _LOGGER.debug(f"Current target_delayed_start_minutes: {self.skycooker.target_delayed_start_minutes}")
         

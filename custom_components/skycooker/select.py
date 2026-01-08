@@ -134,11 +134,15 @@ class SkyCookerSelect(SelectEntity):
             model_type = self.skycooker.model_code
             if model_type is None:
                 return
-            
+             
             # Get the mode names for the current model
             mode_names = MODE_NAMES.get(model_type, [None, None])
             if not mode_names or len(mode_names) < 2:
                 return
+            
+            # Determine the language index (0 for English, 1 for Russian)
+            language = self.hass.config.language
+            lang_index = 0 if language == "en" else 1
             
             # Find the mode ID by name
             mode_id = None
@@ -146,7 +150,7 @@ class SkyCookerSelect(SelectEntity):
                 if value == option:
                     mode_id = idx
                     break
-             
+              
             if mode_id is not None:
                 # Reset target_state and target_boil_time to None so that Number entities use MODE_DATA values
                 self.skycooker.target_state = None

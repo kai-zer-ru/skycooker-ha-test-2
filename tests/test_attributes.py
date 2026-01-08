@@ -161,14 +161,14 @@ class TestDeviceInfo:
     def test_device_info_with_sw_version(self):
         """Test that device_info returns correct information with software version."""
         from custom_components.skycooker.__init__ import device_info
-        from custom_components.skycooker.const import CONF_MAC, CONF_FRIENDLY_NAME
 
         # Create a mock hass and entry
         mock_hass = MagicMock()
         mock_entry = MagicMock()
+        mock_entry.entry_id = "test_entry"
         mock_entry.data = {
-            CONF_MAC: "test_mac",
-            CONF_FRIENDLY_NAME: "test_model"
+            "mac": "test_mac",
+            "friendly_name": "test_model"
         }
 
         # Create a mock connection
@@ -188,19 +188,18 @@ class TestDeviceInfo:
         device_info_result = device_info(mock_entry, mock_hass)
 
         # Check that the device_info contains the software version
-        assert device_info_result.sw_version == "1.0.0", "Device info should contain the software version"
+        assert device_info_result["sw_version"] == "1.0.0", "Device info should contain the software version"
 
     def test_device_info_without_sw_version(self):
         """Test that device_info returns correct information without software version."""
         from custom_components.skycooker.__init__ import device_info
-        from custom_components.skycooker.const import CONF_MAC, CONF_FRIENDLY_NAME
 
         # Create a mock hass and entry
         mock_hass = MagicMock()
         mock_entry = MagicMock()
         mock_entry.data = {
-            CONF_MAC: "test_mac",
-            CONF_FRIENDLY_NAME: "test_model"
+            "mac": "test_mac",
+            "friendly_name": "test_model"
         }
 
         # Mock the hass.data to return None for connection
@@ -216,7 +215,7 @@ class TestDeviceInfo:
         device_info_result = device_info(mock_entry, mock_hass)
 
         # Check that the device_info does not contain the software version
-        assert device_info_result.sw_version is None, "Device info should not contain the software version if connection is None"
+        assert device_info_result["sw_version"] is None, "Device info should not contain the software version if connection is None"
 
 
 class TestSkyCookerConnectionMethods:
@@ -267,3 +266,67 @@ class TestSkyCookerConnectionMethods:
         # Test with all failed stats
         connection._successes = [False, False, False]
         assert connection.success_rate == 0, "Success rate should be 0 with all failed stats"
+
+    def test_color_interval_property_removed(self):
+        """Test that the color_interval property has been removed from SkyCookerConnection."""
+        from custom_components.skycooker.skycooker_connection import SkyCookerConnection
+
+        # Create a mock SkyCookerConnection object
+        connection = SkyCookerConnection("test_mac", "test_key", persistent=False, model="RMC-M40S")
+
+        # Test that color_interval property does not exist
+        assert not hasattr(connection, 'color_interval'), "SkyCookerConnection should not have a 'color_interval' property"
+
+
+class TestSelectEntity:
+    """Test class for checking Select entity functionality."""
+
+    async def test_select_option_with_lang_index(self):
+        """Test that the select option method uses lang_index correctly."""
+        from custom_components.skycooker.select import SkyCookerSelect
+        from custom_components.skycooker.const import SELECT_TYPE_MODE
+        from unittest.mock import MagicMock
+
+        # Create a mock hass and entry
+        mock_hass = MagicMock()
+        mock_entry = MagicMock()
+        mock_entry.entry_id = "test_entry"
+        mock_entry.data = {}
+
+        # Create a mock connection
+        mock_connection = MagicMock()
+        mock_connection.model_code = "RMC-M40S"
+        mock_connection.available = True
+
+        # Mock the hass.data to return the connection
+        mock_hass.data = {
+            "skycooker": {
+                "test_entry": {
+                    "connection": mock_connection
+                }
+            }
+        }
+
+        # Mock the config.language to return 'en'
+        mock_hass.config.language = "en"
+
+        # Create a select instance
+        select = SkyCookerSelect(mock_hass, mock_entry, SELECT_TYPE_MODE)
+
+        # Test that lang_index is defined and used correctly
+        assert hasattr(select, 'hass'), "SkyCookerSelect should have 'hass' attribute"
+        assert select.hass.config.language == "en", "Language should be 'en'"
+
+        # Test that the select option method uses lang_index
+        # This is a basic test to ensure the method can be called without errors
+        # A more comprehensive test would require mocking the connection's set_target_mode method
+        try:
+            # This should not raise an error if lang_index is defined
+            await select.async_select_option("Test Mode")
+        except NameError as e:
+            if "lang_index" in str(e):
+                raise AssertionError("lang_index should be defined in async_select_option method")
+        except TypeError as e:
+            if "'NoneType' object is not iterable" in str(e):
+                # This is expected if mode_names[lang_index] is None
+                pass

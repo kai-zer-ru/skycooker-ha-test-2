@@ -69,8 +69,12 @@ class SkyCooker(ABC):
     async def get_status(self):
         r = await self.command(COMMAND_GET_STATUS)
         status = SkyCooker.Status(*unpack("<BxBx?BB??BxxxBxx", r))
+        # Calculate boil_time, ensuring it's not negative
+        boil_time = status.boil_time - 0x80
+        if boil_time < 0:
+            boil_time = 0
         status = status._replace(
-            boil_time = status.boil_time - 0x80,
+            boil_time = boil_time,
             error_code=None if status.error_code == 0 else status.error_code
         )
         _LOGGER.debug(f"Status: mode={status.mode}, is_on={status.is_on}, "+

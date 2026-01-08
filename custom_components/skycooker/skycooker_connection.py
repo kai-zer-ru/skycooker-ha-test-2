@@ -38,6 +38,8 @@ class SkyCookerConnection(SkyCooker):
         self._successes = []
         self._target_state = None
         self._target_boil_time = None
+        self._target_delayed_start_hours = None
+        self._target_delayed_start_minutes = None
         self._status = None
         self._stats = None
         self._disposed = False
@@ -380,6 +382,26 @@ class SkyCookerConnection(SkyCooker):
         self._target_boil_time = value
 
     @property
+    def target_delayed_start_hours(self):
+        """Return the target delayed start hours."""
+        return self._target_delayed_start_hours
+
+    @target_delayed_start_hours.setter
+    def target_delayed_start_hours(self, value):
+        """Set the target delayed start hours."""
+        self._target_delayed_start_hours = value
+
+    @property
+    def target_delayed_start_minutes(self):
+        """Return the target delayed start minutes."""
+        return self._target_delayed_start_minutes
+
+    @target_delayed_start_minutes.setter
+    def target_delayed_start_minutes(self, value):
+        """Set the target delayed start minutes."""
+        self._target_delayed_start_minutes = value
+
+    @property
     def target_temperature(self):
         """Return the target temperature."""
         return self._target_temperature if hasattr(self, '_target_temperature') else None
@@ -419,11 +441,6 @@ class SkyCookerConnection(SkyCooker):
     def sound_enabled(self):
         if not self._status: return None
         return self._status.sound_enabled
-
-    @property
-    def color_interval(self):
-        if not self._status: return None
-        return self._status.color_interval
 
     @property
     def boil_time(self):
@@ -532,23 +549,41 @@ class SkyCookerConnection(SkyCooker):
         cook_hours = self._target_boil_time // 60 if self._target_boil_time else 0
         cook_minutes = self._target_boil_time % 60 if self._target_boil_time else 0
         
-        # Get delayed start time from MODE_DATA (these are the default values)
+        # Get delayed start time from Number components (not from MODE_DATA)
+        # These values should be set by the user through the Number entities
         wait_hours = 0
         wait_minutes = 0
         
-        if model_type and model_type in MODE_DATA and current_mode < len(MODE_DATA[model_type]):
-            mode_data = MODE_DATA[model_type][current_mode]
-            wait_hours = mode_data[3]
-            wait_minutes = mode_data[4]
-            
-            # If user hasn't set custom temperature, use default from MODE_DATA
-            if target_temp is None:
-                target_temp = mode_data[0]
-            
-            # If user hasn't set custom cooking time, use default from MODE_DATA
-            if cook_hours == 0 and cook_minutes == 0:
-                cook_hours = mode_data[1]
-                cook_minutes = mode_data[2]
+        # Check if we have custom delayed start values set through Number components
+        # These values are stored in the connection object
+        if hasattr(self, '_target_delayed_start_hours'):
+            wait_hours = self._target_delayed_start_hours
+        if hasattr(self, '_target_delayed_start_minutes'):
+            wait_minutes = self._target_delayed_start_minutes
+        
+        # If user hasn't set custom values, use defaults from MODE_DATA
+        if wait_hours == 0 and wait_minutes == 0:
+            if model_type and model_type in MODE_DATA and current_mode < len(MODE_DATA[model_type]):
+                mode_data = MODE_DATA[model_type][current_mode]
+                wait_hours = mode_data[3]
+                wait_minutes = mode_data[4]
+        
+        # If user hasn't set custom temperature, use default from MODE_DATA
+        if target_temp is None:
+            if model_type and model_type in MODE_DATA and current_mode < len(MODE_DATA[model_type]):
+                target_temp = MODE_DATA[model_type][current_mode][0]
+        
+        # If user hasn't set custom cooking time, use default from MODE_DATA
+        if cook_hours == 0 and cook_minutes == 0:
+            if model_type and model_type in MODE_DATA and current_mode < len(MODE_DATA[model_type]):
+                cook_hours = MODE_DATA[model_type][current_mode][1]
+                cook_minutes = MODE_DATA[model_type][current_mode][2]
+        
+        # Ensure all values are integers (not None)
+        cook_hours = cook_hours or 0
+        cook_minutes = cook_minutes or 0
+        wait_hours = wait_hours or 0
+        wait_minutes = wait_minutes or 0
         
         # Calculate total time (as in ESPHome implementation)
         total_hours = wait_hours + cook_hours
@@ -573,6 +608,10 @@ class SkyCookerConnection(SkyCooker):
         # This will make Number components show default values again
         self._target_state = None
         self._target_boil_time = None
+        if hasattr(self, '_target_delayed_start_hours'):
+            delattr(self, '_target_delayed_start_hours')
+        if hasattr(self, '_target_delayed_start_minutes'):
+            delattr(self, '_target_delayed_start_minutes')
 
     async def set_target_temp(self, target_temp, operation_mode = None):
         if target_temp == self.target_temp: return
