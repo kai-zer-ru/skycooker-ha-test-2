@@ -129,6 +129,36 @@ class SkyCookerConnection(SkyCooker):
 
     auth = lambda self: super().auth(self._key)
 
+    async def select_mode(self, mode, subprog=0, target_temp=0, hours=0, minutes=0, dhours=0, dminutes=0, heat=0, bit_flags=0):
+        # Вызываем метод базового класса для отправки команды
+        await super().select_mode(mode, subprog, target_temp, hours, minutes, dhours, dminutes, heat, bit_flags)
+        
+        # При выборе режима устанавливаем Number значения из MODE_DATA для текущего режима
+        # Это нужно для того, чтобы при смене режима пользователь видел значения из MODE_DATA
+        model_type = self.model_code
+        if model_type and model_type in MODE_DATA and mode < len(MODE_DATA[model_type]):
+            mode_data = MODE_DATA[model_type][mode]
+            
+            # Устанавливаем температуру из MODE_DATA
+            target_temp_from_mode = mode_data[0]
+            if target_temp_from_mode != 0:
+                # Сбрасываем целевую температуру, чтобы Number entity показал значение из MODE_DATA
+                if hasattr(self, '_target_temperature'):
+                    delattr(self, '_target_temperature')
+            
+            # Устанавливаем время приготовления из MODE_DATA
+            cook_hours = mode_data[1]
+            cook_minutes = mode_data[2]
+            if cook_hours != 0 or cook_minutes != 0:
+                # Сбрасываем целевое время приготовления
+                self._target_boil_time = None
+                if hasattr(self, '_target_cooking_time'):
+                    delattr(self, '_target_cooking_time')
+            
+            # Сбрасываем отложенный старт
+            self._target_delayed_start_hours = None
+            self._target_delayed_start_minutes = None
+
     async def _cleanup_previous_connections(self):
         """Clean up any previous connections to free up slots."""
         try:
