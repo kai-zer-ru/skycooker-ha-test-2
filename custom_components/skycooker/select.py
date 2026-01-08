@@ -142,7 +142,7 @@ class SkyCookerSelect(SelectEntity):
             
             # Find the mode ID by name
             mode_id = None
-            for idx, value in enumerate(mode_names[1]):
+            for idx, value in enumerate(mode_names[lang_index]):
                 if value == option:
                     mode_id = idx
                     break
