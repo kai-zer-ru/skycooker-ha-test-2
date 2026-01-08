@@ -413,6 +413,18 @@ COMMAND_TURN_ON = 0x03
 COMMAND_TURN_OFF = 0x04
 COMMAND_SET_MAIN_MODE = 0x05
 COMMAND_GET_STATUS = 0x06
+COMMAND_SELECT_MODE = 0x09
 COMMAND_SYNC_TIME = 0x6E
 COMMAND_GET_TIME = 0x6F
 COMMAND_AUTH = 0xFF
+
+# Bit flags for mode settings (uint8_t)
+# Битовые флаги для настроек режима
+BIT_FLAG_SUBMODE_ENABLE = 0x80        # B[7] - включение подрежима
+BIT_FLAG_AUTOPOWER_ENABLE = 0x40      # B[6] - включение автопита
+BIT_FLAG_EXPANSION_MODES_ENABLE = 0x20 # B[5] - включение расширенных режимов
+BIT_FLAG_TWO_BOWL_ENABLE = 0x10       # B[4] - включение двух чаш
+BIT_FLAG_PRESET_TEMP_ENABLE = 0x08    # B[3] - включение предварительной температуры
+BIT_FLAG_MASTERCHEF_LIGHT_ENABLE = 0x04 # B[2] - включение подсветки MasterChef
+BIT_FLAG_DELAY_START_ENABLE = 0x02    # B[1] - включение отложенного старта
+BIT_FLAG_POSTHEAT_ENABLE = 0x01       # B[0] - включение подогрева

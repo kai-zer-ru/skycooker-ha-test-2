@@ -214,7 +214,9 @@ class SkyCookerConnection(SkyCooker):
                         if self._status.is_on:
                             await self.turn_off()
                             await asyncio.sleep(0.2)
-                        await self.set_main_mode(self._status.mode, self._status.target_temp, boil_time)
+                        # Отправляем команду "Выбор режима" перед установкой режима
+                        await self.select_mode(self._status.mode, 0, self._status.target_temp, boil_time // 60, boil_time % 60)
+                        await self.set_main_mode(self._status.mode, 0, self._status.target_temp, boil_time // 60, boil_time % 60)
                         _LOGGER.info(f"✅ Время кипения успешно установлено на {boil_time}")
                     except Exception as ex:
                         _LOGGER.error(f"❌ Не удалось обновить время кипения ({type(ex).__name__}): {str(ex)}")
@@ -235,7 +237,9 @@ class SkyCookerConnection(SkyCooker):
                     elif target_mode is not None and not self._status.is_on:
                         _LOGGER.info(f"🔄 Состояние: {self._status} -> {self._target_state}")
                         _LOGGER.info("🔌 Необходимо установить режим и включить мультиварку...")
-                        await self.set_main_mode(target_mode, target_temp, boil_time)
+                        # Отправляем команду "Выбор режима" перед установкой режима
+                        await self.select_mode(target_mode, 0, target_temp, boil_time // 60, boil_time % 60)
+                        await self.set_main_mode(target_mode, 0, target_temp, boil_time // 60, boil_time % 60)
                         _LOGGER.info("✅ Режим установлен")
                         await self.turn_on()
                         _LOGGER.info("✅ Мультиварка включена")
@@ -249,7 +253,9 @@ class SkyCookerConnection(SkyCooker):
                         await self.turn_off()
                         _LOGGER.info("✅ Мультиварка выключена")
                         await asyncio.sleep(0.2)
-                        await self.set_main_mode(target_mode, target_temp, boil_time)
+                        # Отправляем команду "Выбор режима" перед установкой режима
+                        await self.select_mode(target_mode, 0, target_temp, boil_time // 60, boil_time % 60)
+                        await self.set_main_mode(target_mode, 0, target_temp, boil_time // 60, boil_time % 60)
                         _LOGGER.info("✅ Режим установлен")
                         await self.turn_on()
                         _LOGGER.info("✅ Мультиварка включена")
