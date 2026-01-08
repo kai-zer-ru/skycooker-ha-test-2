@@ -16,7 +16,7 @@ _LOGGER = logging.getLogger(__name__)
 
 class SkyCooker(ABC):
     Status = namedtuple("Status", ["mode", "target_temp", "sound_enabled", "current_temp",
-        "color_interval", "parental_control", "is_on", "error_code", "boil_time"])
+        "parental_control", "is_on", "error_code", "boil_time"])
 
     def __init__(self, model):
         _LOGGER.info(f"SkyCooker model: {model}")
@@ -96,7 +96,7 @@ class SkyCooker(ABC):
 
     async def get_status(self):
         r = await self.command(COMMAND_GET_STATUS)
-        status = SkyCooker.Status(*unpack("<BxBx?BB??BxxxBxx", r))
+        status = SkyCooker.Status(*unpack("<BxBx?BB??BxxBxx", r))
         # Calculate boil_time, ensuring it's not negative
         boil_time = status.boil_time - 0x80
         if boil_time < 0:
@@ -107,7 +107,7 @@ class SkyCooker(ABC):
         )
         _LOGGER.debug(f"Status: mode={status.mode}, is_on={status.is_on}, "+
                      f"target_temp={status.target_temp}, current_temp={status.current_temp}, sound_enabled={status.sound_enabled}, "+
-                     f"color_interval={status.color_interval}, boil_time={status.boil_time}")
+                     f"boil_time={status.boil_time}")
         return status
 
     async def sync_time(self):

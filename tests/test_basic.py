@@ -79,7 +79,6 @@ class TestMulticookerConnection(unittest.TestCase):
             target_temp=100,
             sound_enabled=True,
             current_temp=95,
-            color_interval=5,
             parental_control=False,
             is_on=True,
             error_code=0,

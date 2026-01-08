@@ -228,8 +228,7 @@ class SkyCookerSelect(SelectEntity):
                     mode_id = idx
                     break
                
-            if mode_id is not None:
-                # Set target_state and target_boil_time from MODE_DATA for the selected mode
+            if mode_id is not None:                # Set target_state and target_boil_time from MODE_DATA for the selected mode
                 model_type = self.skycooker.model_code
                 if model_type and model_type in MODE_DATA and mode_id < len(MODE_DATA[model_type]):
                     mode_data = MODE_DATA[model_type][mode_id]
