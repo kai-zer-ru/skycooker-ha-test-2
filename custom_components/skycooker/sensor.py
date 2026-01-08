@@ -81,20 +81,24 @@ class SkyCookerSensor(SensorEntity):
         """Return the name of the sensor."""
         base_name = (SKYCOOKER_NAME + " " + self.entry.data.get(CONF_FRIENDLY_NAME, "")).strip()
         
+        # Determine the language index (0 for English, 1 for Russian)
+        language = self.hass.config.language
+        is_russian = language == "ru"
+        
         if self.sensor_type == SENSOR_TYPE_STATUS:
-            return f"{base_name} статус"
+            return f"{base_name} {'статус' if is_russian else 'status'}"
         elif self.sensor_type == SENSOR_TYPE_TEMPERATURE:
-            return f"{base_name} температура"
+            return f"{base_name} {'температура' if is_russian else 'temperature'}"
         elif self.sensor_type == SENSOR_TYPE_REMAINING_TIME:
-            return f"{base_name} оставшееся время"
+            return f"{base_name} {'оставшееся время' if is_russian else 'remaining time'}"
         elif self.sensor_type == SENSOR_TYPE_TOTAL_TIME:
-            return f"{base_name} общее время"
+            return f"{base_name} {'общее время' if is_russian else 'total time'}"
         elif self.sensor_type == SENSOR_TYPE_AUTO_WARM_TIME:
-            return f"{base_name} время автоподогрева"
+            return f"{base_name} {'время автоподогрева' if is_russian else 'auto warm time'}"
         elif self.sensor_type == SENSOR_TYPE_SUCCESS_RATE:
-            return f"{base_name} процент успеха"
+            return f"{base_name} {'процент успеха' if is_russian else 'success rate'}"
         elif self.sensor_type == SENSOR_TYPE_DELAYED_LAUNCH_TIME:
-            return f"{base_name} время до отложенного запуска"
+            return f"{base_name} {'время до отложенного запуска' if is_russian else 'delayed launch time'}"
         
         return base_name
 

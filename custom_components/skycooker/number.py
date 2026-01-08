@@ -69,16 +69,20 @@ class SkyCookerNumber(NumberEntity):
         """Return the name of the number entity."""
         base_name = (SKYCOOKER_NAME + " " + self.entry.data.get(CONF_FRIENDLY_NAME, "")).strip()
         
+        # Determine the language index (0 for English, 1 for Russian)
+        language = self.hass.config.language
+        is_russian = language == "ru"
+        
         if self.number_type == NUMBER_TYPE_TEMPERATURE:
-            return f"{base_name} температура"
+            return f"{base_name} {'температура' if is_russian else 'temperature'}"
         elif self.number_type == NUMBER_TYPE_COOKING_TIME_HOURS:
-            return f"{base_name} время приготовления часы"
+            return f"{base_name} {'время приготовления' if is_russian else 'cooking time'} {'часы' if is_russian else 'hours'}"
         elif self.number_type == NUMBER_TYPE_COOKING_TIME_MINUTES:
-            return f"{base_name} время приготовления минуты"
+            return f"{base_name} {'время приготовления' if is_russian else 'cooking time'} {'минуты' if is_russian else 'minutes'}"
         elif self.number_type == NUMBER_TYPE_DELAYED_START_HOURS:
-            return f"{base_name} отложенный старт часы"
+            return f"{base_name} {'отложенный старт' if is_russian else 'delayed start'} {'часы' if is_russian else 'hours'}"
         elif self.number_type == NUMBER_TYPE_DELAYED_START_MINUTES:
-            return f"{base_name} отложенный старт минуты"
+            return f"{base_name} {'отложенный старт' if is_russian else 'delayed start'} {'минуты' if is_russian else 'minutes'}"
         
         return base_name
 
