@@ -75,7 +75,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
         hass.data[DOMAIN][DATA_CANCEL] = ev.async_call_later(hass, td, poll)
 
     hass.data[DOMAIN][DATA_WORKING] = True
-    hass.data[DOMAIN][DATA_DEVICE_INFO] = lambda: device_info(entry)
+    hass.data[DOMAIN][DATA_DEVICE_INFO] = lambda: device_info(entry, hass)
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
@@ -84,7 +84,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     return True
 
 
-def device_info(entry):
+def device_info(entry, hass):
     # Get the SkyCooker connection to access the software version
     skycooker = None
     if DOMAIN in hass.data and entry.entry_id in hass.data[DOMAIN]:
