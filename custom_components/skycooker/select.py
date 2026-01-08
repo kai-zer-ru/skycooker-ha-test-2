@@ -87,14 +87,14 @@ class SkyCookerSelect(SelectEntity):
         if self.select_type == SELECT_TYPE_MODE:
             mode_id = self.skycooker.current_mode
             if mode_id is not None:
-                return MODES.get(mode_id, f"Неизвестно ({mode_id})")
+                return MODES_DICT.get(mode_id, f"Неизвестно ({mode_id})")
         return None
 
     @property
     def options(self):
         """Return the available options."""
         if self.select_type == SELECT_TYPE_MODE:
-            return list(MODES.values())
+            return list(MODES_DICT.values())
         return []
 
     async def async_select_option(self, option: str) -> None:
@@ -102,7 +102,7 @@ class SkyCookerSelect(SelectEntity):
         if self.select_type == SELECT_TYPE_MODE:
             # Find the mode ID by name
             mode_id = None
-            for key, value in MODES.items():
+            for key, value in MODES_DICT.items():
                 if value == option:
                     mode_id = key
                     break

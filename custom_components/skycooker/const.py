@@ -292,6 +292,27 @@ PRODUCT_DATA = {
 # @deprecated
 MODES = MODE_NAMES[MODEL_3][1] # DEPRECATED
 
+# Dictionary of mode IDs to mode names for MODEL_3
+MODES_DICT = {
+    0: "Мультиповар",
+    1: "Молочная каша",
+    2: "Тушение",
+    3: "Жарка",
+    4: "Суп",
+    5: "Пар",
+    6: "Паста",
+    7: "Томление",
+    8: "Варка",
+    9: "Выпечка",
+    10: "Рис/Крупы",
+    11: "Плов",
+    12: "Йогурт",
+    13: "Пицца",
+    14: "Хлеб",
+    15: "Вакуум",
+    16: "Ожидание"
+}
+
 # Product names for each model
 PRODUCT_NAMES = {
     MODEL_0: [
