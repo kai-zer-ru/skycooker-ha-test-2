@@ -87,24 +87,55 @@ class SkyCookerSelect(SelectEntity):
         if self.select_type == SELECT_TYPE_MODE:
             mode_id = self.skycooker.current_mode
             if mode_id is not None:
-                return MODES_DICT.get(mode_id, f"Неизвестно ({mode_id})")
+                # Get the model type from the connection
+                model_type = self.skycooker.model_code.split('_')[1] if self.skycooker.model_code else None
+                if model_type is None:
+                    return f"Неизвестно ({mode_id})"
+                
+                model_type = int(model_type)
+                # Get the mode names for the current model
+                mode_names = MODE_NAMES.get(model_type, [None, None])
+                if mode_names and len(mode_names) > 1 and mode_id < len(mode_names[1]):
+                    return mode_names[1][mode_id]
+                return f"Неизвестно ({mode_id})"
         return None
 
     @property
     def options(self):
         """Return the available options."""
         if self.select_type == SELECT_TYPE_MODE:
-            return list(MODES_DICT.values())
+            # Get the model type from the connection
+            model_type = self.skycooker.model_code.split('_')[1] if self.skycooker.model_code else None
+            if model_type is None:
+                return []
+            
+            model_type = int(model_type)
+            # Get the mode names for the current model
+            mode_names = MODE_NAMES.get(model_type, [None, None])
+            if mode_names and len(mode_names) > 1:
+                return mode_names[1]
+            return []
         return []
 
     async def async_select_option(self, option: str) -> None:
         """Change the selected option."""
         if self.select_type == SELECT_TYPE_MODE:
+            # Get the model type from the connection
+            model_type = self.skycooker.model_code.split('_')[1] if self.skycooker.model_code else None
+            if model_type is None:
+                return
+            
+            model_type = int(model_type)
+            # Get the mode names for the current model
+            mode_names = MODE_NAMES.get(model_type, [None, None])
+            if not mode_names or len(mode_names) < 2:
+                return
+            
             # Find the mode ID by name
             mode_id = None
-            for key, value in MODES_DICT.items():
+            for idx, value in enumerate(mode_names[1]):
                 if value == option:
-                    mode_id = key
+                    mode_id = idx
                     break
              
             if mode_id is not None:
