@@ -153,3 +153,67 @@ class TestNumberAttributes:
 
         # Check that the number uses status, not _status
         assert hasattr(number.skycooker, 'status'), "SkyCookerConnection should have 'status' property"
+
+
+class TestDeviceInfo:
+    """Test class for checking device_info function."""
+
+    def test_device_info_with_sw_version(self):
+        """Test that device_info returns correct information with software version."""
+        from custom_components.skycooker.__init__ import device_info
+        from custom_components.skycooker.const import CONF_MAC, CONF_FRIENDLY_NAME
+
+        # Create a mock hass and entry
+        mock_hass = MagicMock()
+        mock_entry = MagicMock()
+        mock_entry.data = {
+            CONF_MAC: "test_mac",
+            CONF_FRIENDLY_NAME: "test_model"
+        }
+
+        # Create a mock connection
+        mock_connection = MagicMock()
+        mock_connection.sw_version = "1.0.0"
+
+        # Mock the hass.data to return the connection
+        mock_hass.data = {
+            "skycooker": {
+                "test_entry": {
+                    "connection": mock_connection
+                }
+            }
+        }
+
+        # Call device_info function
+        device_info_result = device_info(mock_entry, mock_hass)
+
+        # Check that the device_info contains the software version
+        assert device_info_result.sw_version == "1.0.0", "Device info should contain the software version"
+
+    def test_device_info_without_sw_version(self):
+        """Test that device_info returns correct information without software version."""
+        from custom_components.skycooker.__init__ import device_info
+        from custom_components.skycooker.const import CONF_MAC, CONF_FRIENDLY_NAME
+
+        # Create a mock hass and entry
+        mock_hass = MagicMock()
+        mock_entry = MagicMock()
+        mock_entry.data = {
+            CONF_MAC: "test_mac",
+            CONF_FRIENDLY_NAME: "test_model"
+        }
+
+        # Mock the hass.data to return None for connection
+        mock_hass.data = {
+            "skycooker": {
+                "test_entry": {
+                    "connection": None
+                }
+            }
+        }
+
+        # Call device_info function
+        device_info_result = device_info(mock_entry, mock_hass)
+
+        # Check that the device_info does not contain the software version
+        assert device_info_result.sw_version is None, "Device info should not contain the software version if connection is None"
