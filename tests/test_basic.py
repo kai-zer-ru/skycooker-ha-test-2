@@ -67,7 +67,7 @@ class TestMulticookerConnection(unittest.TestCase):
         self.assertEqual(connection.model, "RMC-M40S")
         self.assertFalse(connection._disposed)
 
-    @patch('custom_components.skycooker.skycooker_connection.SkyCookerConnection.get_status')
+    @patch('custom_components.skycooker.skycooker.SkyCooker.get_status')
     def test_status_properties(self, mock_get_status):
         """Test status properties."""
         from custom_components.skycooker.skycooker_connection import SkyCookerConnection

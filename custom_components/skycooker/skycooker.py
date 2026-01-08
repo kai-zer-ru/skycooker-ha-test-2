@@ -102,7 +102,16 @@ class SkyCooker(ABC):
             _LOGGER.error(f"❌ Ошибка: получено {len(r)} байт вместо ожидаемых 15")
             raise SkyCookerError(f"Некорректный размер данных статуса: {len(r)} байт")
         try:
-            status = SkyCooker.Status(*unpack("<BxBx?BB??BxxBxx", r))
+            # Handle both 15-byte and 16-byte status responses
+            if len(r) == 15:
+                # Original format produces 9 values, but Status expects 8 - take first 8
+                unpacked = unpack("<BxBx?BB??BxxBxx", r)
+                status = SkyCooker.Status(*unpacked[:8])
+            elif len(r) == 16:
+                status = SkyCooker.Status(*unpack("<BxB?BB??Bxxxxxxx", r))
+            else:
+                _LOGGER.error(f"❌ Ошибка: получено {len(r)} байт вместо ожидаемых 15 или 16")
+                raise SkyCookerError(f"Некорректный размер данных статуса: {len(r)} байт")
         except struct.error as e:
             _LOGGER.error(f"❌ Ошибка распаковки статуса: {e}")
             raise SkyCookerError(f"Ошибка распаковки статуса: {e}")
