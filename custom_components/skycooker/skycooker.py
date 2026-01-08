@@ -96,7 +96,15 @@ class SkyCooker(ABC):
 
     async def get_status(self):
         r = await self.command(COMMAND_GET_STATUS)
-        status = SkyCooker.Status(*unpack("<BxBx?BB??BxxBxx", r))
+        _LOGGER.debug(f"Raw status data: {r.hex().upper()}, length: {len(r)}")
+        if len(r) < 15:
+            _LOGGER.error(f"❌ Ошибка: получено {len(r)} байт вместо ожидаемых 15")
+            raise SkyCookerError(f"Некорректный размер данных статуса: {len(r)} байт")
+        try:
+            status = SkyCooker.Status(*unpack("<BxBx?BB??BxxBxx", r))
+        except struct.error as e:
+            _LOGGER.error(f"❌ Ошибка распаковки статуса: {e}")
+            raise SkyCookerError(f"Ошибка распаковки статуса: {e}")
         # Calculate boil_time, ensuring it's not negative
         boil_time = status.boil_time - 0x80
         if boil_time < 0:

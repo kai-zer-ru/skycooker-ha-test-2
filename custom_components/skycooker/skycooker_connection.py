@@ -420,7 +420,7 @@ class SkyCookerConnection(SkyCooker):
     @property
     def target_delayed_start_hours(self):
         """Return the target delayed start hours."""
-        return self._target_delayed_start_hours
+        return getattr(self, '_target_delayed_start_hours', None)
 
     @target_delayed_start_hours.setter
     def target_delayed_start_hours(self, value):
@@ -430,7 +430,7 @@ class SkyCookerConnection(SkyCooker):
     @property
     def target_delayed_start_minutes(self):
         """Return the target delayed start minutes."""
-        return self._target_delayed_start_minutes
+        return getattr(self, '_target_delayed_start_minutes', None)
 
     @target_delayed_start_minutes.setter
     def target_delayed_start_minutes(self, value):
