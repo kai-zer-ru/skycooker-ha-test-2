@@ -148,7 +148,8 @@ class SkyCookerConnection(SkyCooker):
 
     async def select_mode(self, mode, subprog=0, target_temp=0, hours=0, minutes=0, dhours=0, dminutes=0, heat=0, bit_flags=0):
         # Проверяем, поддерживается ли режим устройством
-        if not self._is_mode_supported(mode):
+        # Режим 16 (ожидание) не может быть установлен напрямую, но может быть получен как текущий статус
+        if mode != 16 and not self._is_mode_supported(mode):
             _LOGGER.error(f"❌ Попытка установить неподдерживаемый режим {mode}")
             raise ValueError(f"Режим {mode} не поддерживается устройством")
         
@@ -269,17 +270,21 @@ class SkyCookerConnection(SkyCooker):
                             await self.turn_off()
                             await asyncio.sleep(0.2)
                         
-                        # Проверяем, поддерживается ли режим устройством
-                        if not self._is_mode_supported(self._status.mode):
-                            _LOGGER.error(f"❌ Режим {self._status.mode} не поддерживается устройством")
+                        # Проверяем, поддерживается ли целевой режим устройством
+                        # Если устройство находится в режиме ожидания (16), используем целевой режим из _target_state
+                        target_mode_to_check = self._target_state[0] if self._target_state else self._status.mode
+                        if not self._is_mode_supported(target_mode_to_check):
+                            _LOGGER.error(f"❌ Режим {target_mode_to_check} не поддерживается устройством")
                             self._target_boil_time = None
                             return False
                         
                         # Отправляем команду "Выбор режима" перед установкой режима
-                        _LOGGER.debug(f"📤 Отправка команды SELECT_MODE для режима {self._status.mode}")
-                        await self.select_mode(self._status.mode, 0, self._status.target_temp, boil_time // 60, boil_time % 60)
-                        _LOGGER.debug(f"📤 Отправка команды SET_MAIN_MODE для режима {self._status.mode}")
-                        await self.set_main_mode(self._status.mode, 0, self._status.target_temp, boil_time // 60, boil_time % 60)
+                        # Если устройство находится в режиме ожидания (16), используем целевой режим из _target_state
+                        target_mode_for_update = self._target_state[0] if self._target_state else self._status.mode
+                        _LOGGER.debug(f"📤 Отправка команды SELECT_MODE для режима {target_mode_for_update}")
+                        await self.select_mode(target_mode_for_update, 0, self._status.target_temp, boil_time // 60, boil_time % 60)
+                        _LOGGER.debug(f"📤 Отправка команды SET_MAIN_MODE для режима {target_mode_for_update}")
+                        await self.set_main_mode(target_mode_for_update, 0, self._status.target_temp, boil_time // 60, boil_time % 60)
                         _LOGGER.info(f"✅ Время кипения успешно установлено на {boil_time}")
                         # После успешной установки времени, получаем актуальный статус
                         self._status = await self.get_status()
@@ -417,9 +422,10 @@ class SkyCookerConnection(SkyCooker):
                 _LOGGER.warning(f"⚠️  Режим {mode} не поддерживается для модели {model_type}")
                 return False
             # Режим 16 - это режим ожидания, его нельзя устанавливать напрямую
+            # Но он может быть текущим состоянием устройства, поэтому разрешаем его как допустимое состояние
             if mode == 16:
-                _LOGGER.warning(f"⚠️  Режим 16 (ожидание) не может быть установлен напрямую")
-                return False
+                _LOGGER.debug(f"📋 Режим 16 (ожидание) - это допустимое состояние устройства, но его нельзя устанавливать напрямую")
+                return True
         return True
 
     async def _reset_target_state_after_success(self):

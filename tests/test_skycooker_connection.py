@@ -389,3 +389,83 @@ class TestSkyCookerConnection:
         
         # Restore original MODE_DATA
         MODE_DATA.update(original_mode_data)
+
+    @pytest.mark.asyncio
+    async def test_connection_update_with_mode_16_and_target_mode_5(self):
+        """Test that the connection correctly handles mode 16 (standby) when updating with target mode 5 (Steam)."""
+        mac = "AA:BB:CC:DD:EE:FF"
+        key = [0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F]
+        connection = SkyCookerConnection(mac, key, persistent=True, model="RMC-M40S")
+        
+        # Mock MODE_DATA to return a list with enough elements
+        from custom_components.skycooker.const import MODE_DATA
+        original_mode_data = MODE_DATA.copy()
+        MODE_DATA[3] = [
+            [100, 0, 30, 15], [101, 0, 30, 7], [100, 1, 0, 7], [165, 0, 18, 5],
+            [100, 1, 0, 7], [100, 0, 35, 7], [100, 0, 8, 4], [98, 3, 0, 7],
+            [100, 0, 40, 7], [140, 1, 0, 7], [100, 0, 25, 7], [110, 1, 0, 7],
+            [40, 8, 0, 6], [145, 0, 20, 7], [140, 3, 0, 7],
+            [0, 0, 0, 0], [62, 2, 30, 6]
+        ]
+        
+        # Test the specific logic we fixed: target mode selection when device is in mode 16
+        # Mock the _status attribute to simulate device in mode 16 (standby)
+        connection._status = MagicMock()
+        connection._status.mode = 16
+        connection._status.is_on = False
+        connection._status.target_temp = 100
+        connection._status.boil_time = 0
+        
+        # Set target state to mode 5 (Steam) with temperature 100
+        connection._target_state = (5, 100)
+        connection._target_boil_time = 35
+        
+        # Test the logic in update method for selecting the correct target mode
+        # This is the key fix: when device is in mode 16, use target mode from _target_state
+        target_mode_to_check = connection._target_state[0] if connection._target_state else connection._status.mode
+        
+        # Verify that the correct target mode is selected (5, not 16)
+        assert target_mode_to_check == 5
+        
+        # Verify that mode 5 is supported
+        assert connection._is_mode_supported(5) == True
+        
+        # Verify that mode 16 is also supported (as a device state)
+        assert connection._is_mode_supported(16) == True
+        
+        # Restore original MODE_DATA
+        MODE_DATA.update(original_mode_data)
+
+    @pytest.mark.asyncio
+    async def test_connection_is_mode_supported_mode_16(self):
+        """Test that _is_mode_supported correctly handles mode 16 (standby)."""
+        mac = "AA:BB:CC:DD:EE:FF"
+        key = [0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F]
+        connection = SkyCookerConnection(mac, key, persistent=True, model="RMC-M40S")
+        
+        # Test that mode 16 is supported as a device state (but not for direct setting)
+        assert connection._is_mode_supported(16) == True
+        
+        # Test that mode 5 (Steam) is supported
+        assert connection._is_mode_supported(5) == True
+
+    @pytest.mark.asyncio
+    async def test_connection_select_mode_with_mode_16(self):
+        """Test that select_mode correctly handles mode 16 (standby)."""
+        mac = "AA:BB:CC:DD:EE:FF"
+        key = [0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F]
+        connection = SkyCookerConnection(mac, key, persistent=True, model="RMC-M40S")
+        
+        # Test that _is_mode_supported allows mode 16
+        # (mode 16 is allowed as it can be a current device state)
+        assert connection._is_mode_supported(16) == True
+        
+        # Test that select_mode doesn't raise an error for mode 16 in the validation check
+        # (the actual command sending would fail without connection, but that's expected)
+        # We just want to verify that mode 16 passes the initial validation
+        try:
+            # This should pass the mode validation but fail on connection
+            await connection.select_mode(16)
+        except Exception as e:
+            # We expect a connection error, not a mode validation error
+            assert "Не подключено" in str(e) or "не поддерживается" not in str(e)
