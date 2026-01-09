@@ -92,7 +92,8 @@ class SkyCookerSwitch(SwitchEntity):
     def is_on(self):
         """Return true if switch is on."""
         if self.switch_type == SWITCH_TYPE_AUTO_WARM:
-            return self.skycooker.auto_warm_enabled
+            # Используем значение, установленное пользователем, а не из статуса устройства
+            return getattr(self.skycooker, '_auto_warm_enabled', False)
         return False
 
     async def async_turn_on(self, **kwargs):

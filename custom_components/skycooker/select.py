@@ -110,31 +110,42 @@ class SkyCookerSelect(SelectEntity):
     def current_option(self):
         """Return the current selected option."""
         if self.select_type == SELECT_TYPE_MODE:
-            mode_id = self.skycooker.current_mode
-            if mode_id is not None:
-                # Get the model type from the connection
-                model_type = self.skycooker.model_code
-                if model_type is None:
-                    return f"Unknown ({mode_id})"
-                
-                # Get the mode names for the current model
-                mode_names = MODE_NAMES.get(model_type, [None, None])
-                if not mode_names or len(mode_names) < 2:
-                    return f"Unknown ({mode_id})"
-                
-                # Determine the language index (0 for English, 1 for Russian)
-                language = self.hass.config.language
-                lang_index = 0 if language == "en" else 1
-                
-                if mode_id < len(mode_names[lang_index]):
-                    return mode_names[lang_index][mode_id]
+            # Используем целевой режим, установленный пользователем, а не текущий режим устройства
+            if self.skycooker.target_state and self.skycooker.target_state[0] is not None:
+                mode_id = self.skycooker.target_state[0]
+            else:
+                # Если целевой режим не установлен, используем текущий режим устройства
+                mode_id = self.skycooker.current_mode
+                if mode_id is None:
+                    return None
+            
+            # Get the model type from the connection
+            model_type = self.skycooker.model_code
+            if model_type is None:
                 return f"Unknown ({mode_id})"
+            
+            # Get the mode names for the current model
+            mode_names = MODE_NAMES.get(model_type, [None, None])
+            if not mode_names or len(mode_names) < 2:
+                return f"Unknown ({mode_id})"
+            
+            # Determine the language index (0 for English, 1 for Russian)
+            language = self.hass.config.language
+            lang_index = 0 if language == "en" else 1
+            
+            if mode_id < len(mode_names[lang_index]):
+                return mode_names[lang_index][mode_id]
+            return f"Unknown ({mode_id})"
         elif self.select_type == SELECT_TYPE_TEMPERATURE:
             # Return current temperature from connection if set, otherwise from MODE_DATA
             if self.skycooker.target_state:
                 return str(self.skycooker.target_state[1])
             else:
-                current_mode = self.skycooker.status.mode if self.skycooker.status else 0
+                # Используем целевой режим, установленный пользователем, а не текущий режим устройства
+                if self.skycooker.target_state and self.skycooker.target_state[0] is not None:
+                    current_mode = self.skycooker.target_state[0]
+                else:
+                    current_mode = self.skycooker.current_mode if self.skycooker.current_mode is not None else 0
                 model_type = self.skycooker.model_code
                 if model_type and model_type in MODE_DATA and current_mode < len(MODE_DATA[model_type]):
                     return str(MODE_DATA[model_type][current_mode][0])
@@ -143,7 +154,11 @@ class SkyCookerSelect(SelectEntity):
             if self.skycooker.target_boil_time:
                 return str(self.skycooker.target_boil_time // 60)
             else:
-                current_mode = self.skycooker.status.mode if self.skycooker.status else 0
+                # Используем целевой режим, установленный пользователем, а не текущий режим устройства
+                if self.skycooker.target_state and self.skycooker.target_state[0] is not None:
+                    current_mode = self.skycooker.target_state[0]
+                else:
+                    current_mode = self.skycooker.current_mode if self.skycooker.current_mode is not None else 0
                 model_type = self.skycooker.model_code
                 if model_type and model_type in MODE_DATA and current_mode < len(MODE_DATA[model_type]):
                     return str(MODE_DATA[model_type][current_mode][1])
@@ -152,7 +167,11 @@ class SkyCookerSelect(SelectEntity):
             if self.skycooker.target_boil_time:
                 return str(self.skycooker.target_boil_time % 60)
             else:
-                current_mode = self.skycooker.status.mode if self.skycooker.status else 0
+                # Используем целевой режим, установленный пользователем, а не текущий режим устройства
+                if self.skycooker.target_state and self.skycooker.target_state[0] is not None:
+                    current_mode = self.skycooker.target_state[0]
+                else:
+                    current_mode = self.skycooker.current_mode if self.skycooker.current_mode is not None else 0
                 model_type = self.skycooker.model_code
                 if model_type and model_type in MODE_DATA and current_mode < len(MODE_DATA[model_type]):
                     return str(MODE_DATA[model_type][current_mode][2])

@@ -160,8 +160,10 @@ class SkyCookerSensor(SensorEntity):
         elif self.sensor_type == SENSOR_TYPE_AUTO_WARM_TIME:
             return self.skycooker.auto_warm_enabled is not None
         elif self.sensor_type == SENSOR_TYPE_CURRENT_MODE:
-            return self.skycooker.current_mode is not None
-        
+            # For current mode, we should return True if we have a status code
+            # even if current_mode is None, as we can show "Standby Mode" or "Режим ожидания"
+            return self.skycooker.status_code is not None
+         
         return False
 
     @property
