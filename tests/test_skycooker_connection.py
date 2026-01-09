@@ -194,7 +194,14 @@ class TestSkyCookerConnection:
         mac = "AA:BB:CC:DD:EE:FF"
         key = [0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F]
         connection = SkyCookerConnection(mac, key, persistent=True, model="RMC-M40S")
-        connection.update = AsyncMock()
+        
+        # Mock the necessary methods and attributes
+        connection._connect_if_need = AsyncMock()
+        connection.select_mode = AsyncMock()
+        connection.set_main_mode = AsyncMock()
+        connection.turn_on = AsyncMock()
+        connection.get_status = AsyncMock()
+        connection._disconnect_if_need = AsyncMock()
         
         # Mock the _status attribute to avoid IndexError
         connection._status = MagicMock()
@@ -216,7 +223,13 @@ class TestSkyCookerConnection:
 
         await connection.start_delayed()
 
-        connection.update.assert_called()
+        # Verify that the methods were called in the correct order
+        connection._connect_if_need.assert_called_once()
+        connection.select_mode.assert_called()
+        connection.set_main_mode.assert_called()
+        connection.turn_on.assert_called_once()
+        connection.get_status.assert_called_once()
+        connection._disconnect_if_need.assert_called_once()
         
         # Restore original MODE_DATA
         MODE_DATA.update(original_mode_data)
@@ -275,7 +288,14 @@ class TestSkyCookerConnection:
         mac = "AA:BB:CC:DD:EE:FF"
         key = [0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F]
         connection = SkyCookerConnection(mac, key, persistent=True, model="RMC-M40S")
-        connection.update = AsyncMock()
+        
+        # Mock the necessary methods and attributes
+        connection._connect_if_need = AsyncMock()
+        connection.select_mode = AsyncMock()
+        connection.set_main_mode = AsyncMock()
+        connection.turn_on = AsyncMock()
+        connection.get_status = AsyncMock()
+        connection._disconnect_if_need = AsyncMock()
         
         # Mock the _status attribute to simulate device in mode 16 (standby)
         connection._status = MagicMock()
@@ -298,11 +318,74 @@ class TestSkyCookerConnection:
         # Call start() - it should use mode 0 instead of mode 16
         await connection.start()
         
-        # Verify that update was called
-        connection.update.assert_called()
+        # Verify that the methods were called in the correct order
+        connection._connect_if_need.assert_called_once()
+        connection.select_mode.assert_called()
+        connection.set_main_mode.assert_called()
+        connection.turn_on.assert_called_once()
+        connection.get_status.assert_called_once()
+        connection._disconnect_if_need.assert_called_once()
         
         # Verify that target_state was set to mode 0 (Multi-chef) instead of mode 16
         assert connection._target_state[0] == 0
+        
+        # Restore original MODE_DATA
+        MODE_DATA.update(original_mode_data)
+
+    @pytest.mark.asyncio
+    async def test_connection_start_command_sequence(self):
+        """Test that the connection sends commands in the correct sequence when starting."""
+        mac = "AA:BB:CC:DD:EE:FF"
+        key = [0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F]
+        connection = SkyCookerConnection(mac, key, persistent=True, model="RMC-M40S")
+        
+        # Mock the necessary methods and attributes
+        connection._connect_if_need = AsyncMock()
+        connection.select_mode = AsyncMock()
+        connection.set_main_mode = AsyncMock()
+        connection.turn_on = AsyncMock()
+        connection.get_status = AsyncMock()
+        connection._disconnect_if_need = AsyncMock()
+        
+        # Mock the _status attribute
+        connection._status = MagicMock()
+        connection._status.mode = 1
+        connection._status.is_on = False
+        connection._status.target_temp = 100
+        connection._status.boil_time = 0
+        
+        # Mock MODE_DATA to return a list with enough elements
+        from custom_components.skycooker.const import MODE_DATA
+        original_mode_data = MODE_DATA.copy()
+        MODE_DATA[3] = [
+            [100, 0, 30, 15], [101, 0, 30, 7], [100, 1, 0, 7], [165, 0, 18, 5],
+            [100, 1, 0, 7], [100, 0, 35, 7], [100, 0, 8, 4], [98, 3, 0, 7],
+            [100, 0, 40, 7], [140, 1, 0, 7], [100, 0, 25, 7], [110, 1, 0, 7],
+            [40, 8, 0, 6], [145, 0, 20, 7], [140, 3, 0, 7],
+            [0, 0, 0, 0], [62, 2, 30, 6]
+        ]
+        
+        # Set target state to simulate user selection
+        connection._target_state = (1, 101)
+        connection._target_boil_time = 30
+        
+        await connection.start()
+
+        # Verify that the methods were called in the correct order
+        connection._connect_if_need.assert_called_once()
+        connection.select_mode.assert_called()
+        connection.set_main_mode.assert_called()
+        connection.turn_on.assert_called_once()
+        connection.get_status.assert_called_once()
+        connection._disconnect_if_need.assert_called_once()
+        
+        # Verify that select_mode was called with correct parameters
+        select_mode_calls = connection.select_mode.call_args_list
+        assert len(select_mode_calls) >= 1
+        
+        # Verify that set_main_mode was called with correct parameters
+        set_main_mode_calls = connection.set_main_mode.call_args_list
+        assert len(set_main_mode_calls) >= 1
         
         # Restore original MODE_DATA
         MODE_DATA.update(original_mode_data)

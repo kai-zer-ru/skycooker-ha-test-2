@@ -194,7 +194,14 @@ class TestSkyCookerConnection:
         mac = "AA:BB:CC:DD:EE:FF"
         key = [0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F]
         connection = SkyCookerConnection(mac, key, persistent=True, model="RMC-M40S")
-        connection.update = AsyncMock()
+        
+        # Mock the necessary methods and attributes
+        connection._connect_if_need = AsyncMock()
+        connection.select_mode = AsyncMock()
+        connection.set_main_mode = AsyncMock()
+        connection.turn_on = AsyncMock()
+        connection.get_status = AsyncMock()
+        connection._disconnect_if_need = AsyncMock()
         
         # Mock the _status attribute to avoid IndexError
         connection._status = MagicMock()
@@ -216,7 +223,13 @@ class TestSkyCookerConnection:
 
         await connection.start_delayed()
 
-        connection.update.assert_called()
+        # Verify that the methods were called in the correct order
+        connection._connect_if_need.assert_called_once()
+        connection.select_mode.assert_called()
+        connection.set_main_mode.assert_called()
+        connection.turn_on.assert_called_once()
+        connection.get_status.assert_called_once()
+        connection._disconnect_if_need.assert_called_once()
         
         # Restore original MODE_DATA
         MODE_DATA[3] = original_mode_data

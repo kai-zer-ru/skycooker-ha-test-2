@@ -737,22 +737,47 @@ class SkyCookerConnection(SkyCooker):
         
         _LOGGER.info(f"Starting cooking: mode={target_mode}, temp={target_temp}, time={cook_hours}:{cook_minutes:02d}")
         
-        # Set target mode and temperature
-        await self._set_target_state(target_mode, target_temp)
+        # Check if device is in standby mode (mode 16) or if we need to wake it up
+        is_in_standby = self._status and self._status.mode == 16
         
-        # Set the boil time
-        self._target_boil_time = cook_hours * 60 + cook_minutes
-        
-        # Update to apply the changes
-        await self.update(commit=True)
-        
-        # After starting, reset the values to defaults from MODE_DATA
-        # This will make Number components show default values again
-        # Но не сбрасываем _target_state и _target_boil_time сразу после запуска,
-        # так как это может привести к сбросу состояния устройства
-        # Вместо этого, сбросим их после успешного подтверждения состояния
-        # self._target_state = None
-        # self._target_boil_time = None
+        try:
+            # Connect if needed
+            await self._connect_if_need()
+            
+            # If device is in standby mode, send SELECT_MODE first to wake it up
+            if is_in_standby:
+                _LOGGER.info("🔄 Устройство находится в режиме ожидания, отправляем команду SELECT_MODE для пробуждения")
+                await self.select_mode(target_mode, 0, target_temp, cook_hours, cook_minutes)
+                await asyncio.sleep(0.2)  # Small delay between commands
+            
+            # Send SELECT_MODE command to show mode information on device screen
+            _LOGGER.debug(f"📤 Отправка команды SELECT_MODE (0x09) для режима {target_mode}")
+            await self.select_mode(target_mode, 0, target_temp, cook_hours, cook_minutes)
+            await asyncio.sleep(0.2)  # Small delay between commands
+            
+            # Send SET_MAIN_MODE command with selected parameters
+            _LOGGER.debug(f"📤 Отправка команды SET_MAIN_MODE (0x05) для режима {target_mode}")
+            await self.set_main_mode(target_mode, 0, target_temp, cook_hours, cook_minutes)
+            await asyncio.sleep(0.2)  # Small delay between commands
+            
+            # Send TURN_ON command to start cooking
+            _LOGGER.debug(f"📤 Отправка команды TURN_ON (0x03)")
+            await self.turn_on()
+            
+            # Update status after starting
+            self._status = await self.get_status()
+            
+            # Set target state for future reference
+            self._target_state = (target_mode, target_temp)
+            self._target_boil_time = cook_hours * 60 + cook_minutes
+            
+            _LOGGER.info("✅ Приготовление успешно начато")
+            
+        except Exception as ex:
+            _LOGGER.error(f"❌ Ошибка при запуске приготовления: {str(ex)}")
+            raise
+        finally:
+            await self._disconnect_if_need()
 
     async def stop_cooking(self):
         """Stop cooking."""
@@ -844,22 +869,49 @@ class SkyCookerConnection(SkyCooker):
         
         _LOGGER.info(f"Delayed start: wait {wait_hours}:{wait_minutes:02d}, cook {cook_hours}:{cook_minutes:02d}, total {total_hours}:{total_minutes:02d}")
         
-        # Set target mode and temperature
-        await self._set_target_state(target_mode, target_temp)
+        # Check if device is in standby mode (mode 16) or if we need to wake it up
+        is_in_standby = self._status and self._status.mode == 16
         
-        # Set the boil time to the total calculated time
-        self._target_boil_time = total_hours * 60 + total_minutes
-        
-        # Update to apply the changes
-        await self.update(commit=True)
-        
-        # After starting, reset the values to defaults from MODE_DATA
-        # This will make Number components show default values again
-        # Но не сбрасываем _target_state и _target_boil_time сразу после запуска,
-        # так как это может привести к сбросу состояния устройства
-        # Вместо этого, сбросим их после успешного подтверждения состояния
-        # self._target_state = None
-        # self._target_boil_time = None
+        try:
+            # Connect if needed
+            await self._connect_if_need()
+            
+            # If device is in standby mode, send SELECT_MODE first to wake it up
+            if is_in_standby:
+                _LOGGER.info("🔄 Устройство находится в режиме ожидания, отправляем команду SELECT_MODE для пробуждения")
+                await self.select_mode(target_mode, 0, target_temp, total_hours, total_minutes, wait_hours, wait_minutes)
+                await asyncio.sleep(0.2)  # Small delay between commands
+            
+            # Send SELECT_MODE command to show mode information on device screen
+            _LOGGER.debug(f"📤 Отправка команды SELECT_MODE (0x09) для режима {target_mode}")
+            await self.select_mode(target_mode, 0, target_temp, total_hours, total_minutes, wait_hours, wait_minutes)
+            await asyncio.sleep(0.2)  # Small delay between commands
+            
+            # Send SET_MAIN_MODE command with selected parameters
+            _LOGGER.debug(f"📤 Отправка команды SET_MAIN_MODE (0x05) для режима {target_mode}")
+            await self.set_main_mode(target_mode, 0, target_temp, total_hours, total_minutes, wait_hours, wait_minutes)
+            await asyncio.sleep(0.2)  # Small delay between commands
+            
+            # Send TURN_ON command to start cooking
+            _LOGGER.debug(f"📤 Отправка команды TURN_ON (0x03)")
+            await self.turn_on()
+            
+            # Update status after starting
+            self._status = await self.get_status()
+            
+            # Set target state for future reference
+            self._target_state = (target_mode, target_temp)
+            self._target_boil_time = total_hours * 60 + total_minutes
+            
+            _LOGGER.info("✅ Отложенный старт успешно настроен")
+            
+        except Exception as ex:
+            _LOGGER.error(f"❌ Ошибка при настройке отложенного старта: {str(ex)}")
+            raise
+        finally:
+            await self._disconnect_if_need()
+            
+        # Clear delayed start values after successful setup
         if hasattr(self, '_target_delayed_start_hours'):
             delattr(self, '_target_delayed_start_hours')
         if hasattr(self, '_target_delayed_start_minutes'):
