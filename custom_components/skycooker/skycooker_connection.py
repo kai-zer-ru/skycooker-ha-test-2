@@ -971,15 +971,8 @@ class SkyCookerConnection(SkyCooker):
         wait_hours = wait_hours or 0
         wait_minutes = wait_minutes or 0
          
-        # Calculate total time (as in ESPHome implementation)
-        total_hours = wait_hours + cook_hours
-        total_minutes = wait_minutes + cook_minutes
-         
-        if total_minutes >= 60:
-            total_hours += 1
-            total_minutes -= 60
-         
-        _LOGGER.info(f"Delayed start: wait {wait_hours}:{wait_minutes:02d}, cook {cook_hours}:{cook_minutes:02d}, total {total_hours}:{total_minutes:02d}")
+        # Не суммируем время, а храним отдельно часы и минуты для готовки, отложенного старта и автоподогрева
+        _LOGGER.info(f"Delayed start: wait {wait_hours}:{wait_minutes:02d}, cook {cook_hours}:{cook_minutes:02d}")
          
         # Check if device is in standby mode (mode 16) or if we need to wake it up
         is_in_standby = self._status and self._status.mode == 16
@@ -1054,7 +1047,7 @@ class SkyCookerConnection(SkyCooker):
              
             # Set target state for future reference
             self._target_state = (target_mode, target_temp)
-            self._target_boil_time = total_hours * 60 + total_minutes
+            self._target_boil_time = cook_hours * 60 + cook_minutes
              
             _LOGGER.info("✅ Отложенный старт успешно настроен")
              
