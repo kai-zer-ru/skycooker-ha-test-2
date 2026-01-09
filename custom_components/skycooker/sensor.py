@@ -217,6 +217,9 @@ class SkyCookerSensor(SensorEntity):
                 return STATUS_CODES[lang_index].get(status_code, f"Unknown ({status_code})" if lang_index == 0 else f"Неизвестно ({status_code})")
             return "Unknown" if self.hass.config.language == "en" else "Неизвестно"
         elif self.sensor_type == SENSOR_TYPE_TEMPERATURE:
+            status_code = self.skycooker.status_code
+            if status_code == STATUS_OFF:
+                return 0
             return self.skycooker.target_temp if self.skycooker.target_temp is not None else 0
         elif self.sensor_type == SENSOR_TYPE_REMAINING_TIME:
             return self.skycooker.remaining_time if self.skycooker.remaining_time is not None else 0
@@ -237,25 +240,28 @@ class SkyCookerSensor(SensorEntity):
         elif self.sensor_type == SENSOR_TYPE_SW_VERSION:
             return self.skycooker.sw_version if self.skycooker.sw_version is not None else "Unknown"
         elif self.sensor_type == SENSOR_TYPE_CURRENT_MODE:
+            status_code = self.skycooker.status_code
+            if status_code == STATUS_OFF:
+                return "Режим ожидания" if self.hass.config.language == "ru" else "Standby Mode"
             current_mode = self.skycooker.current_mode
             if current_mode is not None:
                 # Get the model type from the connection
                 model_type = self.skycooker.model_code
                 if model_type is None:
                     return f"Unknown ({current_mode})"
-                
+                 
                 # Get the mode names for the current model
                 mode_names = MODE_NAMES.get(model_type, [None, None])
                 if not mode_names or len(mode_names) < 2:
                     return f"Unknown ({current_mode})"
-                
+                 
                 # Determine the language index (0 for English, 1 for Russian)
                 language = self.hass.config.language
                 lang_index = 0 if language == "en" else 1
-                
+                 
                 if current_mode < len(mode_names[lang_index]):
                     return mode_names[lang_index][current_mode]
                 return f"Unknown ({current_mode})"
-            return "Unknown" if self.hass.config.language == "en" else "Неизвестно"
-       
+            return "Режим ожидания" if self.hass.config.language == "ru" else "Standby Mode"
+        
         return None

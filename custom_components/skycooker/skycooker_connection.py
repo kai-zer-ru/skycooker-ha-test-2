@@ -457,7 +457,9 @@ class SkyCookerConnection(SkyCooker):
         """Reset target state after successful confirmation."""
         _LOGGER.debug("Resetting target state after successful confirmation")
         self._target_state = None
-        self._target_boil_time = None
+        # Не сбрасываем _target_boil_time после успешной установки,
+        # чтобы интерфейс мог правильно отображать текущее значение
+        # self._target_boil_time = None
 
     async def cancel_target(self):
         self._target_state = None
@@ -938,12 +940,12 @@ class SkyCookerConnection(SkyCooker):
         # These values should be set by the user through the Number entities
         wait_hours = 0
         wait_minutes = 0
-         
+          
         # Check if we have custom delayed start values set through Number components
         # These values are stored in the connection object
-        if hasattr(self, '_target_delayed_start_hours'):
+        if hasattr(self, '_target_delayed_start_hours') and self._target_delayed_start_hours is not None:
             wait_hours = self._target_delayed_start_hours
-        if hasattr(self, '_target_delayed_start_minutes'):
+        if hasattr(self, '_target_delayed_start_minutes') and self._target_delayed_start_minutes is not None:
             wait_minutes = self._target_delayed_start_minutes
         
         # Check if auto warm is enabled and set the appropriate flag

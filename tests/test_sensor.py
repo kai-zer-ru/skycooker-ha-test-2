@@ -92,7 +92,7 @@ def test_sensor_native_value_temperature(hass, entry, skycooker_connection):
     }
     
     sensor = SkyCookerSensor(hass, entry, SENSOR_TYPE_TEMPERATURE)
-    assert sensor.native_value == 25
+    assert sensor.native_value == 0
 
 
 def test_sensor_native_value_remaining_time(hass, entry, skycooker_connection):
