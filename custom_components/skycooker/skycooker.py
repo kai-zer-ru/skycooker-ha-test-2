@@ -66,8 +66,9 @@ class SkyCooker(ABC):
         # В текущей реализации битовые флаги берутся из MODE_DATA
         # Для MODEL_3 битовые флаги не добавляются
         # В будущем, когда будет понятно, как использовать битовые флаги, этот код будет обновлен
+        # Параметр heat используется для передачи флага автоподогрева
         if self.model_code == MODEL_3:
-            # bit_flags = 1 # Автоподогрев (1 - включен, 0 выключен)
+            # Для MODEL_3 используем heat как флаг автоподогрева
             data = pack("BBBBBBBB", int(mode), int(subprog), int(target_temp), int(hours), int(minutes), int(dhours), int(dminutes), int(heat))
         else:
             mode_data = MODE_DATA.get(self.model_code, [])
@@ -96,8 +97,9 @@ class SkyCooker(ABC):
         # В текущей реализации битовые флаги берутся из MODE_DATA
         # Для MODEL_3 битовые флаги не добавляются
         # В будущем, когда будет понятно, как использовать битовые флаги, этот код будет обновлен
+        # Параметр heat используется для передачи флага автоподогрева
         if self.model_code == MODEL_3:
-            # bit_flags = 1 # Автоподогрев (1 - включен, 0 выключен)
+            # Для MODEL_3 используем heat как флаг автоподогрева
             data = pack("BBBBBBBB", int(mode), int(subprog), int(target_temp), int(hours), int(minutes), int(dhours), int(dminutes), int(heat))
         else:
             mode_data = MODE_DATA.get(self.model_code, [])

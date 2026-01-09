@@ -151,6 +151,52 @@ async def test_switch_turn_off(hass, entry, skycooker_connection):
     assert skycooker_connection.stop.called
 
 
+@pytest.mark.asyncio
+async def test_switch_auto_warm_enable(hass, entry, skycooker_connection):
+    """Test auto warm switch enable."""
+    hass.data[DOMAIN][entry.entry_id] = {
+        DATA_CONNECTION: skycooker_connection,
+        DATA_DEVICE_INFO: lambda: {"name": "Test Device"}
+    }
+    
+    switch = SkyCookerSwitch(hass, entry, SWITCH_TYPE_AUTO_WARM)
+    
+    # Mock the enable_auto_warm method to set the flag
+    async def mock_enable_auto_warm():
+        skycooker_connection._auto_warm_enabled = True
+    
+    skycooker_connection.enable_auto_warm = mock_enable_auto_warm
+    skycooker_connection._auto_warm_enabled = False
+    
+    await switch.async_turn_on()
+    
+    # Verify enable_auto_warm was called
+    assert skycooker_connection._auto_warm_enabled == True
+
+
+@pytest.mark.asyncio
+async def test_switch_auto_warm_disable(hass, entry, skycooker_connection):
+    """Test auto warm switch disable."""
+    hass.data[DOMAIN][entry.entry_id] = {
+        DATA_CONNECTION: skycooker_connection,
+        DATA_DEVICE_INFO: lambda: {"name": "Test Device"}
+    }
+    
+    switch = SkyCookerSwitch(hass, entry, SWITCH_TYPE_AUTO_WARM)
+    
+    # Mock the disable_auto_warm method to clear the flag
+    async def mock_disable_auto_warm():
+        skycooker_connection._auto_warm_enabled = False
+    
+    skycooker_connection.disable_auto_warm = mock_disable_auto_warm
+    skycooker_connection._auto_warm_enabled = True
+    
+    await switch.async_turn_off()
+    
+    # Verify disable_auto_warm was called
+    assert skycooker_connection._auto_warm_enabled == False
+
+
 def test_switch_device_info(hass, entry, skycooker_connection):
     """Test switch device info."""
     hass.data[DOMAIN][entry.entry_id] = {

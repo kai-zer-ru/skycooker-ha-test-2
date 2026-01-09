@@ -163,7 +163,7 @@ class SkyCookerConnection(SkyCooker):
             raise ValueError(f"Режим {mode} не поддерживается устройством")
         
         # Вызываем метод базового класса для отправки команды
-        _LOGGER.debug(f"📤 Отправка команды SELECT_MODE для режима {mode}")
+        _LOGGER.debug(f"📤 Отправка команды SELECT_MODE для режима {mode} с параметрами: heat={heat}, bit_flags={bit_flags}")
         await super().select_mode(mode, subprog, target_temp, hours, minutes, dhours, dminutes, heat, bit_flags)
         
         # При выборе режима устанавливаем Number значения из MODE_DATA для текущего режима
@@ -725,7 +725,7 @@ class SkyCookerConnection(SkyCooker):
     async def start(self):
         """Start cooking with current settings."""
         _LOGGER.info("Starting cooking with current settings")
-        
+         
         # Get the mode that the user has selected (from target_state), not the current device mode
         # If user has selected a mode, use that. Otherwise, use current device mode.
         if self._target_state and self._target_state[0] is not None:
@@ -734,6 +734,10 @@ class SkyCookerConnection(SkyCooker):
         else:
             target_mode = self._status.mode if self._status else 0
             _LOGGER.info(f"🎯 Используется текущий режим устройства {target_mode}")
+         
+        # Check if auto warm is enabled and set the appropriate flag
+        auto_warm_flag = 1 if getattr(self, '_auto_warm_enabled', False) else 0
+        _LOGGER.info(f"🔥 Автоподогрев {'включен' if auto_warm_flag else 'выключен'}")
         
         model_type = self.model_code
         
@@ -790,13 +794,15 @@ class SkyCookerConnection(SkyCooker):
                 await asyncio.sleep(0.5)  # Increased delay for standby mode wakeup
             
             # Send SELECT_MODE command to show mode information on device screen
-            _LOGGER.debug(f"📤 Отправка команды SELECT_MODE (0x09) для режима {target_mode}")
-            await self.select_mode(target_mode, 0, target_temp, cook_hours, cook_minutes)
+            # Pass auto_warm_flag as the heat parameter (8th parameter in select_mode)
+            _LOGGER.debug(f"📤 Отправка команды SELECT_MODE (0x09) для режима {target_mode} с автоподогревом={auto_warm_flag}")
+            await self.select_mode(target_mode, 0, target_temp, cook_hours, cook_minutes, 0, 0, auto_warm_flag)
             await asyncio.sleep(0.3)  # Increased delay between commands
             
             # Send SET_MAIN_MODE command with selected parameters
-            _LOGGER.debug(f"📤 Отправка команды SET_MAIN_MODE (0x05) для режима {target_mode}")
-            await self.set_main_mode(target_mode, 0, target_temp, cook_hours, cook_minutes)
+            # Pass auto_warm_flag as the heat parameter (8th parameter in set_main_mode)
+            _LOGGER.debug(f"📤 Отправка команды SET_MAIN_MODE (0x05) для режима {target_mode} с автоподогревом={auto_warm_flag}")
+            await self.set_main_mode(target_mode, 0, target_temp, cook_hours, cook_minutes, 0, 0, auto_warm_flag)
             await asyncio.sleep(0.3)  # Increased delay between commands
             
             # Send TURN_ON command to start cooking
@@ -824,34 +830,18 @@ class SkyCookerConnection(SkyCooker):
     async def enable_auto_warm(self):
         """Enable auto warm mode."""
         _LOGGER.info("Enabling auto warm mode")
-        try:
-            await self._connect_if_need()
-            # Send command to enable auto warm
-            # This is a placeholder - you'll need to implement the actual command
-            # based on your device's protocol
-            await self.command(0x10, [0x01])  # Example command
-            _LOGGER.info("✅ Auto warm mode enabled")
-        except Exception as ex:
-            _LOGGER.error(f"❌ Ошибка при включении автоподогрева: {str(ex)}")
-            raise
-        finally:
-            await self._disconnect_if_need()
+        # Автоподогрев - это просто флаг, который будет использоваться при запуске приготовления
+        # Никакие команды не отправляются, просто устанавливаем флаг
+        self._auto_warm_enabled = True
+        _LOGGER.info("✅ Auto warm mode enabled (flag set)")
 
     async def disable_auto_warm(self):
         """Disable auto warm mode."""
         _LOGGER.info("Disabling auto warm mode")
-        try:
-            await self._connect_if_need()
-            # Send command to disable auto warm
-            # This is a placeholder - you'll need to implement the actual command
-            # based on your device's protocol
-            await self.command(0x10, [0x00])  # Example command
-            _LOGGER.info("✅ Auto warm mode disabled")
-        except Exception as ex:
-            _LOGGER.error(f"❌ Ошибка при выключении автоподогрева: {str(ex)}")
-            raise
-        finally:
-            await self._disconnect_if_need()
+        # Автоподогрев - это просто флаг, который будет использоваться при запуске приготовления
+        # Никакие команды не отправляются, просто сбрасываем флаг
+        self._auto_warm_enabled = False
+        _LOGGER.info("✅ Auto warm mode disabled (flag cleared)")
 
     async def stop_cooking(self):
         """Stop cooking."""
