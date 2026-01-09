@@ -147,7 +147,7 @@ class SkyCookerSensor(SensorEntity):
         if self.sensor_type == SENSOR_TYPE_STATUS:
             return self.skycooker.status_code is not None
         elif self.sensor_type == SENSOR_TYPE_TEMPERATURE:
-            return self.skycooker.current_temp is not None
+            return self.skycooker.target_temp is not None
         elif self.sensor_type == SENSOR_TYPE_REMAINING_TIME:
             return self.skycooker.remaining_time is not None
         elif self.sensor_type == SENSOR_TYPE_TOTAL_TIME:
@@ -210,7 +210,7 @@ class SkyCookerSensor(SensorEntity):
                 return STATUS_CODES[lang_index].get(status_code, f"Unknown ({status_code})" if lang_index == 0 else f"Неизвестно ({status_code})")
             return "Unknown" if self.hass.config.language == "en" else "Неизвестно"
         elif self.sensor_type == SENSOR_TYPE_TEMPERATURE:
-            return self.skycooker.current_temp if self.skycooker.current_temp is not None else 0
+            return self.skycooker.target_temp if self.skycooker.target_temp is not None else 0
         elif self.sensor_type == SENSOR_TYPE_REMAINING_TIME:
             return self.skycooker.remaining_time if self.skycooker.remaining_time is not None else 0
         elif self.sensor_type == SENSOR_TYPE_TOTAL_TIME:

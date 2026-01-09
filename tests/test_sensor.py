@@ -40,7 +40,7 @@ def skycooker_connection():
     connection = MagicMock()
     connection.available = True
     connection.status_code = STATUS_OFF
-    connection.current_temp = 25
+    connection.target_temp = 25
     connection.remaining_time = 0
     connection.total_time = 0
     connection.auto_warm_enabled = False
