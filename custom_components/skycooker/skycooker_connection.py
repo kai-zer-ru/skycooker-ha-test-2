@@ -130,7 +130,13 @@ class SkyCookerConnection(SkyCooker):
     auth = lambda self: super().auth(self._key)
 
     async def select_mode(self, mode, subprog=0, target_temp=0, hours=0, minutes=0, dhours=0, dminutes=0, heat=0, bit_flags=0):
+        # Проверяем, поддерживается ли режим устройством
+        if not self._is_mode_supported(mode):
+            _LOGGER.error(f"❌ Попытка установить неподдерживаемый режим {mode}")
+            raise ValueError(f"Режим {mode} не поддерживается устройством")
+        
         # Вызываем метод базового класса для отправки команды
+        _LOGGER.debug(f"📤 Отправка команды SELECT_MODE для режима {mode}")
         await super().select_mode(mode, subprog, target_temp, hours, minutes, dhours, dminutes, heat, bit_flags)
         
         # При выборе режима устанавливаем Number значения из MODE_DATA для текущего режима
@@ -245,16 +251,32 @@ class SkyCookerConnection(SkyCooker):
                         if self._status.is_on:
                             await self.turn_off()
                             await asyncio.sleep(0.2)
+                        
+                        # Проверяем, поддерживается ли режим устройством
+                        if not self._is_mode_supported(self._status.mode):
+                            _LOGGER.error(f"❌ Режим {self._status.mode} не поддерживается устройством")
+                            self._target_boil_time = None
+                            return False
+                        
                         # Отправляем команду "Выбор режима" перед установкой режима
+                        _LOGGER.debug(f"📤 Отправка команды SELECT_MODE для режима {self._status.mode}")
                         await self.select_mode(self._status.mode, 0, self._status.target_temp, boil_time // 60, boil_time % 60)
+                        _LOGGER.debug(f"📤 Отправка команды SET_MAIN_MODE для режима {self._status.mode}")
                         await self.set_main_mode(self._status.mode, 0, self._status.target_temp, boil_time // 60, boil_time % 60)
                         _LOGGER.info(f"✅ Время кипения успешно установлено на {boil_time}")
+                        # После успешной установки времени, получаем актуальный статус
+                        self._status = await self.get_status()
                     except Exception as ex:
                         _LOGGER.error(f"❌ Не удалось обновить время кипения ({type(ex).__name__}): {str(ex)}")
-                    self._status = await self.get_status()
+                        _LOGGER.debug(f"💡 Сбрасываем _target_boil_time, чтобы избежать циклических попыток")
+                        # В случае ошибки, сбрасываем _target_boil_time, чтобы избежать циклических попыток
+                        self._target_boil_time = None
+                        return False
                 self._target_boil_time = None
 
-                if commit: await self.commit()
+                # Не вызываем commit() здесь, так как он вызовет повторный update()
+                # и может сбросить состояние. Вместо этого продолжим обработку
+                # целевого состояния ниже.
 
                 if self._target_state is not None:
                     target_mode, target_temp = self._target_state
@@ -268,36 +290,71 @@ class SkyCookerConnection(SkyCooker):
                     elif target_mode is not None and not self._status.is_on:
                         _LOGGER.info(f"🔄 Состояние: {self._status} -> {self._target_state}")
                         _LOGGER.info("🔌 Необходимо установить режим и включить мультиварку...")
-                        # Отправляем команду "Выбор режима" перед установкой режима
-                        await self.select_mode(target_mode, 0, target_temp, boil_time // 60, boil_time % 60)
-                        await self.set_main_mode(target_mode, 0, target_temp, boil_time // 60, boil_time % 60)
-                        _LOGGER.info("✅ Режим установлен")
-                        await self.turn_on()
-                        _LOGGER.info("✅ Мультиварка включена")
-                        await asyncio.sleep(0.2)
-                        self._status = await self.get_status()
+                        try:
+                            # Проверяем, поддерживается ли режим устройством
+                            if not self._is_mode_supported(target_mode):
+                                _LOGGER.error(f"❌ Режим {target_mode} не поддерживается устройством")
+                                self._target_state = None
+                                return False
+                            
+                            # Отправляем команду "Выбор режима" перед установкой режима
+                            _LOGGER.debug(f"📤 Отправка команды SELECT_MODE для режима {target_mode}")
+                            await self.select_mode(target_mode, 0, target_temp, boil_time // 60, boil_time % 60)
+                            _LOGGER.debug(f"📤 Отправка команды SET_MAIN_MODE для режима {target_mode}")
+                            await self.set_main_mode(target_mode, 0, target_temp, boil_time // 60, boil_time % 60)
+                            _LOGGER.info("✅ Режим установлен")
+                            await self.turn_on()
+                            _LOGGER.info("✅ Мультиварка включена")
+                            await asyncio.sleep(0.2)
+                            self._status = await self.get_status()
+                        except Exception as ex:
+                            _LOGGER.error(f"❌ Ошибка при установке режима {target_mode}: {str(ex)}")
+                            _LOGGER.debug(f"💡 Сбрасываем _target_state, чтобы избежать циклических попыток")
+                            self._target_state = None
+                            return False
                     elif target_mode is not None and (
                             target_mode != self._status.mode or
                             target_temp != self._status.target_temp):
                         _LOGGER.info(f"🔄 Состояние: {self._status} -> {self._target_state}")
                         _LOGGER.info("🔌 Необходимо переключить режим мультиварки и перезапустить её")
-                        await self.turn_off()
-                        _LOGGER.info("✅ Мультиварка выключена")
-                        await asyncio.sleep(0.2)
-                        # Отправляем команду "Выбор режима" перед установкой режима
-                        await self.select_mode(target_mode, 0, target_temp, boil_time // 60, boil_time % 60)
-                        await self.set_main_mode(target_mode, 0, target_temp, boil_time // 60, boil_time % 60)
-                        _LOGGER.info("✅ Режим установлен")
-                        await self.turn_on()
-                        _LOGGER.info("✅ Мультиварка включена")
-                        await asyncio.sleep(0.2)
-                        self._status = await self.get_status()
+                        try:
+                            await self.turn_off()
+                            _LOGGER.info("✅ Мультиварка выключена")
+                            await asyncio.sleep(0.2)
+                            
+                            # Проверяем, поддерживается ли режим устройством
+                            if not self._is_mode_supported(target_mode):
+                                _LOGGER.error(f"❌ Режим {target_mode} не поддерживается устройством")
+                                self._target_state = None
+                                return False
+                            
+                            # Отправляем команду "Выбор режима" перед установкой режима
+                            _LOGGER.debug(f"📤 Отправка команды SELECT_MODE для режима {target_mode}")
+                            await self.select_mode(target_mode, 0, target_temp, boil_time // 60, boil_time % 60)
+                            _LOGGER.debug(f"📤 Отправка команды SET_MAIN_MODE для режима {target_mode}")
+                            await self.set_main_mode(target_mode, 0, target_temp, boil_time // 60, boil_time % 60)
+                            _LOGGER.info("✅ Режим установлен")
+                            await self.turn_on()
+                            _LOGGER.info("✅ Мультиварка включена")
+                            await asyncio.sleep(0.2)
+                            self._status = await self.get_status()
+                        except Exception as ex:
+                            _LOGGER.error(f"❌ Ошибка при переключении режима {target_mode}: {str(ex)}")
+                            _LOGGER.debug(f"💡 Сбрасываем _target_state, чтобы избежать циклических попыток")
+                            self._target_state = None
+                            return False
                     else:
                         _LOGGER.debug(f"📊 Нет необходимости обновлять состояние")
                     self._target_state = None
 
                 await self._disconnect_if_need()
                 self.add_stat(True)
+                
+                # Если это был вызов с commit=True, сбрасываем состояние
+                # после успешного подтверждения
+                if commit:
+                    await self._reset_target_state_after_success()
+                
                 return True
 
         except Exception as ex:
@@ -335,12 +392,31 @@ class SkyCookerConnection(SkyCooker):
         _LOGGER.debug("Committing changes")
         await self.update(commit=True)
 
+    def _is_mode_supported(self, mode):
+        """Проверяет, поддерживается ли режим устройством."""
+        model_type = self.model_code
+        if model_type and model_type in MODE_DATA:
+            if mode >= len(MODE_DATA[model_type]):
+                _LOGGER.warning(f"⚠️  Режим {mode} не поддерживается для модели {model_type}")
+                return False
+            # Режим 16 - это режим ожидания, его нельзя устанавливать напрямую
+            if mode == 16:
+                _LOGGER.warning(f"⚠️  Режим 16 (ожидание) не может быть установлен напрямую")
+                return False
+        return True
+
+    async def _reset_target_state_after_success(self):
+        """Reset target state after successful confirmation."""
+        _LOGGER.debug("Resetting target state after successful confirmation")
+        self._target_state = None
+        self._target_boil_time = None
+
     async def cancel_target(self):
         self._target_state = None
 
-    def stop(self):
+    async def stop(self):
         if self._disposed: return
-        self._disconnect()
+        await self._disconnect()
         self._disposed = True
         _LOGGER.info("Stopped.")
 
@@ -622,6 +698,16 @@ class SkyCookerConnection(SkyCooker):
             _LOGGER.warning(f"⚠️  Некорректный режим {target_mode} для модели {model_type}, использую режим 0 (Multi-chef)")
             target_mode = 0
         
+        # Проверяем, поддерживается ли режим устройством
+        if not self._is_mode_supported(target_mode):
+            _LOGGER.error(f"❌ Режим {target_mode} не поддерживается устройством, использую режим 0 (Multi-chef)")
+            target_mode = 0
+        
+        # Проверяем, поддерживается ли режим устройством
+        if not self._is_mode_supported(target_mode):
+            _LOGGER.error(f"❌ Режим {target_mode} не поддерживается устройством, использую режим 0 (Multi-chef)")
+            target_mode = 0
+        
         # Get current values from the connection (which should be set by Number components)
         # These values may have been modified by the user
         target_temp = self._target_state[1] if self._target_state else None
@@ -656,8 +742,11 @@ class SkyCookerConnection(SkyCooker):
         
         # After starting, reset the values to defaults from MODE_DATA
         # This will make Number components show default values again
-        self._target_state = None
-        self._target_boil_time = None
+        # Но не сбрасываем _target_state и _target_boil_time сразу после запуска,
+        # так как это может привести к сбросу состояния устройства
+        # Вместо этого, сбросим их после успешного подтверждения состояния
+        # self._target_state = None
+        # self._target_boil_time = None
 
     async def stop_cooking(self):
         """Stop cooking."""
@@ -673,6 +762,9 @@ class SkyCookerConnection(SkyCooker):
             delattr(self, '_target_delayed_start_hours')
         if hasattr(self, '_target_delayed_start_minutes'):
             delattr(self, '_target_delayed_start_minutes')
+        
+        # Clear status to force re-read on next start
+        self._status = None
 
     async def start_delayed(self):
         """Start cooking with delayed start."""
@@ -757,8 +849,11 @@ class SkyCookerConnection(SkyCooker):
         
         # After starting, reset the values to defaults from MODE_DATA
         # This will make Number components show default values again
-        self._target_state = None
-        self._target_boil_time = None
+        # Но не сбрасываем _target_state и _target_boil_time сразу после запуска,
+        # так как это может привести к сбросу состояния устройства
+        # Вместо этого, сбросим их после успешного подтверждения состояния
+        # self._target_state = None
+        # self._target_boil_time = None
         if hasattr(self, '_target_delayed_start_hours'):
             delattr(self, '_target_delayed_start_hours')
         if hasattr(self, '_target_delayed_start_minutes'):
@@ -782,17 +877,21 @@ class SkyCookerConnection(SkyCooker):
             # Find the mode that matches the target temperature
             for mode_idx, mode_data in enumerate(MODE_DATA.get(model_type, [])):
                 if mode_data[0] == target_temp:
-                    target_mode = mode_idx
-                    break
+                    # Проверяем, поддерживается ли режим устройством
+                    if self._is_mode_supported(mode_idx):
+                        target_mode = mode_idx
+                        break
             
             # If no exact match found, use the closest mode
             if target_mode is None:
                 closest_diff = float('inf')
                 for mode_idx, mode_data in enumerate(MODE_DATA.get(model_type, [])):
-                    diff = abs(mode_data[0] - target_temp)
-                    if diff < closest_diff:
-                        closest_diff = diff
-                        target_mode = mode_idx
+                    # Проверяем, поддерживается ли режим устройством
+                    if self._is_mode_supported(mode_idx):
+                        diff = abs(mode_data[0] - target_temp)
+                        if diff < closest_diff:
+                            closest_diff = diff
+                            target_mode = mode_idx
         
         if target_mode != self.current_mode:
             _LOGGER.info(f"Mode autoswitched to {target_mode}")
@@ -801,6 +900,11 @@ class SkyCookerConnection(SkyCooker):
     async def set_target_mode(self, operation_mode):
         if operation_mode == self.target_mode: return
         _LOGGER.info(f"Setting target mode to {operation_mode}")
+        
+        # Проверяем, поддерживается ли режим устройством
+        if not self._is_mode_supported(operation_mode):
+            _LOGGER.error(f"❌ Режим {operation_mode} не поддерживается устройством")
+            return
         
         # Get MODE_DATA values for the selected mode
         model_type = self.model_code

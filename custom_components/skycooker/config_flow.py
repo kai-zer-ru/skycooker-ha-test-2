@@ -107,7 +107,7 @@ class SkyCookerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
               
             connect_ok = skycooker.last_connect_ok
             auth_ok = skycooker.last_auth_ok
-            skycooker.stop()
+            await skycooker.stop()
          
             if not connect_ok:
                 errors["base"] = "cant_connect"

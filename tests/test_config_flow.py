@@ -100,7 +100,7 @@ class TestSkyCookerConfigFlow:
         mock_connection.last_connect_ok = True
         mock_connection.last_auth_ok = True
         mock_connection.update = AsyncMock()
-        mock_connection.stop = MagicMock()
+        mock_connection.stop = AsyncMock()
 
         with patch("custom_components.skycooker.config_flow.SkyCookerConnection", return_value=mock_connection):
             result = await flow.async_step_connect(user_input={})
