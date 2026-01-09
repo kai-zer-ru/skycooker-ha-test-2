@@ -46,8 +46,8 @@ def skycooker_connection():
     connection.status_code = STATUS_OFF
     connection.current_mode = 0
     connection.model_code = MODEL_3
-    connection.target_state = None
-    connection.target_boil_time = None
+    connection.target_boil_hours = None
+    connection.target_boil_minutes = None
     return connection
 
 

@@ -28,7 +28,7 @@ class SkyCookerConnection(SkyCooker):
         self.adapter = adapter
         self.hass = hass
         self._auth_ok = False
-        self._sw_version = '0.0'
+        self._sw_version = '1.8'
         self._iter = 0
         self._update_lock = asyncio.Lock()
         self._last_set_target = 0
@@ -36,8 +36,11 @@ class SkyCookerConnection(SkyCooker):
         self._last_connect_ok = False
         self._last_auth_ok = False
         self._successes = []
-        self._target_state = None
-        self._target_boil_time = None
+        self._target_mode = None
+        self._auto_warm_enabled = False
+        self._target_temperature = None
+        self._target_boil_hours = None
+        self._target_boil_minutes = None
         self._target_delayed_start_hours = None
         self._target_delayed_start_minutes = None
         self._status = None
@@ -155,42 +158,41 @@ class SkyCookerConnection(SkyCooker):
 
     auth = lambda self: super().auth(self._key)
 
-    async def select_mode(self, mode, subprog=0, target_temp=0, hours=0, minutes=0, dhours=0, dminutes=0, heat=0, bit_flags=0):
+    async def select_mode(self, mode, subprog=0, target_temp=0, target_boil_hours=0, target_boil_minutes=0, target_delayed_start_hours=0, target_delayed_start_minutes=0, auto_warm=0, bit_flags=0):
         # Проверяем, поддерживается ли режим устройством
         # Режим 16 (ожидание) не может быть установлен напрямую, но может быть получен как текущий статус
         if mode != 16 and not self._is_mode_supported(mode):
             _LOGGER.error(f"❌ Попытка установить неподдерживаемый режим {mode}")
             raise ValueError(f"Режим {mode} не поддерживается устройством")
-         
+          
         # Вызываем метод базового класса для отправки команды
-        _LOGGER.debug(f"📤 Отправка команды SELECT_MODE для режима {mode} с параметрами: heat={heat}, bit_flags={bit_flags}")
-        await super().select_mode(mode, subprog, target_temp, hours, minutes, dhours, dminutes, heat, bit_flags)
-         
+        _LOGGER.debug(f"📤 Отправка команды SELECT_MODE для режима {mode} с параметрами: auto_warm={auto_warm}, bit_flags={bit_flags}")
+        await super().select_mode(mode, subprog, target_temp, target_boil_hours, target_boil_minutes, target_delayed_start_hours, target_delayed_start_minutes, auto_warm, bit_flags)
+          
         # При выборе режима устанавливаем Number значения из MODE_DATA для текущего режима
         # ТОЛЬКО ЕСЛИ ПОЛЬЗОВАТЕЛЬ НЕ ИЗМЕНЯЛ ИХ ВРУЧНУЮ
         model_type = self.model_code
         if model_type and model_type in MODE_DATA and mode < len(MODE_DATA[model_type]):
             mode_data = MODE_DATA[model_type][mode]
-             
+               
             # Устанавливаем температуру из MODE_DATA только если пользователь не установил свою
             target_temp_from_mode = mode_data[0]
             if target_temp_from_mode != 0:
                 # Проверяем, установил ли пользователь свою температуру
                 if not hasattr(self, '_target_temperature') or self._target_temperature is None:
-                    # Сбрасываем целевую температуру, чтобы Number entity показал значение из MODE_DATA
-                    if hasattr(self, '_target_temperature'):
-                        delattr(self, '_target_temperature')
-             
+                    self._target_temperature = target_temp_from_mode
+               
             # Устанавливаем время приготовления из MODE_DATA только если пользователь не установил свое
-            cook_hours = mode_data[1]
-            cook_minutes = mode_data[2]
-            if cook_hours != 0 or cook_minutes != 0:
+            target_boil_hours = mode_data[1]
+            target_boil_minutes = mode_data[2]
+            if target_boil_hours != 0 or target_boil_minutes != 0:
                 # Проверяем, установил ли пользователь свое время
                 # Не сбрасываем время, если пользователь уже установил его
-                if self._target_boil_time is None:
+                if self._target_boil_hours is None and self._target_boil_minutes is None:
                     # Устанавливаем время из MODE_DATA только если пользователь не установил свое
-                    self._target_boil_time = cook_hours * 60 + cook_minutes
-             
+                    self._target_boil_hours = target_boil_hours
+                    self._target_boil_minutes = target_boil_minutes
+               
             # Сбрасываем отложенный старт только если пользователь не установил его
             if getattr(self, '_target_delayed_start_hours', None) is None and getattr(self, '_target_delayed_start_minutes', None) is None:
                 self._target_delayed_start_hours = None
@@ -262,89 +264,99 @@ class SkyCookerConnection(SkyCooker):
                 _LOGGER.info("🔄 Обновление состояния мультиварки")
                 if not self.available: force_stats = True
                 await self._connect_if_need()
- 
+  
                 if extra_action: await extra_action
- 
+  
                 try:
                     self._status = await self.get_status()
                 except Exception as e:
                     _LOGGER.warning(f"⚠️  Ошибка получения статуса: {e}")
                     self._status = None
                     raise
-                boil_time = self._status.boil_time
-                if self._target_boil_time is not None and self._target_boil_time != boil_time:
+                
+                # Не обновляем элементы управления при получении статуса
+                # Только обновляем внутреннее состояние для сенсоров
+                target_boil_hours = self._status.target_boil_hours
+                target_boil_minutes = self._status.target_boil_minutes
+                target_boil_time = (self._target_boil_hours * 60 + self._target_boil_minutes) if (self._target_boil_hours is not None and self._target_boil_minutes is not None) else None
+                current_boil_time = target_boil_hours * 60 + target_boil_minutes
+                if target_boil_time is not None and target_boil_time != current_boil_time:
                     try:
-                        _LOGGER.info(f"🔥 Необходимо обновить время кипения с {boil_time} на {self._target_boil_time}")
-                        boil_time = self._target_boil_time
-                        if self._target_state is None:
-                            self._target_state = self._status.mode if self._status.is_on else None, self._status.target_temp
+                        _LOGGER.info(f"🔥 Необходимо обновить время кипения с {current_boil_time} на {target_boil_time}")
+                        if not hasattr(self, '_target_mode') or self._target_mode is None:
+                            self._target_mode = self._status.mode if self._status.is_on else None
+                            self._target_temperature = self._status.target_temp
                             self._last_set_target = monotonic()
                         if self._status.is_on:
                             await self.turn_off()
                             await asyncio.sleep(0.2)
-                         
+                            
                         # Проверяем, поддерживается ли целевой режим устройством
-                        # Если устройство находится в режиме ожидания (16), используем целевой режим из _target_state
-                        target_mode_to_check = self._target_state[0] if self._target_state else self._status.mode
+                        # Если устройство находится в режиме ожидания (16), используем целевой режим
+                        target_mode_to_check = self._target_mode if hasattr(self, '_target_mode') else self._status.mode
                         if not self._is_mode_supported(target_mode_to_check):
                             _LOGGER.error(f"❌ Режим {target_mode_to_check} не поддерживается устройством")
-                            self._target_boil_time = None
+                            self._target_boil_hours = None
+                            self._target_boil_minutes = None
                             return False
-                         
+                            
                         # Отправляем команду "Выбор режима" перед установкой режима
-                        # Если устройство находится в режиме ожидания (16), используем целевой режим из _target_state
-                        target_mode_for_update = self._target_state[0] if self._target_state else self._status.mode
+                        # Если устройство находится в режиме ожидания (16), используем целевой режим
+                        target_mode_for_update = self._target_mode if hasattr(self, '_target_mode') else self._status.mode
                         _LOGGER.debug(f"📤 Отправка команды SELECT_MODE для режима {target_mode_for_update}")
-                        await self.select_mode(target_mode_for_update, 0, self._status.target_temp, boil_time // 60, boil_time % 60)
+                        await self.select_mode(target_mode_for_update, 0, self._status.target_temp, target_boil_hours, target_boil_minutes)
                         _LOGGER.debug(f"📤 Отправка команды SET_MAIN_MODE для режима {target_mode_for_update}")
-                        await self.set_main_mode(target_mode_for_update, 0, self._status.target_temp, boil_time // 60, boil_time % 60)
-                        _LOGGER.info(f"✅ Время кипения успешно установлено на {boil_time}")
+                        await self.set_main_mode(target_mode_for_update, 0, self._status.target_temp, target_boil_hours, target_boil_minutes)
+                        _LOGGER.info(f"✅ Время кипения успешно установлено на {target_boil_hours}:{target_boil_minutes:02d}")
                         # После успешной установки времени, получаем актуальный статус
                         self._status = await self.get_status()
                     except Exception as ex:
                         _LOGGER.error(f"❌ Не удалось обновить время кипения ({type(ex).__name__}): {str(ex)}")
-                        _LOGGER.debug(f"💡 Сбрасываем _target_boil_time, чтобы избежать циклических попыток")
-                        # В случае ошибки, сбрасываем _target_boil_time, чтобы избежать циклических попыток
-                        self._target_boil_time = None
+                        _LOGGER.debug(f"💡 Сбрасываем _target_boil_hours и _target_boil_minutes, чтобы избежать циклических попыток")
+                        # В случае ошибки, сбрасываем _target_boil_hours и _target_boil_minutes, чтобы избежать циклических попыток
+                        self._target_boil_hours = None
+                        self._target_boil_minutes = None
                         return False
-                # Не сбрасываем _target_boil_time после успешной установки,
+                # Не сбрасываем _target_boil_hours и _target_boil_minutes после успешной установки,
                 # чтобы интерфейс мог правильно отображать текущее значение
-                # self._target_boil_time = None
+                # self._target_boil_hours = None
+                # self._target_boil_minutes = None
 
                 # Не вызываем commit() здесь, так как он вызовет повторный update()
                 # и может сбросить состояние. Вместо этого продолжим обработку
                 # целевого состояния ниже.
 
-                if self._target_state is not None:
-                    target_mode, target_temp = self._target_state
+                if hasattr(self, '_target_mode') and self._target_mode is not None:
+                    target_mode = self._target_mode
+                    target_temp = self._target_temperature if hasattr(self, '_target_temperature') else None
                     if target_mode is None and self._status.is_on:
-                        _LOGGER.info(f"🔄 Состояние: {self._status} -> {self._target_state}")
+                        _LOGGER.info(f"🔄 Состояние: {self._status} -> ({target_mode}, {target_temp})")
                         _LOGGER.info("🔌 Необходимо выключить мультиварку...")
                         await self.turn_off()
                         _LOGGER.info("✅ Мультиварка выключена")
                         await asyncio.sleep(0.2)
                         self._status = await self.get_status()
                     elif target_mode is not None and not self._status.is_on:
-                        _LOGGER.info(f"🔄 Состояние: {self._status} -> {self._target_state}")
+                        _LOGGER.info(f"🔄 Состояние: {self._status} -> ({target_mode}, {target_temp})")
                         _LOGGER.info("🔌 Необходимо установить режим и включить мультиварку...")
                         try:
                             # Проверяем, поддерживается ли режим устройством
                             if not self._is_mode_supported(target_mode):
                                 _LOGGER.error(f"❌ Режим {target_mode} не поддерживается устройством")
-                                self._target_state = None
+                                self._target_mode = None
                                 return False
-                             
+                               
                             # Если устройство находится в режиме ожидания (mode=16), нужно сначала его пробудить
                             if self._status.mode == 16:
                                 _LOGGER.info("🔄 Устройство находится в режиме ожидания, пробуждаем...")
-                                await self.select_mode(target_mode, 0, target_temp, boil_time // 60, boil_time % 60)
+                                await self.select_mode(target_mode, 0, target_temp, target_boil_hours, target_boil_minutes)
                                 await asyncio.sleep(0.5)  # Увеличенная задержка для пробуждения
-                             
+                               
                             # Отправляем команду "Выбор режима" перед установкой режима
                             _LOGGER.debug(f"📤 Отправка команды SELECT_MODE для режима {target_mode}")
-                            await self.select_mode(target_mode, 0, target_temp, boil_time // 60, boil_time % 60)
+                            await self.select_mode(target_mode, 0, target_temp, target_boil_hours, target_boil_minutes)
                             _LOGGER.debug(f"📤 Отправка команды SET_MAIN_MODE для режима {target_mode}")
-                            await self.set_main_mode(target_mode, 0, target_temp, boil_time // 60, boil_time % 60)
+                            await self.set_main_mode(target_mode, 0, target_temp, target_boil_hours, target_boil_minutes)
                             _LOGGER.info("✅ Режим установлен")
                             await self.turn_on()
                             _LOGGER.info("✅ Мультиварка включена")
@@ -352,36 +364,36 @@ class SkyCookerConnection(SkyCooker):
                             self._status = await self.get_status()
                         except Exception as ex:
                             _LOGGER.error(f"❌ Ошибка при установке режима {target_mode}: {str(ex)}")
-                            _LOGGER.debug(f"💡 Сбрасываем _target_state, чтобы избежать циклических попыток")
-                            self._target_state = None
+                            _LOGGER.debug(f"💡 Сбрасываем _target_mode, чтобы избежать циклических попыток")
+                            self._target_mode = None
                             return False
                     elif target_mode is not None and (
                             target_mode != self._status.mode or
                             target_temp != self._status.target_temp):
-                        _LOGGER.info(f"🔄 Состояние: {self._status} -> {self._target_state}")
+                        _LOGGER.info(f"🔄 Состояние: {self._status} -> ({target_mode}, {target_temp})")
                         _LOGGER.info("🔌 Необходимо переключить режим мультиварки и перезапустить её")
                         try:
                             await self.turn_off()
                             _LOGGER.info("✅ Мультиварка выключена")
                             await asyncio.sleep(0.2)
-                             
+                               
                             # Проверяем, поддерживается ли режим устройством
                             if not self._is_mode_supported(target_mode):
                                 _LOGGER.error(f"❌ Режим {target_mode} не поддерживается устройством")
-                                self._target_state = None
+                                self._target_mode = None
                                 return False
-                             
+                               
                             # Если устройство находится в режиме ожидания (mode=16), нужно сначала его пробудить
                             if self._status.mode == 16:
                                 _LOGGER.info("🔄 Устройство находится в режиме ожидания, пробуждаем...")
-                                await self.select_mode(target_mode, 0, target_temp, boil_time // 60, boil_time % 60)
+                                await self.select_mode(target_mode, 0, target_temp, target_boil_hours, target_boil_minutes)
                                 await asyncio.sleep(0.5)  # Увеличенная задержка для пробуждения
-                             
+                               
                             # Отправляем команду "Выбор режима" перед установкой режима
                             _LOGGER.debug(f"📤 Отправка команды SELECT_MODE для режима {target_mode}")
-                            await self.select_mode(target_mode, 0, target_temp, boil_time // 60, boil_time % 60)
+                            await self.select_mode(target_mode, 0, target_temp, target_boil_hours, target_boil_minutes)
                             _LOGGER.debug(f"📤 Отправка команды SET_MAIN_MODE для режима {target_mode}")
-                            await self.set_main_mode(target_mode, 0, target_temp, boil_time // 60, boil_time % 60)
+                            await self.set_main_mode(target_mode, 0, target_temp, target_boil_hours, target_boil_minutes)
                             _LOGGER.info("✅ Режим установлен")
                             await self.turn_on()
                             _LOGGER.info("✅ Мультиварка включена")
@@ -389,28 +401,23 @@ class SkyCookerConnection(SkyCooker):
                             self._status = await self.get_status()
                         except Exception as ex:
                             _LOGGER.error(f"❌ Ошибка при переключении режима {target_mode}: {str(ex)}")
-                            _LOGGER.debug(f"💡 Сбрасываем _target_state, чтобы избежать циклических попыток")
-                            self._target_state = None
+                            _LOGGER.debug(f"💡 Сбрасываем _target_mode, чтобы избежать циклических попыток")
+                            self._target_mode = None
                             return False
                     else:
                         _LOGGER.debug(f"📊 Нет необходимости обновлять состояние")
-                    self._target_state = None
+                    self._target_mode = None
 
                 await self._disconnect_if_need()
                 self.add_stat(True)
-                
-                # Если это был вызов с commit=True, сбрасываем состояние
-                # после успешного подтверждения
-                if commit:
-                    await self._reset_target_state_after_success()
-                
+
                 return True
 
         except Exception as ex:
             await self.disconnect()
-            if self._target_state is not None and self._last_set_target + TARGET_TTL < monotonic():
-                _LOGGER.warning(f"⚠️  Не удалось установить режим {self._target_state} в течение {TARGET_TTL} секунд, прекращаю попытки")
-                self._target_state = None
+            if hasattr(self, '_target_mode') and self._target_mode is not None and self._last_set_target + TARGET_TTL < monotonic():
+                _LOGGER.warning(f"⚠️  Не удалось установить режим {self._target_mode} в течение {TARGET_TTL} секунд, прекращаю попытки")
+                self._target_mode = None
             if type(ex) == AuthError: return None
             self.add_stat(False)
             if tries > 1 and extra_action is None:
@@ -431,11 +438,6 @@ class SkyCookerConnection(SkyCooker):
         if len(self._successes) == 0: return 0
         return int(100 * len([s for s in self._successes if s]) / len(self._successes))
 
-    async def _set_target_state(self, target_mode, target_temp = 0):
-        self._target_state = target_mode, target_temp
-        self._last_set_target = monotonic()
-        await self.update()
-
     async def commit(self):
         """Commit changes to the device."""
         _LOGGER.debug("Committing changes")
@@ -455,16 +457,11 @@ class SkyCookerConnection(SkyCooker):
                 return True
         return True
 
-    async def _reset_target_state_after_success(self):
-        """Reset target state after successful confirmation."""
-        _LOGGER.debug("Resetting target state after successful confirmation")
-        self._target_state = None
-        # Не сбрасываем _target_boil_time после успешной установки,
-        # чтобы интерфейс мог правильно отображать текущее значение
-        # self._target_boil_time = None
-
     async def cancel_target(self):
-        self._target_state = None
+        self._target_mode = None
+        self._target_temperature = None
+        self._target_boil_hours = None
+        self._target_boil_minutes = None
 
     async def stop(self):
         if self._disposed: return
@@ -485,30 +482,6 @@ class SkyCookerConnection(SkyCooker):
         return self._last_auth_ok
 
     @property
-    def minutes(self):
-        if self._status:
-            return self._status.minutes
-        return None
-    
-    @property
-    def hours(self):
-        if self._status:
-            return self._status.hours
-        return None
-    
-    @property
-    def dhours(self):
-        if self._status:
-            return self._status.dhours
-        return None
-    
-    @property
-    def dminutes(self):
-        if self._status:
-            return self._status.dminutes
-        return None
-    
-    @property
     def auto_warm(self):
         if self._status:
             return self._status.auto_warm
@@ -528,14 +501,8 @@ class SkyCookerConnection(SkyCooker):
 
     @property
     def target_temp(self):
-        if self._target_state:
-            target_mode, target_temp = self._target_state
-            if target_mode in [0, 1]:
-                return target_temp
-            if target_mode == 2:
-                return 100
-            if target_mode is None:
-                return 25
+        if hasattr(self, '_target_temperature') and self._target_temperature is not None:
+            return self._target_temperature
         if self._status:
             if self._status.is_on:
                 if self._status.mode in [0, 1]:
@@ -548,33 +515,32 @@ class SkyCookerConnection(SkyCooker):
 
     @property
     def target_mode(self):
-        if self._target_state:
-            target_mode, target_temp = self._target_state
-            return target_mode
+        if hasattr(self, '_target_mode') and self._target_mode is not None:
+            return self._target_mode
         else:
             if self._status and self._status.is_on:
                 return self._status.mode
         return None
 
     @property
-    def target_state(self):
-        """Return the target state."""
-        return self._target_state
+    def target_boil_hours(self):
+        """Return the target boil hours."""
+        return self._target_boil_hours
 
-    @target_state.setter
-    def target_state(self, value):
-        """Set the target state."""
-        self._target_state = value
+    @target_boil_hours.setter
+    def target_boil_hours(self, value):
+        """Set the target boil hours."""
+        self._target_boil_hours = value
 
     @property
-    def target_boil_time(self):
-        """Return the target boil time."""
-        return self._target_boil_time
+    def target_boil_minutes(self):
+        """Return the target boil minutes."""
+        return self._target_boil_minutes
 
-    @target_boil_time.setter
-    def target_boil_time(self, value):
-        """Set the target boil time."""
-        self._target_boil_time = value
+    @target_boil_minutes.setter
+    def target_boil_minutes(self, value):
+        """Set the target boil minutes."""
+        self._target_boil_minutes = value
 
     @property
     def target_delayed_start_hours(self):
@@ -599,22 +565,13 @@ class SkyCookerConnection(SkyCooker):
     @property
     def target_temperature(self):
         """Return the target temperature."""
-        return self._target_temperature if hasattr(self, '_target_temperature') else None
+        if not self._status: return 0
+        return self._target_temperature if hasattr(self, '_target_temperature') else self._status.target_temp
 
     @target_temperature.setter
     def target_temperature(self, value):
         """Set the target temperature."""
         self._target_temperature = value
-
-    @property
-    def target_cooking_time(self):
-        """Return the target cooking time."""
-        return self._target_cooking_time if hasattr(self, '_target_cooking_time') else None
-
-    @target_cooking_time.setter
-    def target_cooking_time(self, value):
-        """Set the target cooking time."""
-        self._target_cooking_time = value
 
     @property
     def status(self):
@@ -638,48 +595,38 @@ class SkyCookerConnection(SkyCooker):
         return self._status.sound_enabled
 
     @property
-    def boil_time(self):
-        if not self._status: return None
-        return self._status.boil_time
-
-    @property
     def status_code(self):
         if not self._status: return None
         return self._status.mode if self._status.is_on else STATUS_OFF
 
     @property
-    def target_temperature(self):
-        if not self._status: return None
-        return self._status.target_temp
-
-    @property
     def remaining_time(self):
         if not self._status: return None
-        # Return boil_time as remaining time
-        return self._status.boil_time
+        # Return remaining time based on target_boil_hours and target_boil_minutes
+        return (self._status.target_delayed_start_hours * 60 + self._status.target_delayed_start_minutes) + (self._status.target_boil_hours * 60 + self._status.target_boil_minutes)
 
     @property
     def total_time(self):
         if not self._status: return None
         # For total time, we need to calculate based on status
-        # For now, return boil_time as a placeholder
+        # For now, return target_boil_hours and target_boil_minutes as a placeholder
         # In a real implementation, this should come from the program settings
-        return self._status.boil_time
+        return self._status.target_boil_hours * 60 + self._status.target_boil_minutes
 
     @property
     def delayed_start_time(self):
         if not self._status: return None
         # For delayed start time, we need to calculate based on status
         # For now, return 0 as a placeholder
-        # In a real implementation, this should come from wait_hours and wait_minutes
-        return 0
+        # In a real implementation, this should come from target_delayed_start_hours and target_delayed_start_minutes
+        return (self._status.target_delayed_start_hours * 60 + self._status.target_delayed_start_minutes) if self._status.mode == STATUS_DELAYED_LAUNCH else 0
 
     @property
     def auto_warm_time(self):
         if not self._status: return None
         # For auto warm time, we need to calculate based on status
-        # For now, return boil_time if in auto warm mode, else 0
-        return self._status.boil_time if self._status.mode == STATUS_AUTO_WARM else 0
+        # For now, return target_boil_hours and target_boil_minutes if in auto warm mode, else 0
+        return (self._status.target_delayed_start_hours * 60 + self._status.target_delayed_start_minutes) if self._status.mode == STATUS_AUTO_WARM else 0
 
     @property
     def auto_warm_enabled(self):
@@ -690,10 +637,12 @@ class SkyCookerConnection(SkyCooker):
         if not self._status: return None
         return self._status.mode == STATUS_AUTO_WARM
 
-    async def set_boil_time(self, value):
-        value = int(value)
-        _LOGGER.info(f"Setting boil time to {value}")
-        self._target_boil_time = value
+    async def set_boil_time(self, target_boil_hours, target_boil_minutes):
+        target_boil_hours = int(target_boil_hours)
+        target_boil_minutes = int(target_boil_minutes)
+        _LOGGER.info(f"Setting boil time to {target_boil_hours}:{target_boil_minutes:02d}")
+        self._target_boil_hours = target_boil_hours
+        self._target_boil_minutes = target_boil_minutes
         await self.update(commit=True)
 
     async def set_temperature(self, value):
@@ -703,33 +652,18 @@ class SkyCookerConnection(SkyCooker):
         if self._status and self._status.is_on:
             # If device is on, we need to send temperature command
             # For now, store it and it will be applied on next update
-            self._target_state = self._status.mode, value
+            self._target_temperature = value
             await self.update(commit=True)
         else:
             # If device is off, just store the target temperature
             # It will be applied when device is turned on
-            if self._target_state:
-                target_mode, _ = self._target_state
-                self._target_state = target_mode, value
-            else:
-                self._target_state = self._status.mode if self._status else None, value
+            self._target_temperature = value
 
-    async def set_cooking_time(self, hours, minutes):
-        """Set cooking time."""
-        hours = int(hours)
-        minutes = int(minutes)
-        _LOGGER.info(f"Setting cooking time to {hours}:{minutes:02d}")
-        # For now, convert to total minutes and store in boil_time
-        # In a real implementation, this should send the proper command
-        total_minutes = hours * 60 + minutes
-        self._target_boil_time = total_minutes
-        await self.update(commit=True)
-
-    async def set_delayed_start(self, hours, minutes):
+    async def set_delayed_start(self, target_delayed_start_hours, target_delayed_start_minutes):
         """Set delayed start time."""
-        hours = int(hours)
-        minutes = int(minutes)
-        _LOGGER.info(f"Setting delayed start time to {hours}:{minutes:02d}")
+        target_delayed_start_hours = int(target_delayed_start_hours)
+        target_delayed_start_minutes = int(target_delayed_start_minutes)
+        _LOGGER.info(f"Setting delayed start time to {target_delayed_start_hours}:{target_delayed_start_minutes:02d}")
         # In a real implementation, this should send the proper command
         # For now, we'll just log it
         await self.update(commit=True)
@@ -738,42 +672,42 @@ class SkyCookerConnection(SkyCooker):
         """Start cooking with current settings."""
         _LOGGER.info("Starting cooking with current settings")
          
-        # Get the mode that the user has selected (from target_state), not the current device mode
+        # Get the mode that the user has selected, not the current device mode
         # If user has selected a mode, use that. Otherwise, use current device mode.
-        if self._target_state and self._target_state[0] is not None:
-            target_mode = self._target_state[0]
+        if hasattr(self, '_target_mode') and self._target_mode is not None:
+            target_mode = self._target_mode
             _LOGGER.info(f"🎯 Используется целевой режим {target_mode} (выбран пользователем)")
         else:
             target_mode = self._status.mode if self._status else 0
             _LOGGER.info(f"🎯 Используется текущий режим устройства {target_mode}")
-         
+          
         # Check if auto warm is enabled and set the appropriate flag
         auto_warm_flag = 1 if getattr(self, '_auto_warm_enabled', False) else 0
         _LOGGER.info(f"🔥 Автоподогрев {'включен' if auto_warm_flag else 'выключен'}")
-         
+          
         model_type = self.model_code
-         
+          
         # Validate target_mode - if it's invalid (e.g., 16 for MODEL_3), use mode 0 (Multi-chef)
         if model_type and model_type in MODE_DATA and target_mode >= len(MODE_DATA[model_type]):
             _LOGGER.warning(f"⚠️  Некорректный режим {target_mode} для модели {model_type}, использую режим 0 (Multi-chef)")
             target_mode = 0
-         
+          
         # Проверяем, поддерживается ли режим устройством
         if not self._is_mode_supported(target_mode):
             _LOGGER.error(f"❌ Режим {target_mode} не поддерживается устройством, использую режим 0 (Multi-chef)")
             target_mode = 0
-         
+          
         # Если текущий режим устройства - 16 (ожидание), и пользователь не выбрал режим,
         # используем режим 0 (Multi-chef) вместо режима 16
         if target_mode == 16:
             _LOGGER.warning(f"⚠️  Режим 16 (ожидание) не может быть установлен напрямую, использую режим 0 (Multi-chef)")
             target_mode = 0
-         
+          
         # Get current values from the connection (which should be set by Number components)
         # These values may have been modified by the user
-        target_temp = self._target_state[1] if self._target_state else None
-        cook_hours = self._target_boil_time // 60 if self._target_boil_time else 0
-        cook_minutes = self._target_boil_time % 60 if self._target_boil_time else 0
+        target_temp = self._target_temperature if hasattr(self, '_target_temperature') else None
+        target_boil_hours = self._target_boil_hours if self._target_boil_hours is not None else 0
+        target_boil_minutes = self._target_boil_minutes if self._target_boil_minutes is not None else 0
          
         # If user hasn't set custom temperature, use default from MODE_DATA
         if target_temp is None:
@@ -781,16 +715,16 @@ class SkyCookerConnection(SkyCooker):
                 target_temp = MODE_DATA[model_type][target_mode][0]
          
         # If user hasn't set custom cooking time, use default from MODE_DATA
-        if cook_hours == 0 and cook_minutes == 0:
+        if target_boil_hours == 0 and target_boil_minutes == 0:
             if model_type and model_type in MODE_DATA and target_mode < len(MODE_DATA[model_type]):
-                cook_hours = MODE_DATA[model_type][target_mode][1]
-                cook_minutes = MODE_DATA[model_type][target_mode][2]
+                target_boil_hours = MODE_DATA[model_type][target_mode][1]
+                target_boil_minutes = MODE_DATA[model_type][target_mode][2]
          
         # Ensure all values are integers (not None)
-        cook_hours = cook_hours or 0
-        cook_minutes = cook_minutes or 0
+        target_boil_hours = target_boil_hours or 0
+        target_boil_minutes = target_boil_minutes or 0
          
-        _LOGGER.info(f"Starting cooking: mode={target_mode}, temp={target_temp}, time={cook_hours}:{cook_minutes:02d}")
+        _LOGGER.info(f"Starting cooking: mode={target_mode}, temp={target_temp}, time={target_boil_hours}:{target_boil_minutes:02d}")
          
         # Check if device is in standby mode (mode 16) or if we need to wake it up
         is_in_standby = self._status and self._status.mode == 16
@@ -808,11 +742,11 @@ class SkyCookerConnection(SkyCooker):
             if is_in_standby:
                 _LOGGER.info("🔄 Устройство находится в режиме ожидания (16 статус)")
                 _LOGGER.info("📤 Отправка команды 09 с выбранным режимом")
-                await self.select_mode(target_mode, 0, target_temp, cook_hours, cook_minutes, 0, 0, auto_warm_flag)
+                await self.select_mode(target_mode, 0, target_temp, target_boil_hours, target_boil_minutes, 0, 0, auto_warm_flag)
                 await asyncio.sleep(0.5)
                 
                 _LOGGER.info("📤 Отправка COMMAND_SET_MAIN_MODE = 0x05 с выбранными параметрами")
-                await self.set_main_mode(target_mode, 0, target_temp, cook_hours, cook_minutes, 0, 0, auto_warm_flag)
+                await self.set_main_mode(target_mode, 0, target_temp, target_boil_hours, target_boil_minutes, 0, 0, auto_warm_flag)
                 await asyncio.sleep(0.3)
                 
                 _LOGGER.info("📤 Отправка COMMAND_TURN_ON = 0x03")
@@ -823,7 +757,7 @@ class SkyCookerConnection(SkyCooker):
             elif current_device_mode == target_mode and device_is_on:
                 _LOGGER.info(f"🔄 На мультиварке уже выбран режим {target_mode}, и он совпадает с выбранным в интерфейсе")
                 _LOGGER.info("📤 Отправка COMMAND_SET_MAIN_MODE = 0x05 с выбранными параметрами")
-                await self.set_main_mode(target_mode, 0, target_temp, cook_hours, cook_minutes, 0, 0, auto_warm_flag)
+                await self.set_main_mode(target_mode, 0, target_temp, target_boil_hours, target_boil_minutes, 0, 0, auto_warm_flag)
                 await asyncio.sleep(0.3)
                 
                 _LOGGER.info("📤 Отправка COMMAND_TURN_ON = 0x03")
@@ -835,11 +769,11 @@ class SkyCookerConnection(SkyCooker):
             elif current_device_mode != target_mode:
                 _LOGGER.info(f"🔄 На мультиварке уже выбран режим {current_device_mode}, и он НЕ совпадает с выбранным в интерфейсе ({target_mode})")
                 _LOGGER.info("📤 Отправка команды 09 с выбранным режимом")
-                await self.select_mode(target_mode, 0, target_temp, cook_hours, cook_minutes, 0, 0, auto_warm_flag)
+                await self.select_mode(target_mode, 0, target_temp, target_boil_hours, target_boil_minutes, 0, 0, auto_warm_flag)
                 await asyncio.sleep(0.5)
                 
                 _LOGGER.info("📤 Отправка COMMAND_SET_MAIN_MODE = 0x05 с выбранными параметрами")
-                await self.set_main_mode(target_mode, 0, target_temp, cook_hours, cook_minutes, 0, 0, auto_warm_flag)
+                await self.set_main_mode(target_mode, 0, target_temp, target_boil_hours, target_boil_minutes, 0, 0, auto_warm_flag)
                 await asyncio.sleep(0.3)
                 
                 _LOGGER.info("📤 Отправка COMMAND_TURN_ON = 0x03")
@@ -849,23 +783,25 @@ class SkyCookerConnection(SkyCooker):
                 _LOGGER.info("🔄 Неизвестное состояние устройства, отправляем все команды")
                 if is_in_standby:
                     _LOGGER.info("🔄 Устройство находится в режиме ожидания, отправляем команду SELECT_MODE для пробуждения")
-                    await self.select_mode(target_mode, 0, target_temp, cook_hours, cook_minutes)
+                    await self.select_mode(target_mode, 0, target_temp, target_boil_hours, target_boil_minutes)
                     await asyncio.sleep(0.5)
                 
-                await self.select_mode(target_mode, 0, target_temp, cook_hours, cook_minutes, 0, 0, auto_warm_flag)
+                await self.select_mode(target_mode, 0, target_temp, target_boil_hours, target_boil_minutes, 0, 0, auto_warm_flag)
                 await asyncio.sleep(0.3)
                 
-                await self.set_main_mode(target_mode, 0, target_temp, cook_hours, cook_minutes, 0, 0, auto_warm_flag)
+                await self.set_main_mode(target_mode, 0, target_temp, target_boil_hours, target_boil_minutes, 0, 0, auto_warm_flag)
                 await asyncio.sleep(0.3)
                 
                 await self.turn_on()
              
             # Update status after starting
             self._status = await self.get_status()
-             
-            # Set target state for future reference
-            self._target_state = (target_mode, target_temp)
-            self._target_boil_time = cook_hours * 60 + cook_minutes
+              
+            # Set target mode and temperature for future reference
+            self._target_mode = target_mode
+            self._target_temperature = target_temp
+            self._target_boil_hours = target_boil_hours
+            self._target_boil_minutes = target_boil_minutes
              
             _LOGGER.info("✅ Приготовление успешно начато")
              
@@ -897,18 +833,20 @@ class SkyCookerConnection(SkyCooker):
     async def stop_cooking(self):
         """Stop cooking."""
         _LOGGER.info("Stopping cooking")
-        
+          
         # Turn off the device
         await self.turn_off()
-        
+          
         # Reset target state
-        self._target_state = None
-        self._target_boil_time = None
+        self._target_mode = None
+        self._target_temperature = None
+        self._target_boil_hours = None
+        self._target_boil_minutes = None
         if hasattr(self, '_target_delayed_start_hours'):
             delattr(self, '_target_delayed_start_hours')
         if hasattr(self, '_target_delayed_start_minutes'):
             delattr(self, '_target_delayed_start_minutes')
-        
+          
         # Clear status to force re-read on next start
         self._status = None
 
@@ -916,39 +854,39 @@ class SkyCookerConnection(SkyCooker):
         """Start cooking with delayed start."""
         _LOGGER.info("Starting cooking with delayed start")
          
-        # Get the mode that the user has selected (from target_state), not the current device mode
+        # Get the mode that the user has selected, not the current device mode
         # If user has selected a mode, use that. Otherwise, use current device mode.
-        if self._target_state and self._target_state[0] is not None:
-            target_mode = self._target_state[0]
+        if hasattr(self, '_target_mode') and self._target_mode is not None:
+            target_mode = self._target_mode
             _LOGGER.info(f"🎯 Используется целевой режим {target_mode} (выбран пользователем)")
         else:
             target_mode = self._status.mode if self._status else 0
             _LOGGER.info(f"🎯 Используется текущий режим устройства {target_mode}")
-        
-        model_type = self.model_code
          
+        model_type = self.model_code
+          
         # Validate target_mode - if it's invalid (e.g., 16 for MODEL_3), use mode 0 (Multi-chef)
         if model_type and model_type in MODE_DATA and target_mode >= len(MODE_DATA[model_type]):
             _LOGGER.warning(f"⚠️  Некорректный режим {target_mode} для модели {model_type}, использую режим 0 (Multi-chef)")
             target_mode = 0
-        
+         
         # Get current values from the connection (which should be set by Number components)
         # These values may have been modified by the user
-        target_temp = self._target_state[1] if self._target_state else None
-        cook_hours = self._target_boil_time // 60 if self._target_boil_time else 0
-        cook_minutes = self._target_boil_time % 60 if self._target_boil_time else 0
+        target_temp = self._target_temperature if hasattr(self, '_target_temperature') else None
+        target_boil_hours = self._target_boil_hours if self._target_boil_hours is not None else 0
+        target_boil_minutes = self._target_boil_minutes if self._target_boil_minutes is not None else 0
          
         # Get delayed start time from Number components (not from MODE_DATA)
         # These values should be set by the user through the Number entities
-        wait_hours = 0
-        wait_minutes = 0
+        target_delayed_start_hours = 0
+        target_delayed_start_minutes = 0
           
         # Check if we have custom delayed start values set through Number components
         # These values are stored in the connection object
         if hasattr(self, '_target_delayed_start_hours') and self._target_delayed_start_hours is not None:
-            wait_hours = self._target_delayed_start_hours
+            target_delayed_start_hours = self._target_delayed_start_hours
         if hasattr(self, '_target_delayed_start_minutes') and self._target_delayed_start_minutes is not None:
-            wait_minutes = self._target_delayed_start_minutes
+            target_delayed_start_minutes = self._target_delayed_start_minutes
         
         # Check if auto warm is enabled and set the appropriate flag
         auto_warm_flag = 1 if getattr(self, '_auto_warm_enabled', False) else 0
@@ -960,19 +898,19 @@ class SkyCookerConnection(SkyCooker):
                 target_temp = MODE_DATA[model_type][target_mode][0]
         
         # If user hasn't set custom cooking time, use default from MODE_DATA
-        if cook_hours == 0 and cook_minutes == 0:
+        if target_boil_hours == 0 and target_boil_minutes == 0:
             if model_type and model_type in MODE_DATA and target_mode < len(MODE_DATA[model_type]):
-                cook_hours = MODE_DATA[model_type][target_mode][1]
-                cook_minutes = MODE_DATA[model_type][target_mode][2]
+                target_boil_hours = MODE_DATA[model_type][target_mode][1]
+                target_boil_minutes = MODE_DATA[model_type][target_mode][2]
         
         # Ensure all values are integers (not None)
-        cook_hours = cook_hours or 0
-        cook_minutes = cook_minutes or 0
-        wait_hours = wait_hours or 0
-        wait_minutes = wait_minutes or 0
+        target_boil_hours = target_boil_hours or 0
+        target_boil_minutes = target_boil_minutes or 0
+        target_delayed_start_hours = target_delayed_start_hours or 0
+        target_delayed_start_minutes = target_delayed_start_minutes or 0
          
         # Не суммируем время, а храним отдельно часы и минуты для готовки, отложенного старта и автоподогрева
-        _LOGGER.info(f"Delayed start: wait {wait_hours}:{wait_minutes:02d}, cook {cook_hours}:{cook_minutes:02d}")
+        _LOGGER.info(f"Delayed start: wait {target_delayed_start_hours}:{target_delayed_start_minutes:02d}, cook {target_boil_hours}:{target_boil_minutes:02d}")
          
         # Check if device is in standby mode (mode 16) or if we need to wake it up
         is_in_standby = self._status and self._status.mode == 16
@@ -990,11 +928,11 @@ class SkyCookerConnection(SkyCooker):
             if is_in_standby:
                 _LOGGER.info("🔄 Устройство находится в режиме ожидания (16 статус)")
                 _LOGGER.info("📤 Отправка команды 09 с выбранным режимом")
-                await self.select_mode(target_mode, 0, target_temp, cook_hours, cook_minutes, wait_hours, wait_minutes)
+                await self.select_mode(target_mode, 0, target_temp, target_boil_hours, target_boil_minutes, target_delayed_start_hours, target_delayed_start_minutes)
                 await asyncio.sleep(0.5)
                  
                 _LOGGER.info("📤 Отправка COMMAND_SET_MAIN_MODE = 0x05 с выбранными параметрами")
-                await self.set_main_mode(target_mode, 0, target_temp, cook_hours, cook_minutes, wait_hours, wait_minutes)
+                await self.set_main_mode(target_mode, 0, target_temp, target_boil_hours, target_boil_minutes, target_delayed_start_hours, target_delayed_start_minutes)
                 await asyncio.sleep(0.3)
                  
                 _LOGGER.info("📤 Отправка COMMAND_TURN_ON = 0x03")
@@ -1005,7 +943,7 @@ class SkyCookerConnection(SkyCooker):
             elif current_device_mode == target_mode and device_is_on:
                 _LOGGER.info(f"🔄 На мультиварке уже выбран режим {target_mode}, и он совпадает с выбранным в интерфейсе")
                 _LOGGER.info("📤 Отправка COMMAND_SET_MAIN_MODE = 0x05 с выбранными параметрами")
-                await self.set_main_mode(target_mode, 0, target_temp, cook_hours, cook_minutes, wait_hours, wait_minutes)
+                await self.set_main_mode(target_mode, 0, target_temp, target_boil_hours, target_boil_minutes, target_delayed_start_hours, target_delayed_start_minutes)
                 await asyncio.sleep(0.3)
                  
                 _LOGGER.info("📤 Отправка COMMAND_TURN_ON = 0x03")
@@ -1017,11 +955,11 @@ class SkyCookerConnection(SkyCooker):
             elif current_device_mode != target_mode:
                 _LOGGER.info(f"🔄 На мультиварке уже выбран режим {current_device_mode}, и он НЕ совпадает с выбранным в интерфейсе ({target_mode})")
                 _LOGGER.info("📤 Отправка команды 09 с выбранным режимом")
-                await self.select_mode(target_mode, 0, target_temp, cook_hours, cook_minutes, wait_hours, wait_minutes)
+                await self.select_mode(target_mode, 0, target_temp, target_boil_hours, target_boil_minutes, target_delayed_start_hours, target_delayed_start_minutes)
                 await asyncio.sleep(0.5)
                  
                 _LOGGER.info("📤 Отправка COMMAND_SET_MAIN_MODE = 0x05 с выбранными параметрами")
-                await self.set_main_mode(target_mode, 0, target_temp, cook_hours, cook_minutes, wait_hours, wait_minutes)
+                await self.set_main_mode(target_mode, 0, target_temp, target_boil_hours, target_boil_minutes, target_delayed_start_hours, target_delayed_start_minutes)
                 await asyncio.sleep(0.3)
                  
                 _LOGGER.info("📤 Отправка COMMAND_TURN_ON = 0x03")
@@ -1031,23 +969,25 @@ class SkyCookerConnection(SkyCooker):
                 _LOGGER.info("🔄 Неизвестное состояние устройства, отправляем все команды")
                 if is_in_standby:
                     _LOGGER.info("🔄 Устройство находится в режиме ожидания, отправляем команду SELECT_MODE для пробуждения")
-                    await self.select_mode(target_mode, 0, target_temp, cook_hours, cook_minutes, wait_hours, wait_minutes)
+                    await self.select_mode(target_mode, 0, target_temp, target_boil_hours, target_boil_minutes, target_delayed_start_hours, target_delayed_start_minutes)
                     await asyncio.sleep(0.5)
                  
-                await self.select_mode(target_mode, 0, target_temp, cook_hours, cook_minutes, wait_hours, wait_minutes)
+                await self.select_mode(target_mode, 0, target_temp, target_boil_hours, target_boil_minutes, target_delayed_start_hours, target_delayed_start_minutes)
                 await asyncio.sleep(0.3)
                  
-                await self.set_main_mode(target_mode, 0, target_temp, cook_hours, cook_minutes, wait_hours, wait_minutes)
+                await self.set_main_mode(target_mode, 0, target_temp, target_boil_hours, target_boil_minutes, target_delayed_start_hours, target_delayed_start_minutes)
                 await asyncio.sleep(0.3)
                  
                 await self.turn_on()
              
             # Update status after starting
             self._status = await self.get_status()
-             
-            # Set target state for future reference
-            self._target_state = (target_mode, target_temp)
-            self._target_boil_time = cook_hours * 60 + cook_minutes
+              
+            # Set target mode and temperature for future reference
+            self._target_mode = target_mode
+            self._target_temperature = target_temp
+            self._target_boil_hours = target_boil_hours
+            self._target_boil_minutes = target_boil_minutes
              
             _LOGGER.info("✅ Отложенный старт успешно настроен")
              
@@ -1067,13 +1007,13 @@ class SkyCookerConnection(SkyCooker):
         if target_temp == self.target_temp: return
         _LOGGER.info(f"Setting target temperature to {target_temp}")
         target_mode = self.target_mode
-        
+         
         # Get model type from model_code
         model_type = self.model_code
         if model_type is None:
             _LOGGER.error("Unknown model type")
             return
-        
+         
         # Find the appropriate mode based on temperature
         if target_temp < 35:
             target_mode = None
@@ -1085,7 +1025,7 @@ class SkyCookerConnection(SkyCooker):
                     if self._is_mode_supported(mode_idx):
                         target_mode = mode_idx
                         break
-            
+             
             # If no exact match found, use the closest mode
             if target_mode is None:
                 closest_diff = float('inf')
@@ -1096,52 +1036,57 @@ class SkyCookerConnection(SkyCooker):
                         if diff < closest_diff:
                             closest_diff = diff
                             target_mode = mode_idx
-        
+         
         if target_mode != self.current_mode:
             _LOGGER.info(f"Mode autoswitched to {target_mode}")
-        await self._set_target_state(target_mode, target_temp)
+        self._target_temperature = target_temp
+        self._target_mode = target_mode
+        self._last_set_target = monotonic()
+        await self.update()
 
     async def set_target_mode(self, operation_mode):
-        if operation_mode == self.target_mode: return
+        if operation_mode == self._target_mode: return
         _LOGGER.info(f"Setting target mode to {operation_mode}")
-         
+          
         # Проверяем, поддерживается ли режим устройством
         if not self._is_mode_supported(operation_mode):
             _LOGGER.error(f"❌ Режим {operation_mode} не поддерживается устройством")
             return
-        
+         
         # Get MODE_DATA values for the selected mode
         model_type = self.model_code
         if model_type and model_type in MODE_DATA and operation_mode < len(MODE_DATA[model_type]):
             mode_data = MODE_DATA[model_type][operation_mode]
             _LOGGER.info(f"Mode {operation_mode} data: temperature={mode_data[0]}, hours={mode_data[1]}, minutes={mode_data[2]}")
-             
+              
             # Set temperature from MODE_DATA only if user hasn't set custom temperature
             target_temp = mode_data[0]
             if hasattr(self, '_target_temperature') and self._target_temperature is not None:
                 target_temp = self._target_temperature
-            
-            # Set cooking time from MODE_DATA only if user hasn't set custom cooking time
-            cook_hours = mode_data[1]
-            cook_minutes = mode_data[2]
-            if self._target_boil_time is not None:
-                cook_hours = self._target_boil_time // 60
-                cook_minutes = self._target_boil_time % 60
              
+            # Set cooking time from MODE_DATA only if user hasn't set custom cooking time
+            target_boil_hours = mode_data[1]
+            target_boil_minutes = mode_data[2]
+            if self._target_boil_hours is not None and self._target_boil_minutes is not None:
+                target_boil_hours = self._target_boil_hours
+                target_boil_minutes = self._target_boil_minutes
+               
             # Don't reset delayed start values if user has set them
             # Only reset if they are None
             if getattr(self, '_target_delayed_start_hours', None) is None:
                 self._target_delayed_start_hours = None
             if getattr(self, '_target_delayed_start_minutes', None) is None:
                 self._target_delayed_start_minutes = None
-             
-            # Set target state with the new values, but don't start cooking automatically
-            self._target_state = (operation_mode, target_temp)
+               
+            # Set target mode and temperature directly
+            self._target_mode = operation_mode
+            self._target_temperature = target_temp
             self._last_set_target = monotonic()
-            
+              
             # Update boil time if user hasn't set custom cooking time
-            if self._target_boil_time is None:
-                self._target_boil_time = cook_hours * 60 + cook_minutes
+            if self._target_boil_hours is None and self._target_boil_minutes is None:
+                self._target_boil_hours = target_boil_hours
+                self._target_boil_minutes = target_boil_minutes
         else:
             # Fallback to old behavior if MODE_DATA is not available
             target_mode = operation_mode
@@ -1157,8 +1102,9 @@ class SkyCookerConnection(SkyCooker):
                     target_temp = 35
             if target_temp != self.target_temp:
                 _LOGGER.info(f"Target temperature autoswitched to {target_temp}")
-            # Set target state with the new values, but don't start cooking automatically
-            self._target_state = (target_mode, target_temp)
+            # Set target mode and temperature directly
+            self._target_mode = target_mode
+            self._target_temperature = target_temp
             self._last_set_target = monotonic()
 
 

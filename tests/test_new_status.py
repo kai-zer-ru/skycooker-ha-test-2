@@ -31,28 +31,26 @@ class TestNewStatus:
         print(f"  mode: {status.mode}")
         print(f"  subprog: {status.subprog}")
         print(f"  target_temp: {status.target_temp}")
-        print(f"  hours: {status.hours}")
-        print(f"  minutes: {status.minutes}")
-        print(f"  dhours: {status.dhours}")
-        print(f"  dminutes: {status.dminutes}")
+        print(f"  target_boil_hours: {status.target_boil_hours}")
+        print(f"  target_boil_minutes: {status.target_boil_minutes}")
+        print(f"  target_delayed_start_hours: {status.target_delayed_start_hours}")
+        print(f"  target_delayed_start_minutes: {status.target_delayed_start_minutes}")
         print(f"  auto_warm: {status.auto_warm}")
         print(f"  is_on: {status.is_on}")
         print(f"  sound_enabled: {status.sound_enabled}")
-        print(f"  boil_time: {status.boil_time}")
-        
+
         # Verify the parsed status
         assert status.mode == 5
         assert status.subprog == 0
         assert status.target_temp == 100
-        assert status.hours == 0
-        assert status.minutes == 35
-        assert status.dhours == 0
-        assert status.dminutes == 35
+        assert status.target_boil_hours == 0
+        assert status.target_boil_minutes == 35
+        assert status.target_delayed_start_hours == 0
+        assert status.target_delayed_start_minutes == 35
         assert status.auto_warm == 1
         assert status.is_on == True
         assert status.sound_enabled == False
-        assert status.boil_time == 35
-        
+
         print(f"\nStatus parsing test passed!")
 
 

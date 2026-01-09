@@ -83,7 +83,7 @@ class SkyCookerSensor(SensorEntity):
         """Return the name of the sensor."""
         base_name = (SKYCOOKER_NAME + " " + self.entry.data.get(CONF_FRIENDLY_NAME, "")).strip()
         
-        # Determine the language index (0 for English, 1 for Russian)
+        # Определяем индекс языка (0 для английского, 1 для русского)
         language = self.hass.config.language
         is_russian = language == "ru"
         
@@ -134,21 +134,16 @@ class SkyCookerSensor(SensorEntity):
     @property
     def available(self):
         """Return if sensor is available."""
-        # If the skycooker is not available, return False
+        # Если skycooker недоступен, возвращаем False
         if not self.skycooker.available:
             return False
-         
-        # For success rate, delayed launch time, and software version sensors, always return True if skycooker is available
+          
+        # Для датчиков успеха, времени отложенного запуска и версии ПО всегда возвращаем True, если skycooker доступен
         if self.sensor_type in [SENSOR_TYPE_SUCCESS_RATE, SENSOR_TYPE_DELAYED_LAUNCH_TIME, SENSOR_TYPE_SW_VERSION]:
             return True
-         
-        # For other sensors, check if we have data
-        # But if skycooker is available, we should give it some time to get data
-        # So we return True if skycooker is available, even if data is not yet available
-        # This prevents sensors from becoming unavailable immediately after setup or connection issues
-         
-        # However, if we have never received any data for this sensor, we should return False
-        # to indicate that the sensor is not yet ready
+          
+        # Для других датчиков проверяем, есть ли данные из статуса устройства
+        # Датчики должны использовать только данные из статуса устройства, а не из пользовательских настроек
         if self.sensor_type == SENSOR_TYPE_STATUS:
             return self.skycooker.status_code is not None
         elif self.sensor_type == SENSOR_TYPE_TEMPERATURE:
@@ -163,7 +158,7 @@ class SkyCookerSensor(SensorEntity):
             # For current mode, we should return True if we have a status code
             # even if current_mode is None, as we can show "Standby Mode" or "Режим ожидания"
             return self.skycooker.status_code is not None
-         
+          
         return False
 
     @property
@@ -213,7 +208,7 @@ class SkyCookerSensor(SensorEntity):
         if self.sensor_type == SENSOR_TYPE_STATUS:
             status_code = self.skycooker.status_code
             if status_code is not None:
-                # Determine the language index (0 for English, 1 for Russian)
+                # Определяем индекс языка (0 для английского, 1 для русского)
                 language = self.hass.config.language
                 lang_index = 0 if language == "en" else 1
                 return STATUS_CODES[lang_index].get(status_code, f"Unknown ({status_code})" if lang_index == 0 else f"Неизвестно ({status_code})")
@@ -247,17 +242,17 @@ class SkyCookerSensor(SensorEntity):
                 return "Режим ожидания" if self.hass.config.language == "ru" else "Standby Mode"
             current_mode = self.skycooker.current_mode
             if current_mode is not None:
-                # Get the model type from the connection
+                # Получаем тип модели из соединения
                 model_type = self.skycooker.model_code
                 if model_type is None:
                     return f"Unknown ({current_mode})"
                  
-                # Get the mode names for the current model
+                # Получаем названия режимов для текущей модели
                 mode_names = MODE_NAMES.get(model_type, [None, None])
                 if not mode_names or len(mode_names) < 2:
                     return f"Unknown ({current_mode})"
                  
-                # Determine the language index (0 for English, 1 for Russian)
+                # Определяем индекс языка (0 для английского, 1 для русского)
                 language = self.hass.config.language
                 lang_index = 0 if language == "en" else 1
                  

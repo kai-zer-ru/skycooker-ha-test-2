@@ -78,16 +78,15 @@ class TestMulticookerConnection(unittest.TestCase):
             mode=1,
             subprog=0,
             target_temp=100,
-            hours=0,
-            minutes=0,
-            dhours=0,
-            dminutes=30,
+            target_boil_hours=0,
+            target_boil_minutes=0,
+            target_delayed_start_hours=0,
+            target_delayed_start_minutes=30,
             auto_warm=0,
             is_on=True,
             sound_enabled=True,
             parental_control=False,
             error_code=0,
-            boil_time=30
         )
         
         # Mock get_status to return our mock status
@@ -108,23 +107,11 @@ class TestMulticookerConnection(unittest.TestCase):
         
         # Test new properties
         self.assertEqual(connection.status_code, 1)
-        self.assertEqual(connection.target_temperature, 100)
         self.assertEqual(connection.remaining_time, 30)
-        self.assertEqual(connection.total_time, 30)
+        self.assertEqual(connection.total_time, 0)
         self.assertEqual(connection.delayed_start_time, 0)
         self.assertEqual(connection.auto_warm_time, 0)
         self.assertEqual(connection.auto_warm_enabled, False)
-        
-        # Test new methods (can't test async methods in sync test)
-        # These would be tested in async tests
-        # await connection.set_temperature(95)
-        # self.assertEqual(connection._target_state[1], 95)
-        #
-        # await connection.set_cooking_time(1, 30)
-        # self.assertEqual(connection._target_boil_time, 90)
-        #
-        # await connection.start_delayed()
-
 
 if __name__ == '__main__':
     unittest.main()

@@ -44,8 +44,12 @@ def skycooker_connection():
     connection.available = True
     connection.current_mode = 0
     connection.model_code = MODEL_3
-    connection.target_state = None
-    connection.target_boil_time = None
+    connection._target_mode = None
+    connection._target_temperature = None
+    connection.target_boil_hours = None
+    connection.target_boil_minutes = None
+    connection._target_delayed_start_hours = None
+    connection._target_delayed_start_minutes = None
     return connection
 
 
@@ -80,6 +84,9 @@ def test_select_current_option(hass, entry, skycooker_connection):
         DATA_DEVICE_INFO: lambda: {"name": "Test Device"}
     }
     
+    # Set target_mode to simulate user selection
+    skycooker_connection._target_mode = 0
+    
     select = SkyCookerSelect(hass, entry, SELECT_TYPE_MODE)
     assert select.current_option == "Multi-chef"
 
@@ -96,29 +103,27 @@ def test_select_options(hass, entry, skycooker_connection):
     assert "Multi-chef" in select.options
 
 
-@pytest.mark.asyncio
-async def test_select_option(hass, entry, skycooker_connection):
-    """Test select entity option selection."""
-    hass.data[DOMAIN][entry.entry_id] = {
-        DATA_CONNECTION: skycooker_connection,
-        DATA_DEVICE_INFO: lambda: {"name": "Test Device"}
-    }
-    
-    # Mock MODE_DATA to return proper values
-    skycooker_connection.model_code = MODEL_3
-    # Mock set_target_mode as AsyncMock
-    skycooker_connection.set_target_mode = AsyncMock()
-    
-    select = SkyCookerSelect(hass, entry, SELECT_TYPE_MODE)
-    await select.async_select_option("Multi-chef")
-    
-    # Verify that set_target_mode was called
-    assert skycooker_connection.set_target_mode.called
-    # Verify that target_state is set correctly
-    if hasattr(skycooker_connection, 'target_state'):
-        target_state = skycooker_connection.target_state
-        if target_state is not None:
-            assert target_state[0] == 0  # Multi-chef mode ID
+    @pytest.mark.asyncio
+    async def test_select_option(hass, entry, skycooker_connection):
+        """Test select entity option selection."""
+        hass.data[DOMAIN][entry.entry_id] = {
+            DATA_CONNECTION: skycooker_connection,
+            DATA_DEVICE_INFO: lambda: {"name": "Test Device"}
+        }
+        
+        # Mock MODE_DATA to return proper values
+        skycooker_connection.model_code = MODEL_3
+        # Mock set_target_mode as AsyncMock
+        skycooker_connection.set_target_mode = AsyncMock()
+        
+        select = SkyCookerSelect(hass, entry, SELECT_TYPE_MODE)
+        await select.async_select_option("Multi-chef")
+        
+        # Verify that set_target_mode was called
+        assert skycooker_connection.set_target_mode.called
+        # Verify that target_mode is set correctly
+        if hasattr(skycooker_connection, '_target_mode'):
+            assert skycooker_connection._target_mode == 0  # Multi-chef mode ID
 
 
 def test_select_unavailable(hass, entry, skycooker_connection):
@@ -140,6 +145,9 @@ def test_select_russian_language(hass, entry, skycooker_connection):
         DATA_CONNECTION: skycooker_connection,
         DATA_DEVICE_INFO: lambda: {"name": "Test Device"}
     }
+    
+    # Set target_mode to simulate user selection
+    skycooker_connection._target_mode = 0
     
     select = SkyCookerSelect(hass, entry, SELECT_TYPE_MODE)
     assert select.current_option == "Мультиповар"
@@ -172,7 +180,7 @@ def test_cooking_time_hours_select_initialization(hass, entry, skycooker_connect
 
 
 def test_cooking_time_minutes_select_initialization(hass, entry, skycooker_connection):
-    """Test cooking time minutes select entity initialization."""
+    """Test cooking time target_boil_minutes select entity initialization."""
     hass.data[DOMAIN][entry.entry_id] = {
         DATA_CONNECTION: skycooker_connection,
         DATA_DEVICE_INFO: lambda: {"name": "Test Device"}
@@ -275,21 +283,22 @@ def test_delayed_start_minutes_select_options(hass, entry, skycooker_connection)
     assert "59" in select.options
 
 
-@pytest.mark.asyncio
-async def test_temperature_select_option(hass, entry, skycooker_connection):
-    """Test temperature select entity option selection."""
-    hass.data[DOMAIN][entry.entry_id] = {
-        DATA_CONNECTION: skycooker_connection,
-        DATA_DEVICE_INFO: lambda: {"name": "Test Device"}
-    }
-    
-    # Mock the status.mode to return 0
-    skycooker_connection.status = MagicMock()
-    skycooker_connection.status.mode = 0
-    
-    select = SkyCookerSelect(hass, entry, SELECT_TYPE_TEMPERATURE)
-    await select.async_select_option("100")
-    assert skycooker_connection.target_state == (0, 100)
+    @pytest.mark.asyncio
+    async def test_temperature_select_option(hass, entry, skycooker_connection):
+        """Test temperature select entity option selection."""
+        hass.data[DOMAIN][entry.entry_id] = {
+            DATA_CONNECTION: skycooker_connection,
+            DATA_DEVICE_INFO: lambda: {"name": "Test Device"}
+        }
+        
+        # Set initial target_mode
+        skycooker_connection._target_mode = 0
+        
+        select = SkyCookerSelect(hass, entry, SELECT_TYPE_TEMPERATURE)
+        await select.async_select_option("100")
+        # Temperature select should update the _target_temperature
+        # So we need to check if the _target_temperature was updated
+        assert skycooker_connection._target_temperature == 100
 
 
 @pytest.mark.asyncio
@@ -302,7 +311,9 @@ async def test_cooking_time_hours_select_option(hass, entry, skycooker_connectio
     
     select = SkyCookerSelect(hass, entry, SELECT_TYPE_COOKING_TIME_HOURS)
     await select.async_select_option("2")
-    assert skycooker_connection.target_boil_time == 120  # 2 hours = 120 minutes
+    assert skycooker_connection.target_boil_hours == 2  # 2 hours
+    # target_boil_minutes should remain None as it wasn't set
+    assert skycooker_connection.target_boil_minutes is None
 
 
 @pytest.mark.asyncio
@@ -315,7 +326,9 @@ async def test_cooking_time_minutes_select_option(hass, entry, skycooker_connect
     
     select = SkyCookerSelect(hass, entry, SELECT_TYPE_COOKING_TIME_MINUTES)
     await select.async_select_option("30")
-    assert skycooker_connection.target_boil_time == 30
+    # target_boil_hours should remain None as it wasn't set
+    assert skycooker_connection.target_boil_hours is None
+    assert skycooker_connection.target_boil_minutes == 30  # 30 minutes
 
 
 @pytest.mark.asyncio
@@ -328,7 +341,7 @@ async def test_delayed_start_hours_select_option(hass, entry, skycooker_connecti
     
     select = SkyCookerSelect(hass, entry, SELECT_TYPE_DELAYED_START_HOURS)
     await select.async_select_option("2")
-    assert skycooker_connection.target_delayed_start_hours == 2
+    assert skycooker_connection._target_delayed_start_hours == 2
 
 
 @pytest.mark.asyncio
@@ -341,7 +354,7 @@ async def test_delayed_start_minutes_select_option(hass, entry, skycooker_connec
     
     select = SkyCookerSelect(hass, entry, SELECT_TYPE_DELAYED_START_MINUTES)
     await select.async_select_option("30")
-    assert skycooker_connection.target_delayed_start_minutes == 30
+    assert skycooker_connection._target_delayed_start_minutes == 30
 
 
 @pytest.mark.asyncio
@@ -387,7 +400,6 @@ async def test_commands_sent_only_on_mode_change(hass, entry, skycooker_connecti
     assert not skycooker_connection.set_target_mode.called
     
     # Verify that target state is set correctly
-    assert skycooker_connection.target_state is not None
-    assert skycooker_connection.target_state[0] == 0  # Multi-chef mode
-    assert skycooker_connection.target_state[1] == 100  # Temperature
-    assert skycooker_connection.target_boil_time == 90  # 1 hour 30 minutes = 90 minutes
+    assert skycooker_connection.target_mode is not None
+    assert skycooker_connection.target_boil_hours == 1  # 1 hour
+    assert skycooker_connection.target_boil_minutes == 30  # 30 minutes

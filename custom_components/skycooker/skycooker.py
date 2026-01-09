@@ -3,7 +3,6 @@
 
 import calendar
 import logging
-import struct
 import time
 from abc import ABC, abstractmethod
 from collections import namedtuple
@@ -16,9 +15,10 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class SkyCooker(ABC):
-    Status = namedtuple("Status", ["mode", "subprog", "target_temp", "hours", "minutes",
-        "dhours", "dminutes", "auto_warm", "is_on", "sound_enabled",
-        "parental_control", "error_code", "boil_time"])
+    Status = namedtuple("Status", ["mode", "subprog", "target_temp",
+        "auto_warm", "is_on", "sound_enabled", "parental_control",
+        "error_code", "target_boil_hours", "target_boil_minutes",
+        "target_delayed_start_hours", "target_delayed_start_minutes"])
 
     def __init__(self, model):
         _LOGGER.info(f"SkyCooker model: {model}")
@@ -62,22 +62,22 @@ class SkyCooker(ABC):
         if r[0] != 1: raise SkyCookerError("can't turn off")
         _LOGGER.debug(f"Turned off")
 
-    async def select_mode(self, mode, subprog=0, target_temp=0, hours=0, minutes=0, dhours=0, dminutes=0, heat=0, bit_flags=0):
+    async def select_mode(self, mode, subprog=0, target_temp=0, target_boil_hours=0, target_boil_minutes=0, target_delayed_start_hours=0, target_delayed_start_minutes=0, auto_warm=0, bit_flags=0):
         # В текущей реализации битовые флаги берутся из MODE_DATA
         # Для MODEL_3 битовые флаги не добавляются
         # В будущем, когда будет понятно, как использовать битовые флаги, этот код будет обновлен
-        # Параметр heat используется для передачи флага автоподогрева
+        # Параметр auto_warm используется для передачи флага автоподогрева
         if self.model_code == MODEL_3:
-            # Для MODEL_3 используем heat как флаг автоподогрева
-            data = pack("BBBBBBBB", int(mode), int(subprog), int(target_temp), int(hours), int(minutes), int(dhours), int(dminutes), int(heat))
+            # Для MODEL_3 используем auto_warm как флаг автоподогрева
+            data = pack("BBBBBBBB", int(mode), int(subprog), int(target_temp), int(target_boil_hours), int(target_boil_minutes), int(target_delayed_start_hours), int(target_delayed_start_minutes), int(auto_warm))
         else:
             mode_data = MODE_DATA.get(self.model_code, [])
             if mode < len(mode_data) and bit_flags == 0:
                 bit_flags = mode_data[mode][3]
-            data = pack("BBBBBBBBB", int(mode), int(subprog), int(target_temp), int(hours), int(minutes), int(dhours), int(dminutes), int(heat), int(bit_flags))
+            data = pack("BBBBBBBBB", int(mode), int(subprog), int(target_temp), int(target_boil_hours), int(target_boil_minutes), int(target_delayed_start_hours), int(target_delayed_start_minutes), int(auto_warm), int(bit_flags))
 
         _LOGGER.debug(f"📤 Отправка команды SELECT_MODE (0x09) с данными: {data.hex().upper()}")
-        _LOGGER.debug(f"   Параметры: mode={mode}, subprog={subprog}, target_temp={target_temp}, hours={hours}, minutes={minutes}, dhours={dhours}, dminutes={dminutes}, heat={heat}, bit_flags={bit_flags}")
+        _LOGGER.debug(f"   Параметры: mode={mode}, subprog={subprog}, target_temp={target_temp}, target_boil_hours={target_boil_hours}, target_boil_minutes={target_boil_minutes}, target_delayed_start_hours={target_delayed_start_hours}, target_delayed_start_minutes={target_delayed_start_minutes}, auto_warm={auto_warm}, bit_flags={bit_flags}")
 
         try:
             r = await self.command(COMMAND_SELECT_MODE, list(data))
@@ -93,22 +93,22 @@ class SkyCooker(ABC):
             _LOGGER.error(f"❌ Исключение при выборе режима: {e}")
             raise SkyCookerError(f"Исключение при выборе режима: {e}")
 
-    async def set_main_mode(self, mode, subprog=0, target_temp=0, hours=0, minutes=0, dhours=0, dminutes=0, heat=0, bit_flags=0):
+    async def set_main_mode(self, mode, subprog=0, target_temp=0, target_boil_hours=0, target_boil_minutes=0, target_delayed_start_hours=0, target_delayed_start_minutes=0, auto_warm=0, bit_flags=0):
         # В текущей реализации битовые флаги берутся из MODE_DATA
         # Для MODEL_3 битовые флаги не добавляются
         # В будущем, когда будет понятно, как использовать битовые флаги, этот код будет обновлен
-        # Параметр heat используется для передачи флага автоподогрева
+        # Параметр auto_warm используется для передачи флага автоподогрева
         if self.model_code == MODEL_3:
-            # Для MODEL_3 используем heat как флаг автоподогрева
-            data = pack("BBBBBBBB", int(mode), int(subprog), int(target_temp), int(hours), int(minutes), int(dhours), int(dminutes), int(heat))
+            # Для MODEL_3 используем auto_warm как флаг автоподогрева
+            data = pack("BBBBBBBB", int(mode), int(subprog), int(target_temp), int(target_boil_hours), int(target_boil_minutes), int(target_delayed_start_hours), int(target_delayed_start_minutes), int(auto_warm))
         else:
             mode_data = MODE_DATA.get(self.model_code, [])
             if mode < len(mode_data) and bit_flags == 0:
                 bit_flags = mode_data[mode][3]
-            data = pack("BBBBBBBBB", int(mode), int(subprog), int(target_temp), int(hours), int(minutes), int(dhours), int(dminutes), int(heat), int(bit_flags))
+            data = pack("BBBBBBBBB", int(mode), int(subprog), int(target_temp), int(target_boil_hours), int(target_boil_minutes), int(target_delayed_start_hours), int(target_delayed_start_minutes), int(auto_warm), int(bit_flags))
 
         _LOGGER.debug(f"📤 Отправка команды SET_MAIN_MODE (0x05) с данными: {data.hex().upper()}")
-        _LOGGER.debug(f"   Параметры: mode={mode}, subprog={subprog}, target_temp={target_temp}, hours={hours}, minutes={minutes}, dhours={dhours}, dminutes={dminutes}, heat={heat}, bit_flags={bit_flags}")
+        _LOGGER.debug(f"   Параметры: mode={mode}, subprog={subprog}, target_temp={target_temp}, target_boil_hours={target_boil_hours}, target_boil_minutes={target_boil_minutes}, target_delayed_start_hours={target_delayed_start_hours}, target_delayed_start_minutes={target_delayed_start_minutes}, auto_warm={auto_warm}, bit_flags={bit_flags}")
 
         try:
             r = await self.command(COMMAND_SET_MAIN_MODE, list(data))
@@ -132,45 +132,42 @@ class SkyCooker(ABC):
             raise SkyCookerError(f"Некорректный размер данных статуса: {len(r)} байт")
         try:
             # Parse the 16-byte status response according to the new format
-            # Format: mode(1), subprog(1), target_temp(1), hours(1), minutes(1),
-            #         dhours(1), dminutes(1), auto_warm(1), status(1), ...
+            # Format: mode(1), subprog(1), target_temp(1), target_boil_hours(1), target_boil_minutes(1),
+            #         target_delayed_start_hours(1), target_delayed_start_minutes(1), auto_warm(1), status(1), ...
             mode = r[0]
             subprog = r[1]
             target_temp = r[2]
-            hours = r[3]
-            minutes = r[4]
-            dhours = r[5]
-            dminutes = r[6]
+            target_boil_hours = r[3]
+            target_boil_minutes = r[4]
+            target_delayed_start_hours = r[5]
+            target_delayed_start_minutes = r[6]
             auto_warm = r[7]
             is_on = r[8] != 0
             sound_enabled = r[9] != 0
-            
-            # Calculate boil_time from remaining time
-            boil_time = dhours * 60 + dminutes
             
             status = SkyCooker.Status(
                 mode=mode,
                 subprog=subprog,
                 target_temp=target_temp,
-                hours=hours,
-                minutes=minutes,
-                dhours=dhours,
-                dminutes=dminutes,
                 auto_warm=auto_warm,
                 is_on=is_on,
                 sound_enabled=sound_enabled,
                 parental_control=False,
                 error_code=0,
-                boil_time=boil_time
+                target_boil_hours=target_boil_hours,
+                target_boil_minutes=target_boil_minutes,
+                target_delayed_start_hours=target_delayed_start_hours,
+                target_delayed_start_minutes=target_delayed_start_minutes
             )
         except Exception as e:
             _LOGGER.error(f"❌ Ошибка распаковки статуса: {e}")
             raise SkyCookerError(f"Ошибка распаковки статуса: {e}")
-        
+         
         _LOGGER.debug(f"Status: mode={status.mode}, subprog={status.subprog}, is_on={status.is_on}, "+
-                     f"target_temp={status.target_temp}, hours={status.hours}, minutes={status.minutes}, "+
-                     f"dhours={status.dhours}, dminutes={status.dminutes}, "+
-                     f"auto_warm={status.auto_warm}, sound_enabled={status.sound_enabled}, boil_time={status.boil_time}")
+                     f"target_temp={status.target_temp}, "+
+                     f"auto_warm={status.auto_warm}, sound_enabled={status.sound_enabled}, "+
+                     f"target_boil_hours={status.target_boil_hours}, target_boil_minutes={status.target_boil_minutes}, "+
+                     f"target_delayed_start_hours={status.target_delayed_start_hours}, target_delayed_start_minutes={status.target_delayed_start_minutes}")
         return status
 
     async def sync_time(self):
