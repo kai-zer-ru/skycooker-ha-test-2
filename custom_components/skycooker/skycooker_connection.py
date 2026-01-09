@@ -708,6 +708,12 @@ class SkyCookerConnection(SkyCooker):
             _LOGGER.error(f"❌ Режим {target_mode} не поддерживается устройством, использую режим 0 (Multi-chef)")
             target_mode = 0
         
+        # Если текущий режим устройства - 16 (ожидание), и пользователь не выбрал режим,
+        # используем режим 0 (Multi-chef) вместо режима 16
+        if target_mode == 16:
+            _LOGGER.warning(f"⚠️  Режим 16 (ожидание) не может быть установлен напрямую, использую режим 0 (Multi-chef)")
+            target_mode = 0
+        
         # Get current values from the connection (which should be set by Number components)
         # These values may have been modified by the user
         target_temp = self._target_state[1] if self._target_state else None

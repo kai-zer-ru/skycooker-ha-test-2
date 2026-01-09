@@ -268,3 +268,41 @@ class TestSkyCookerConnection:
         connection = SkyCookerConnection(mac, key, persistent=True, model="RMC-M40S")
 
         assert connection.boil_time is None
+
+    @pytest.mark.asyncio
+    async def test_connection_start_with_mode_16(self):
+        """Test that the connection correctly handles mode 16 (standby) when starting."""
+        mac = "AA:BB:CC:DD:EE:FF"
+        key = [0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F]
+        connection = SkyCookerConnection(mac, key, persistent=True, model="RMC-M40S")
+        connection.update = AsyncMock()
+        
+        # Mock the _status attribute to simulate device in mode 16 (standby)
+        connection._status = MagicMock()
+        connection._status.mode = 16
+        connection._status.is_on = False
+        connection._status.target_temp = 100
+        connection._status.boil_time = 0
+        
+        # Mock MODE_DATA to return a list with enough elements
+        from custom_components.skycooker.const import MODE_DATA
+        original_mode_data = MODE_DATA.copy()
+        MODE_DATA[3] = [
+            [100, 0, 30, 15], [101, 0, 30, 7], [100, 1, 0, 7], [165, 0, 18, 5],
+            [100, 1, 0, 7], [100, 0, 35, 7], [100, 0, 8, 4], [98, 3, 0, 7],
+            [100, 0, 40, 7], [140, 1, 0, 7], [100, 0, 25, 7], [110, 1, 0, 7],
+            [40, 8, 0, 6], [145, 0, 20, 7], [140, 3, 0, 7],
+            [0, 0, 0, 0], [62, 2, 30, 6]
+        ]
+        
+        # Call start() - it should use mode 0 instead of mode 16
+        await connection.start()
+        
+        # Verify that update was called
+        connection.update.assert_called()
+        
+        # Verify that target_state was set to mode 0 (Multi-chef) instead of mode 16
+        assert connection._target_state[0] == 0
+        
+        # Restore original MODE_DATA
+        MODE_DATA.update(original_mode_data)
