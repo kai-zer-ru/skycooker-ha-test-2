@@ -317,14 +317,6 @@ class SkyCookerConnection(SkyCooker):
                         self._target_boil_hours = None
                         self._target_boil_minutes = None
                         return False
-                # Не сбрасываем _target_boil_hours и _target_boil_minutes после успешной установки,
-                # чтобы интерфейс мог правильно отображать текущее значение
-                # self._target_boil_hours = None
-                # self._target_boil_minutes = None
-
-                # Не вызываем commit() здесь, так как он вызовет повторный update()
-                # и может сбросить состояние. Вместо этого продолжим обработку
-                # целевого состояния ниже.
 
                 if hasattr(self, '_target_mode') and self._target_mode is not None:
                     target_mode = self._target_mode
@@ -441,7 +433,7 @@ class SkyCookerConnection(SkyCooker):
     async def commit(self):
         """Commit changes to the device."""
         _LOGGER.debug("Committing changes")
-        await self.update(commit=True)
+        await self.update()
 
     def _is_mode_supported(self, mode):
         """Проверяет, поддерживается ли режим устройством."""
@@ -456,12 +448,6 @@ class SkyCookerConnection(SkyCooker):
                 _LOGGER.debug(f"📋 Режим 16 (ожидание) - это допустимое состояние устройства, но его нельзя устанавливать напрямую")
                 return True
         return True
-
-    async def cancel_target(self):
-        self._target_mode = None
-        self._target_temperature = None
-        self._target_boil_hours = None
-        self._target_boil_minutes = None
 
     async def stop(self):
         if self._disposed: return
@@ -643,7 +629,7 @@ class SkyCookerConnection(SkyCooker):
         _LOGGER.info(f"Setting boil time to {target_boil_hours}:{target_boil_minutes:02d}")
         self._target_boil_hours = target_boil_hours
         self._target_boil_minutes = target_boil_minutes
-        await self.update(commit=True)
+        await self.update()
 
     async def set_temperature(self, value):
         """Set target temperature."""
@@ -653,7 +639,7 @@ class SkyCookerConnection(SkyCooker):
             # If device is on, we need to send temperature command
             # For now, store it and it will be applied on next update
             self._target_temperature = value
-            await self.update(commit=True)
+            await self.update()
         else:
             # If device is off, just store the target temperature
             # It will be applied when device is turned on
@@ -666,7 +652,7 @@ class SkyCookerConnection(SkyCooker):
         _LOGGER.info(f"Setting delayed start time to {target_delayed_start_hours}:{target_delayed_start_minutes:02d}")
         # In a real implementation, this should send the proper command
         # For now, we'll just log it
-        await self.update(commit=True)
+        await self.update()
 
     async def start(self):
         """Start cooking with current settings."""
