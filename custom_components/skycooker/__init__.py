@@ -52,15 +52,23 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
         _LOGGER.error(f"🚨 Модель {model_name} не поддерживается. Поддерживаемые модели: {list(MODELS.keys())}")
         return False
 
-    skycooker = SkyCookerConnection(
-        mac=entry.data[CONF_MAC],
-        key=entry.data[CONF_PASSWORD],
-        persistent=entry.data[CONF_PERSISTENT_CONNECTION],
-        adapter=entry.data.get(CONF_DEVICE, None),
-        hass=hass,
-        model=model_name
-    )
-    hass.data[DOMAIN][entry.entry_id][DATA_CONNECTION] = skycooker
+    try:
+        skycooker = SkyCookerConnection(
+            mac=entry.data[CONF_MAC],
+            key=entry.data[CONF_PASSWORD],
+            persistent=entry.data[CONF_PERSISTENT_CONNECTION],
+            adapter=entry.data.get(CONF_DEVICE, None),
+            hass=hass,
+            model=model_name
+        )
+        hass.data[DOMAIN][entry.entry_id][DATA_CONNECTION] = skycooker
+    except Exception as e:
+        if "не найдено" in str(e).lower() or "not found" in str(e).lower():
+            _LOGGER.error(f"🚨 Устройство {entry.data[CONF_MAC]} не найдено. Проверьте, что устройство включено и находится в зоне действия Bluetooth.")
+            return False
+        else:
+            _LOGGER.error(f"🚨 Ошибка при настройке соединения: {e}")
+            return False
 
     async def poll(now, **kwargs) -> None:
         await skycooker.update()
