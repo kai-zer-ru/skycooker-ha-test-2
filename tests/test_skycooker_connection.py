@@ -674,3 +674,46 @@ class TestSkyCookerConnection:
         
         # Restore original MODE_DATA
         MODE_DATA.update(original_mode_data)
+
+    @pytest.mark.asyncio
+    async def test_connection_select_mode_without_delayed_start_attributes(self):
+        """Test that select_mode handles missing _target_delayed_start_hours and _target_delayed_start_minutes attributes."""
+        mac = "AA:BB:CC:DD:EE:FF"
+        key = [0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F]
+        connection = SkyCookerConnection(mac, key, persistent=True, model="RMC-M40S")
+        
+        # Remove the delayed start attributes to simulate the error condition
+        if hasattr(connection, '_target_delayed_start_hours'):
+            delattr(connection, '_target_delayed_start_hours')
+        if hasattr(connection, '_target_delayed_start_minutes'):
+            delattr(connection, '_target_delayed_start_minutes')
+        
+        # Mock MODE_DATA to return a list with enough elements
+        from custom_components.skycooker.const import MODE_DATA
+        original_mode_data = MODE_DATA.copy()
+        MODE_DATA[3] = [
+            [100, 0, 30, 15], [101, 0, 30, 7], [100, 1, 0, 7], [165, 0, 18, 5],
+            [100, 1, 0, 7], [100, 0, 35, 7], [100, 0, 8, 4], [98, 3, 0, 7],
+            [100, 0, 40, 7], [140, 1, 0, 7], [100, 0, 25, 7], [110, 1, 0, 7],
+            [40, 8, 0, 6], [145, 0, 20, 7], [140, 3, 0, 7],
+            [0, 0, 0, 0], [62, 2, 30, 6]
+        ]
+        
+        # Mock the command method to return a success response
+        async def mock_command(command, params=None):
+            return bytes([0x01])
+        connection.command = mock_command
+        
+        # This should not raise an AttributeError
+        try:
+            await connection.select_mode(5)
+        except AttributeError as e:
+            if "_target_delayed_start_hours" in str(e):
+                pytest.fail(f"select_mode raised AttributeError for missing _target_delayed_start_hours: {e}")
+        
+        # Verify that the attributes were set to None (not missing)
+        assert getattr(connection, '_target_delayed_start_hours', None) is None
+        assert getattr(connection, '_target_delayed_start_minutes', None) is None
+        
+        # Restore original MODE_DATA
+        MODE_DATA.update(original_mode_data)

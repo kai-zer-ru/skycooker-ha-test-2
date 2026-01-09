@@ -177,12 +177,12 @@ class SkyCookerSelect(SelectEntity):
                     return str(MODE_DATA[model_type][current_mode][2])
         elif self.select_type == SELECT_TYPE_DELAYED_START_HOURS:
             # Return current delayed start hours from connection if set, otherwise 0
-            if self.skycooker.target_delayed_start_hours is not None:
+            if getattr(self.skycooker, 'target_delayed_start_hours', None) is not None:
                 return str(self.skycooker.target_delayed_start_hours)
             return "0"
         elif self.select_type == SELECT_TYPE_DELAYED_START_MINUTES:
             # Return current delayed start minutes from connection if set, otherwise 0
-            if self.skycooker.target_delayed_start_minutes is not None:
+            if getattr(self.skycooker, 'target_delayed_start_minutes', None) is not None:
                 return str(self.skycooker.target_delayed_start_minutes)
             return "0"
         return None
@@ -268,9 +268,9 @@ class SkyCookerSelect(SelectEntity):
             await self.skycooker.set_target_mode(mode_id)
              
             # Ensure default values for delayed start hours and minutes only if user hasn't set them
-            if self.skycooker.target_delayed_start_hours is None:
+            if getattr(self.skycooker, 'target_delayed_start_hours', None) is None:
                 self.skycooker.target_delayed_start_hours = 0
-            if self.skycooker.target_delayed_start_minutes is None:
+            if getattr(self.skycooker, 'target_delayed_start_minutes', None) is None:
                 self.skycooker.target_delayed_start_minutes = 0
                   
                 # Trigger dispatcher update to notify Number entities about the mode change
@@ -300,9 +300,9 @@ class SkyCookerSelect(SelectEntity):
             self.skycooker.target_delayed_start_minutes = int(option)
          
         # Ensure default values for delayed start hours and minutes if not set
-        if self.select_type == SELECT_TYPE_DELAYED_START_HOURS and self.skycooker.target_delayed_start_hours is None:
+        if self.select_type == SELECT_TYPE_DELAYED_START_HOURS and getattr(self.skycooker, 'target_delayed_start_hours', None) is None:
             self.skycooker.target_delayed_start_hours = 0
-        if self.select_type == SELECT_TYPE_DELAYED_START_MINUTES and self.skycooker.target_delayed_start_minutes is None:
+        if self.select_type == SELECT_TYPE_DELAYED_START_MINUTES and getattr(self.skycooker, 'target_delayed_start_minutes', None) is None:
             self.skycooker.target_delayed_start_minutes = 0
          
         # Schedule an update to refresh the entity state
@@ -312,5 +312,5 @@ class SkyCookerSelect(SelectEntity):
         _LOGGER.debug(f"Updated {self.select_type}: {option}")
         _LOGGER.debug(f"Current target_state: {self.skycooker.target_state}")
         _LOGGER.debug(f"Current target_boil_time: {self.skycooker.target_boil_time}")
-        _LOGGER.debug(f"Current target_delayed_start_hours: {self.skycooker.target_delayed_start_hours}")
-        _LOGGER.debug(f"Current target_delayed_start_minutes: {self.skycooker.target_delayed_start_minutes}")
+        _LOGGER.debug(f"Current target_delayed_start_hours: {getattr(self.skycooker, 'target_delayed_start_hours', None)}")
+        _LOGGER.debug(f"Current target_delayed_start_minutes: {getattr(self.skycooker, 'target_delayed_start_minutes', None)}")

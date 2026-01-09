@@ -192,7 +192,7 @@ class SkyCookerConnection(SkyCooker):
                     self._target_boil_time = cook_hours * 60 + cook_minutes
              
             # Сбрасываем отложенный старт только если пользователь не установил его
-            if self._target_delayed_start_hours is None and self._target_delayed_start_minutes is None:
+            if getattr(self, '_target_delayed_start_hours', None) is None and getattr(self, '_target_delayed_start_minutes', None) is None:
                 self._target_delayed_start_hours = None
                 self._target_delayed_start_minutes = None
 
@@ -1137,9 +1137,9 @@ class SkyCookerConnection(SkyCooker):
              
             # Don't reset delayed start values if user has set them
             # Only reset if they are None
-            if self._target_delayed_start_hours is None:
+            if getattr(self, '_target_delayed_start_hours', None) is None:
                 self._target_delayed_start_hours = None
-            if self._target_delayed_start_minutes is None:
+            if getattr(self, '_target_delayed_start_minutes', None) is None:
                 self._target_delayed_start_minutes = None
              
             # Set target state with the new values, but don't start cooking automatically
