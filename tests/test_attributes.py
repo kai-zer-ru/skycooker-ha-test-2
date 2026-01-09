@@ -17,9 +17,9 @@ class TestSkyCookerConnectionAttributes:
         assert hasattr(connection, 'status'), "SkyCookerConnection should have a 'status' property"
 
     def test_current_temp_property_exists(self):
-        """Test that the current_temp property exists in SkyCookerConnection."""
+        """Test that the minutes property exists in SkyCookerConnection."""
         connection = SkyCookerConnection("test_mac", "test_key", persistent=False, model="RMC-M40S")
-        assert hasattr(connection, 'current_temp'), "SkyCookerConnection should have a 'current_temp' property"
+        assert hasattr(connection, 'minutes'), "SkyCookerConnection should have a 'minutes' property"
 
     def test_status_code_property_exists(self):
         """Test that the status_code property exists in SkyCookerConnection."""

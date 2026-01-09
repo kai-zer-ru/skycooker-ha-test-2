@@ -20,7 +20,7 @@ class TestSkyCookerConnection:
         assert connection._key == key
         assert connection.persistent == True
         assert connection._auth_ok == False
-        assert connection._sw_version is None
+        assert connection._sw_version == "0.0"
 
     def test_connection_available(self):
         """Test that the connection returns the correct availability."""
@@ -83,13 +83,13 @@ class TestSkyCookerConnection:
         connection.stop()
         assert connection._disposed == True
 
-    def test_connection_current_temp(self):
-        """Test that the connection returns the correct current temperature."""
+    def test_connection_minutes(self):
+        """Test that the connection returns the correct minutes."""
         mac = "AA:BB:CC:DD:EE:FF"
         key = [0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F]
         connection = SkyCookerConnection(mac, key, persistent=True, model="RMC-M40S")
 
-        assert connection.current_temp is None
+        assert connection.minutes is None
 
     def test_connection_status_code(self):
         """Test that the connection returns the correct status code."""
@@ -250,7 +250,7 @@ class TestSkyCookerConnection:
         key = [0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F]
         connection = SkyCookerConnection(mac, key, persistent=True, model="RMC-M40S")
 
-        assert connection.sw_version is None
+        assert connection.sw_version == "0.0"
 
     def test_connection_sound_enabled(self):
         """Test that the connection returns the correct sound enabled status."""

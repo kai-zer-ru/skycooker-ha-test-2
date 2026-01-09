@@ -28,7 +28,7 @@ class SkyCookerConnection(SkyCooker):
         self.adapter = adapter
         self.hass = hass
         self._auth_ok = False
-        self._sw_version = None
+        self._sw_version = '0.0'
         self._iter = 0
         self._update_lock = asyncio.Lock()
         self._last_set_target = 0
@@ -208,6 +208,7 @@ class SkyCookerConnection(SkyCooker):
                 raise AuthError("Ошибка аутентификации")
             _LOGGER.info("✅ Аутентификация успешна")
             self._sw_version = await self.get_version()
+            _LOGGER.info(f"📋 Версия ПО: {self._sw_version}")
             # try:
             #     await self.sync_time()
             # except Exception as e:
@@ -356,9 +357,39 @@ class SkyCookerConnection(SkyCooker):
         return self._last_auth_ok
 
     @property
-    def current_temp(self):
+    def minutes(self):
         if self._status:
-            return self._status.current_temp
+            return self._status.minutes
+        return None
+    
+    @property
+    def hours(self):
+        if self._status:
+            return self._status.hours
+        return None
+    
+    @property
+    def dhours(self):
+        if self._status:
+            return self._status.dhours
+        return None
+    
+    @property
+    def dminutes(self):
+        if self._status:
+            return self._status.dminutes
+        return None
+    
+    @property
+    def auto_warm(self):
+        if self._status:
+            return self._status.auto_warm
+        return None
+    
+    @property
+    def subprog(self):
+        if self._status:
+            return self._status.subprog
         return None
 
     @property
@@ -471,7 +502,7 @@ class SkyCookerConnection(SkyCooker):
 
     @property
     def sw_version(self):
-        return self._sw_version
+        return self._sw_version if self._sw_version else "0.0"
 
     @property
     def sound_enabled(self):
@@ -575,9 +606,21 @@ class SkyCookerConnection(SkyCooker):
         """Start cooking with current settings."""
         _LOGGER.info("Starting cooking with current settings")
         
-        # Get current mode
-        current_mode = self._status.mode if self._status else 0
+        # Get the mode that the user has selected (from target_state), not the current device mode
+        # If user has selected a mode, use that. Otherwise, use current device mode.
+        if self._target_state and self._target_state[0] is not None:
+            target_mode = self._target_state[0]
+            _LOGGER.info(f"🎯 Используется целевой режим {target_mode} (выбран пользователем)")
+        else:
+            target_mode = self._status.mode if self._status else 0
+            _LOGGER.info(f"🎯 Используется текущий режим устройства {target_mode}")
+        
         model_type = self.model_code
+        
+        # Validate target_mode - if it's invalid (e.g., 16 for MODEL_3), use mode 0 (Multi-chef)
+        if model_type and model_type in MODE_DATA and target_mode >= len(MODE_DATA[model_type]):
+            _LOGGER.warning(f"⚠️  Некорректный режим {target_mode} для модели {model_type}, использую режим 0 (Multi-chef)")
+            target_mode = 0
         
         # Get current values from the connection (which should be set by Number components)
         # These values may have been modified by the user
@@ -587,23 +630,23 @@ class SkyCookerConnection(SkyCooker):
         
         # If user hasn't set custom temperature, use default from MODE_DATA
         if target_temp is None:
-            if model_type and model_type in MODE_DATA and current_mode < len(MODE_DATA[model_type]):
-                target_temp = MODE_DATA[model_type][current_mode][0]
+            if model_type and model_type in MODE_DATA and target_mode < len(MODE_DATA[model_type]):
+                target_temp = MODE_DATA[model_type][target_mode][0]
         
         # If user hasn't set custom cooking time, use default from MODE_DATA
         if cook_hours == 0 and cook_minutes == 0:
-            if model_type and model_type in MODE_DATA and current_mode < len(MODE_DATA[model_type]):
-                cook_hours = MODE_DATA[model_type][current_mode][1]
-                cook_minutes = MODE_DATA[model_type][current_mode][2]
+            if model_type and model_type in MODE_DATA and target_mode < len(MODE_DATA[model_type]):
+                cook_hours = MODE_DATA[model_type][target_mode][1]
+                cook_minutes = MODE_DATA[model_type][target_mode][2]
         
         # Ensure all values are integers (not None)
         cook_hours = cook_hours or 0
         cook_minutes = cook_minutes or 0
         
-        _LOGGER.info(f"Starting cooking: mode={current_mode}, temp={target_temp}, time={cook_hours}:{cook_minutes:02d}")
+        _LOGGER.info(f"Starting cooking: mode={target_mode}, temp={target_temp}, time={cook_hours}:{cook_minutes:02d}")
         
         # Set target mode and temperature
-        await self._set_target_state(current_mode, target_temp)
+        await self._set_target_state(target_mode, target_temp)
         
         # Set the boil time
         self._target_boil_time = cook_hours * 60 + cook_minutes
@@ -635,9 +678,21 @@ class SkyCookerConnection(SkyCooker):
         """Start cooking with delayed start."""
         _LOGGER.info("Starting cooking with delayed start")
         
-        # Get current mode
-        current_mode = self._status.mode if self._status else 0
+        # Get the mode that the user has selected (from target_state), not the current device mode
+        # If user has selected a mode, use that. Otherwise, use current device mode.
+        if self._target_state and self._target_state[0] is not None:
+            target_mode = self._target_state[0]
+            _LOGGER.info(f"🎯 Используется целевой режим {target_mode} (выбран пользователем)")
+        else:
+            target_mode = self._status.mode if self._status else 0
+            _LOGGER.info(f"🎯 Используется текущий режим устройства {target_mode}")
+        
         model_type = self.model_code
+        
+        # Validate target_mode - if it's invalid (e.g., 16 for MODEL_3), use mode 0 (Multi-chef)
+        if model_type and model_type in MODE_DATA and target_mode >= len(MODE_DATA[model_type]):
+            _LOGGER.warning(f"⚠️  Некорректный режим {target_mode} для модели {model_type}, использую режим 0 (Multi-chef)")
+            target_mode = 0
         
         # Get current values from the connection (which should be set by Number components)
         # These values may have been modified by the user
@@ -659,21 +714,21 @@ class SkyCookerConnection(SkyCooker):
         
         # If user hasn't set custom values, use defaults from MODE_DATA
         if wait_hours == 0 and wait_minutes == 0:
-            if model_type and model_type in MODE_DATA and current_mode < len(MODE_DATA[model_type]):
-                mode_data = MODE_DATA[model_type][current_mode]
+            if model_type and model_type in MODE_DATA and target_mode < len(MODE_DATA[model_type]):
+                mode_data = MODE_DATA[model_type][target_mode]
                 wait_hours = mode_data[3]
                 wait_minutes = mode_data[4]
         
         # If user hasn't set custom temperature, use default from MODE_DATA
         if target_temp is None:
-            if model_type and model_type in MODE_DATA and current_mode < len(MODE_DATA[model_type]):
-                target_temp = MODE_DATA[model_type][current_mode][0]
+            if model_type and model_type in MODE_DATA and target_mode < len(MODE_DATA[model_type]):
+                target_temp = MODE_DATA[model_type][target_mode][0]
         
         # If user hasn't set custom cooking time, use default from MODE_DATA
         if cook_hours == 0 and cook_minutes == 0:
-            if model_type and model_type in MODE_DATA and current_mode < len(MODE_DATA[model_type]):
-                cook_hours = MODE_DATA[model_type][current_mode][1]
-                cook_minutes = MODE_DATA[model_type][current_mode][2]
+            if model_type and model_type in MODE_DATA and target_mode < len(MODE_DATA[model_type]):
+                cook_hours = MODE_DATA[model_type][target_mode][1]
+                cook_minutes = MODE_DATA[model_type][target_mode][2]
         
         # Ensure all values are integers (not None)
         cook_hours = cook_hours or 0
@@ -692,7 +747,7 @@ class SkyCookerConnection(SkyCooker):
         _LOGGER.info(f"Delayed start: wait {wait_hours}:{wait_minutes:02d}, cook {cook_hours}:{cook_minutes:02d}, total {total_hours}:{total_minutes:02d}")
         
         # Set target mode and temperature
-        await self._set_target_state(current_mode, target_temp)
+        await self._set_target_state(target_mode, target_temp)
         
         # Set the boil time to the total calculated time
         self._target_boil_time = total_hours * 60 + total_minutes

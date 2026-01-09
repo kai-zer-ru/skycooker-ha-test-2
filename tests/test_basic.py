@@ -76,11 +76,16 @@ class TestMulticookerConnection(unittest.TestCase):
         # Create a mock status
         mock_status = SkyCooker.Status(
             mode=1,
+            subprog=0,
             target_temp=100,
-            sound_enabled=True,
-            current_temp=95,
-            parental_control=False,
+            hours=0,
+            minutes=0,
+            dhours=0,
+            dminutes=30,
+            auto_warm=0,
             is_on=True,
+            sound_enabled=True,
+            parental_control=False,
             error_code=0,
             boil_time=30
         )
