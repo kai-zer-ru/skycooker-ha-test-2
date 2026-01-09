@@ -240,6 +240,7 @@ class SkyCookerSelect(SelectEntity):
                         self.skycooker.target_state = (mode_id, mode_data[0])
                     
                     # Update target_boil_time with mode data only if user hasn't set custom cooking time
+                    # Check if target_boil_time is explicitly set by user (not None and not from MODE_DATA)
                     if self.skycooker.target_boil_time is None:
                         self.skycooker.target_boil_time = mode_data[1] * 60 + mode_data[2]
                         self.skycooker.target_cooking_time = self.skycooker.target_boil_time

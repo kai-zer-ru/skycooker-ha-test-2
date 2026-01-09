@@ -26,6 +26,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
         SkyCookerSensor(hass, entry, SENSOR_TYPE_SUCCESS_RATE),
         SkyCookerSensor(hass, entry, SENSOR_TYPE_DELAYED_LAUNCH_TIME),
         SkyCookerSensor(hass, entry, SENSOR_TYPE_SW_VERSION),
+        SkyCookerSensor(hass, entry, SENSOR_TYPE_CURRENT_MODE),
     ])
 
 
@@ -102,7 +103,9 @@ class SkyCookerSensor(SensorEntity):
             return f"{base_name} {'время до отложенного запуска' if is_russian else 'delayed launch time'}"
         elif self.sensor_type == SENSOR_TYPE_SW_VERSION:
             return f"{base_name} {'версия ПО' if is_russian else 'software version'}"
-         
+        elif self.sensor_type == SENSOR_TYPE_CURRENT_MODE:
+            return f"{base_name} {'текущий режим' if is_russian else 'current mode'}"
+        
         return base_name
 
     @property
@@ -124,6 +127,8 @@ class SkyCookerSensor(SensorEntity):
             return "mdi:timer-sand"
         elif self.sensor_type == SENSOR_TYPE_SW_VERSION:
             return "mdi:information-outline"
+        elif self.sensor_type == SENSOR_TYPE_CURRENT_MODE:
+            return "mdi:chef-hat"
         return None
 
     @property
@@ -154,7 +159,9 @@ class SkyCookerSensor(SensorEntity):
             return self.skycooker.total_time is not None
         elif self.sensor_type == SENSOR_TYPE_AUTO_WARM_TIME:
             return self.skycooker.auto_warm_enabled is not None
-         
+        elif self.sensor_type == SENSOR_TYPE_CURRENT_MODE:
+            return self.skycooker.current_mode is not None
+        
         return False
 
     @property
@@ -229,5 +236,26 @@ class SkyCookerSensor(SensorEntity):
             return 0
         elif self.sensor_type == SENSOR_TYPE_SW_VERSION:
             return self.skycooker.sw_version if self.skycooker.sw_version is not None else "Unknown"
-          
+        elif self.sensor_type == SENSOR_TYPE_CURRENT_MODE:
+            current_mode = self.skycooker.current_mode
+            if current_mode is not None:
+                # Get the model type from the connection
+                model_type = self.skycooker.model_code
+                if model_type is None:
+                    return f"Unknown ({current_mode})"
+                
+                # Get the mode names for the current model
+                mode_names = MODE_NAMES.get(model_type, [None, None])
+                if not mode_names or len(mode_names) < 2:
+                    return f"Unknown ({current_mode})"
+                
+                # Determine the language index (0 for English, 1 for Russian)
+                language = self.hass.config.language
+                lang_index = 0 if language == "en" else 1
+                
+                if current_mode < len(mode_names[lang_index]):
+                    return mode_names[lang_index][current_mode]
+                return f"Unknown ({current_mode})"
+            return "Unknown" if self.hass.config.language == "en" else "Неизвестно"
+       
         return None

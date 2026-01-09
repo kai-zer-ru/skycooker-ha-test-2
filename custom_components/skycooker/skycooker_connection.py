@@ -186,11 +186,10 @@ class SkyCookerConnection(SkyCooker):
             cook_minutes = mode_data[2]
             if cook_hours != 0 or cook_minutes != 0:
                 # Проверяем, установил ли пользователь свое время
+                # Не сбрасываем время, если пользователь уже установил его
                 if self._target_boil_time is None:
-                    # Сбрасываем целевое время приготовления
-                    self._target_boil_time = None
-                    if hasattr(self, '_target_cooking_time'):
-                        delattr(self, '_target_cooking_time')
+                    # Устанавливаем время из MODE_DATA только если пользователь не установил свое
+                    self._target_boil_time = cook_hours * 60 + cook_minutes
              
             # Сбрасываем отложенный старт только если пользователь не установил его
             if self._target_delayed_start_hours is None and self._target_delayed_start_minutes is None:
@@ -680,6 +679,10 @@ class SkyCookerConnection(SkyCooker):
 
     @property
     def auto_warm_enabled(self):
+        # Возвращаем значение флага, установленного пользователем, если оно есть
+        if hasattr(self, '_auto_warm_enabled'):
+            return self._auto_warm_enabled
+        # Иначе возвращаем значение из статуса устройства
         if not self._status: return None
         return self._status.mode == STATUS_AUTO_WARM
 
