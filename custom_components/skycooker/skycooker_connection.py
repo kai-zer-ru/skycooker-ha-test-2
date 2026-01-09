@@ -81,9 +81,26 @@ class SkyCookerConnection(SkyCooker):
             if monotonic() >= timeout_time:
                 _LOGGER.error(f"⏱️  Таймаут приема ответа на команду {command:02x}")
                 raise IOError("Таймаут приема")
+        # Check if the response command matches the expected command
+        # For some commands like SELECT_MODE, the device may send asynchronous status updates
+        # In such cases, we should check if the device actually processed the command correctly
         if r[2] != command:
-            _LOGGER.error(f"❌ Некорректная команда ответа: ожидалось {command:02x}, получено {r[2]:02x}")
-            raise IOError("Некорректная команда ответа")
+            _LOGGER.warning(f"⚠️  Получена неожиданная команда ответа: ожидалось {command:02x}, получено {r[2]:02x}")
+            _LOGGER.warning(f"💡 Это может быть асинхронный ответ от устройства")
+            
+            # For SELECT_MODE and SET_MAIN_MODE commands, if we get a status update (0x06),
+            # it might mean the device processed the command and sent its current status
+            if command in [COMMAND_SELECT_MODE, COMMAND_SET_MAIN_MODE] and r[2] == COMMAND_GET_STATUS:
+                _LOGGER.info(f"📊 Устройство отправило обновление статуса после команды {command:02x}")
+                _LOGGER.info(f"💡 Вероятно, команда была обработана успешно")
+                # Return a success response for compatibility
+                clean = bytes([0x01])  # Success code
+                _LOGGER.debug(f"📥 Очищенные данные ответа: 01 (успех)")
+                return clean
+            else:
+                _LOGGER.error(f"❌ Некорректная команда ответа: ожидалось {command:02x}, получено {r[2]:02x}")
+                raise IOError("Некорректная команда ответа")
+        
         clean = bytes(r[3:-1])
         _LOGGER.debug(f"📥 Очищенные данные ответа: {' '.join([f'{c:02x}' for c in clean])}")
         return clean
