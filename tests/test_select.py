@@ -104,11 +104,21 @@ async def test_select_option(hass, entry, skycooker_connection):
         DATA_DEVICE_INFO: lambda: {"name": "Test Device"}
     }
     
-    select = SkyCookerSelect(hass, entry, SELECT_TYPE_MODE)
-    skycooker_connection.set_target_mode = MagicMock()
+    # Mock MODE_DATA to return proper values
+    skycooker_connection.model_code = MODEL_3
+    # Mock set_target_mode as AsyncMock
     skycooker_connection.set_target_mode = AsyncMock()
+    
+    select = SkyCookerSelect(hass, entry, SELECT_TYPE_MODE)
     await select.async_select_option("Multi-chef")
+    
+    # Verify that set_target_mode was called
     assert skycooker_connection.set_target_mode.called
+    # Verify that target_state is set correctly
+    if hasattr(skycooker_connection, 'target_state'):
+        target_state = skycooker_connection.target_state
+        if target_state is not None:
+            assert target_state[0] == 0  # Multi-chef mode ID
 
 
 def test_select_unavailable(hass, entry, skycooker_connection):
@@ -332,3 +342,52 @@ async def test_delayed_start_minutes_select_option(hass, entry, skycooker_connec
     select = SkyCookerSelect(hass, entry, SELECT_TYPE_DELAYED_START_MINUTES)
     await select.async_select_option("30")
     assert skycooker_connection.target_delayed_start_minutes == 30
+
+
+@pytest.mark.asyncio
+async def test_commands_sent_only_on_mode_change(hass, entry, skycooker_connection):
+    """Test that commands are sent only when mode is changed, not when other parameters are changed."""
+    hass.data[DOMAIN][entry.entry_id] = {
+        DATA_CONNECTION: skycooker_connection,
+        DATA_DEVICE_INFO: lambda: {"name": "Test Device"}
+    }
+    
+    # Mock the set_target_mode method to track if it's called
+    skycooker_connection.set_target_mode = AsyncMock()
+    skycooker_connection.model_code = MODEL_3
+    
+    # Change mode - should send commands
+    select_mode = SkyCookerSelect(hass, entry, SELECT_TYPE_MODE)
+    await select_mode.async_select_option("Multi-chef")
+    
+    # Verify that set_target_mode was called for mode change
+    assert skycooker_connection.set_target_mode.called
+    assert skycooker_connection.set_target_mode.call_count == 1
+    
+    # Reset the mock
+    skycooker_connection.set_target_mode.reset_mock()
+    
+    # Change temperature - should NOT send commands
+    skycooker_connection.status = MagicMock()
+    skycooker_connection.status.mode = 0
+    select_temp = SkyCookerSelect(hass, entry, SELECT_TYPE_TEMPERATURE)
+    await select_temp.async_select_option("100")
+    
+    # Verify that set_target_mode was NOT called for temperature change
+    assert not skycooker_connection.set_target_mode.called
+    
+    # Change cooking time - should NOT send commands
+    select_hours = SkyCookerSelect(hass, entry, SELECT_TYPE_COOKING_TIME_HOURS)
+    await select_hours.async_select_option("1")
+    
+    select_minutes = SkyCookerSelect(hass, entry, SELECT_TYPE_COOKING_TIME_MINUTES)
+    await select_minutes.async_select_option("30")
+    
+    # Verify that set_target_mode was NOT called for cooking time change
+    assert not skycooker_connection.set_target_mode.called
+    
+    # Verify that target state is set correctly
+    assert skycooker_connection.target_state is not None
+    assert skycooker_connection.target_state[0] == 0  # Multi-chef mode
+    assert skycooker_connection.target_state[1] == 100  # Temperature
+    assert skycooker_connection.target_boil_time == 90  # 1 hour 30 minutes = 90 minutes

@@ -246,7 +246,7 @@ class SkyCookerSelect(SelectEntity):
                 if value == option:
                     mode_id = idx
                     break
-               
+                
             if mode_id is not None:
                 # Get MODE_DATA values for the selected mode
                 model_type = self.skycooker.model_code
@@ -263,7 +263,8 @@ class SkyCookerSelect(SelectEntity):
                     if self.skycooker.target_boil_time is None:
                         self.skycooker.target_boil_time = mode_data[1] * 60 + mode_data[2]
                         self.skycooker.target_cooking_time = self.skycooker.target_boil_time
-                
+                 
+            # Call set_target_mode to send commands to the device when mode is selected
             await self.skycooker.set_target_mode(mode_id)
             
             # Ensure default values for delayed start hours and minutes only if user hasn't set them
@@ -271,14 +272,16 @@ class SkyCookerSelect(SelectEntity):
                 self.skycooker.target_delayed_start_hours = 0
             if self.skycooker.target_delayed_start_minutes is None:
                 self.skycooker.target_delayed_start_minutes = 0
-                
+                 
                 # Trigger dispatcher update to notify Number entities about the mode change
                 async_dispatcher_send(self.hass, DISPATCHER_UPDATE)
                 self.update()
         elif self.select_type == SELECT_TYPE_TEMPERATURE:
             # Set temperature in target state
-            current_mode = self.skycooker.status.mode if self.skycooker.status else 0
+            current_mode = self.skycooker.target_state[0] if self.skycooker.target_state else (self.skycooker.status.mode if self.skycooker.status else 0)
             self.skycooker.target_state = (current_mode, int(option))
+            # Mark that user has set custom temperature
+            self.skycooker._target_temperature = int(option)
         elif self.select_type == SELECT_TYPE_COOKING_TIME_HOURS:
             # Update hours in target boil time
             current_minutes = self.skycooker.target_boil_time % 60 if self.skycooker.target_boil_time else 0
