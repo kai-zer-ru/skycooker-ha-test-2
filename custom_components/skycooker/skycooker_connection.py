@@ -262,9 +262,9 @@ class SkyCookerConnection(SkyCooker):
                 _LOGGER.info("🔄 Обновление состояния мультиварки")
                 if not self.available: force_stats = True
                 await self._connect_if_need()
-
+ 
                 if extra_action: await extra_action
-
+ 
                 try:
                     self._status = await self.get_status()
                 except Exception as e:
@@ -282,7 +282,7 @@ class SkyCookerConnection(SkyCooker):
                         if self._status.is_on:
                             await self.turn_off()
                             await asyncio.sleep(0.2)
-                        
+                         
                         # Проверяем, поддерживается ли целевой режим устройством
                         # Если устройство находится в режиме ожидания (16), используем целевой режим из _target_state
                         target_mode_to_check = self._target_state[0] if self._target_state else self._status.mode
@@ -290,7 +290,7 @@ class SkyCookerConnection(SkyCooker):
                             _LOGGER.error(f"❌ Режим {target_mode_to_check} не поддерживается устройством")
                             self._target_boil_time = None
                             return False
-                        
+                         
                         # Отправляем команду "Выбор режима" перед установкой режима
                         # Если устройство находится в режиме ожидания (16), используем целевой режим из _target_state
                         target_mode_for_update = self._target_state[0] if self._target_state else self._status.mode
@@ -307,7 +307,9 @@ class SkyCookerConnection(SkyCooker):
                         # В случае ошибки, сбрасываем _target_boil_time, чтобы избежать циклических попыток
                         self._target_boil_time = None
                         return False
-                self._target_boil_time = None
+                # Не сбрасываем _target_boil_time после успешной установки,
+                # чтобы интерфейс мог правильно отображать текущее значение
+                # self._target_boil_time = None
 
                 # Не вызываем commit() здесь, так как он вызовет повторный update()
                 # и может сбросить состояние. Вместо этого продолжим обработку

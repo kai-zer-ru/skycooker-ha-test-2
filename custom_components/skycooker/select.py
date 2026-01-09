@@ -246,33 +246,33 @@ class SkyCookerSelect(SelectEntity):
                 if value == option:
                     mode_id = idx
                     break
-                
+                 
             if mode_id is not None:
                 # Get MODE_DATA values for the selected mode
                 model_type = self.skycooker.model_code
                 if model_type and model_type in MODE_DATA and mode_id < len(MODE_DATA[model_type]):
                     mode_data = MODE_DATA[model_type][mode_id]
                     _LOGGER.info(f"Selected mode {mode_id} for model {model_type}: temperature={mode_data[0]}, hours={mode_data[1]}, minutes={mode_data[2]}")
-                    
+                      
                     # Update target_state with mode data only if user hasn't set custom temperature
                     if not hasattr(self.skycooker, '_target_temperature') or self.skycooker._target_temperature is None:
                         self.skycooker.target_state = (mode_id, mode_data[0])
-                    
+                      
                     # Update target_boil_time with mode data only if user hasn't set custom cooking time
                     # Check if target_boil_time is explicitly set by user (not None and not from MODE_DATA)
                     if self.skycooker.target_boil_time is None:
                         self.skycooker.target_boil_time = mode_data[1] * 60 + mode_data[2]
                         self.skycooker.target_cooking_time = self.skycooker.target_boil_time
-                 
+                  
             # Call set_target_mode to send commands to the device when mode is selected
             await self.skycooker.set_target_mode(mode_id)
-            
+             
             # Ensure default values for delayed start hours and minutes only if user hasn't set them
             if self.skycooker.target_delayed_start_hours is None:
                 self.skycooker.target_delayed_start_hours = 0
             if self.skycooker.target_delayed_start_minutes is None:
                 self.skycooker.target_delayed_start_minutes = 0
-                 
+                  
                 # Trigger dispatcher update to notify Number entities about the mode change
                 async_dispatcher_send(self.hass, DISPATCHER_UPDATE)
                 self.update()
@@ -298,16 +298,16 @@ class SkyCookerSelect(SelectEntity):
         elif self.select_type == SELECT_TYPE_DELAYED_START_MINUTES:
             # Set delayed start minutes
             self.skycooker.target_delayed_start_minutes = int(option)
-        
+         
         # Ensure default values for delayed start hours and minutes if not set
         if self.select_type == SELECT_TYPE_DELAYED_START_HOURS and self.skycooker.target_delayed_start_hours is None:
             self.skycooker.target_delayed_start_hours = 0
         if self.select_type == SELECT_TYPE_DELAYED_START_MINUTES and self.skycooker.target_delayed_start_minutes is None:
             self.skycooker.target_delayed_start_minutes = 0
-        
+         
         # Schedule an update to refresh the entity state
         self.async_schedule_update_ha_state(True)
-        
+         
         # Log the new values for debugging
         _LOGGER.debug(f"Updated {self.select_type}: {option}")
         _LOGGER.debug(f"Current target_state: {self.skycooker.target_state}")
