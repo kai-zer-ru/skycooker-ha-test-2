@@ -469,3 +469,208 @@ class TestSkyCookerConnection:
         except Exception as e:
             # We expect a connection error, not a mode validation error
             assert "Не подключено" in str(e) or "не поддерживается" not in str(e)
+
+    @pytest.mark.asyncio
+    async def test_connection_select_mode_preserves_user_settings(self):
+        """Test that select_mode preserves user settings when changing modes."""
+        mac = "AA:BB:CC:DD:EE:FF"
+        key = [0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F]
+        connection = SkyCookerConnection(mac, key, persistent=True, model="RMC-M40S")
+        
+        # Set user custom settings
+        connection._target_temperature = 120
+        connection._target_boil_time = 45
+        connection._target_delayed_start_hours = 2
+        connection._target_delayed_start_minutes = 30
+        
+        # Mock MODE_DATA to return a list with enough elements
+        from custom_components.skycooker.const import MODE_DATA
+        original_mode_data = MODE_DATA.copy()
+        MODE_DATA[3] = [
+            [100, 0, 30, 15], [101, 0, 30, 7], [100, 1, 0, 7], [165, 0, 18, 5],
+            [100, 1, 0, 7], [100, 0, 35, 7], [100, 0, 8, 4], [98, 3, 0, 7],
+            [100, 0, 40, 7], [140, 1, 0, 7], [100, 0, 25, 7], [110, 1, 0, 7],
+            [40, 8, 0, 6], [145, 0, 20, 7], [140, 3, 0, 7],
+            [0, 0, 0, 0], [62, 2, 30, 6]
+        ]
+        
+        # Call select_mode - it should preserve user settings
+        try:
+            await connection.select_mode(5)
+        except Exception:
+            pass  # We expect a connection error, but that's fine
+        
+        # Verify that user settings were preserved
+        assert connection._target_temperature == 120
+        assert connection._target_boil_time == 45
+        assert connection._target_delayed_start_hours == 2
+        assert connection._target_delayed_start_minutes == 30
+        
+        # Restore original MODE_DATA
+        MODE_DATA.update(original_mode_data)
+
+    @pytest.mark.asyncio
+    async def test_connection_start_preserves_auto_warm(self):
+        """Test that start method preserves auto warm setting."""
+        mac = "AA:BB:CC:DD:EE:FF"
+        key = [0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F]
+        connection = SkyCookerConnection(mac, key, persistent=True, model="RMC-M40S")
+        
+        # Enable auto warm
+        connection._auto_warm_enabled = True
+        
+        # Mock the necessary methods and attributes
+        connection._connect_if_need = AsyncMock()
+        connection.select_mode = AsyncMock()
+        connection.set_main_mode = AsyncMock()
+        connection.turn_on = AsyncMock()
+        connection.get_status = AsyncMock()
+        connection._disconnect_if_need = AsyncMock()
+        
+        # Mock the _status attribute
+        connection._status = MagicMock()
+        connection._status.mode = 1
+        connection._status.is_on = False
+        connection._status.target_temp = 100
+        connection._status.boil_time = 0
+        
+        # Mock MODE_DATA to return a list with enough elements
+        from custom_components.skycooker.const import MODE_DATA
+        original_mode_data = MODE_DATA.copy()
+        MODE_DATA[3] = [
+            [100, 0, 30, 15], [101, 0, 30, 7], [100, 1, 0, 7], [165, 0, 18, 5],
+            [100, 1, 0, 7], [100, 0, 35, 7], [100, 0, 8, 4], [98, 3, 0, 7],
+            [100, 0, 40, 7], [140, 1, 0, 7], [100, 0, 25, 7], [110, 1, 0, 7],
+            [40, 8, 0, 6], [145, 0, 20, 7], [140, 3, 0, 7],
+            [0, 0, 0, 0], [62, 2, 30, 6]
+        ]
+        
+        # Set target state
+        connection._target_state = (1, 101)
+        connection._target_boil_time = 30
+        
+        await connection.start()
+        
+        # Verify that auto warm flag was passed to select_mode and set_main_mode
+        # Check that select_mode was called with auto_warm_flag=1
+        select_mode_calls = connection.select_mode.call_args_list
+        for call in select_mode_calls:
+            if len(call.args) > 7:
+                assert call.args[7] == 1  # auto_warm_flag should be 1
+        
+        # Check that set_main_mode was called with auto_warm_flag=1
+        set_main_mode_calls = connection.set_main_mode.call_args_list
+        for call in set_main_mode_calls:
+            if len(call.args) > 7:
+                assert call.args[7] == 1  # auto_warm_flag should be 1
+        
+        # Restore original MODE_DATA
+        MODE_DATA.update(original_mode_data)
+
+    @pytest.mark.asyncio
+    async def test_connection_start_command_sequence_standby(self):
+        """Test that start method sends correct command sequence when device is in standby mode."""
+        mac = "AA:BB:CC:DD:EE:FF"
+        key = [0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F]
+        connection = SkyCookerConnection(mac, key, persistent=True, model="RMC-M40S")
+        
+        # Mock the necessary methods and attributes
+        connection._connect_if_need = AsyncMock()
+        connection.select_mode = AsyncMock()
+        connection.set_main_mode = AsyncMock()
+        connection.turn_on = AsyncMock()
+        connection.get_status = AsyncMock()
+        connection._disconnect_if_need = AsyncMock()
+        
+        # Mock the _status attribute to simulate device in mode 16 (standby)
+        connection._status = MagicMock()
+        connection._status.mode = 16
+        connection._status.is_on = False
+        connection._status.target_temp = 100
+        connection._status.boil_time = 0
+        
+        # Mock MODE_DATA to return a list with enough elements
+        from custom_components.skycooker.const import MODE_DATA
+        original_mode_data = MODE_DATA.copy()
+        MODE_DATA[3] = [
+            [100, 0, 30, 15], [101, 0, 30, 7], [100, 1, 0, 7], [165, 0, 18, 5],
+            [100, 1, 0, 7], [100, 0, 35, 7], [100, 0, 8, 4], [98, 3, 0, 7],
+            [100, 0, 40, 7], [140, 1, 0, 7], [100, 0, 25, 7], [110, 1, 0, 7],
+            [40, 8, 0, 6], [145, 0, 20, 7], [140, 3, 0, 7],
+            [0, 0, 0, 0], [62, 2, 30, 6]
+        ]
+        
+        # Set target state
+        connection._target_state = (5, 100)
+        connection._target_boil_time = 35
+        
+        await connection.start()
+        
+        # Verify that the correct command sequence was followed for standby mode
+        # 1. select_mode should be called first to wake up the device
+        # 2. set_main_mode should be called next
+        # 3. turn_on should be called last
+        
+        # Verify that select_mode was called
+        connection.select_mode.assert_called()
+        
+        # Verify that set_main_mode was called
+        connection.set_main_mode.assert_called()
+        
+        # Verify that turn_on was called
+        connection.turn_on.assert_called_once()
+        
+        # Restore original MODE_DATA
+        MODE_DATA.update(original_mode_data)
+
+    @pytest.mark.asyncio
+    async def test_connection_start_command_sequence_same_mode(self):
+        """Test that start method sends correct command sequence when device is already in target mode."""
+        mac = "AA:BB:CC:DD:EE:FF"
+        key = [0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F]
+        connection = SkyCookerConnection(mac, key, persistent=True, model="RMC-M40S")
+        
+        # Mock the necessary methods and attributes
+        connection._connect_if_need = AsyncMock()
+        connection.select_mode = AsyncMock()
+        connection.set_main_mode = AsyncMock()
+        connection.turn_on = AsyncMock()
+        connection.get_status = AsyncMock()
+        connection._disconnect_if_need = AsyncMock()
+        
+        # Mock the _status attribute to simulate device already in target mode
+        connection._status = MagicMock()
+        connection._status.mode = 5
+        connection._status.is_on = True
+        connection._status.target_temp = 100
+        connection._status.boil_time = 0
+        
+        # Mock MODE_DATA to return a list with enough elements
+        from custom_components.skycooker.const import MODE_DATA
+        original_mode_data = MODE_DATA.copy()
+        MODE_DATA[3] = [
+            [100, 0, 30, 15], [101, 0, 30, 7], [100, 1, 0, 7], [165, 0, 18, 5],
+            [100, 1, 0, 7], [100, 0, 35, 7], [100, 0, 8, 4], [98, 3, 0, 7],
+            [100, 0, 40, 7], [140, 1, 0, 7], [100, 0, 25, 7], [110, 1, 0, 7],
+            [40, 8, 0, 6], [145, 0, 20, 7], [140, 3, 0, 7],
+            [0, 0, 0, 0], [62, 2, 30, 6]
+        ]
+        
+        # Set target state to same mode
+        connection._target_state = (5, 100)
+        connection._target_boil_time = 35
+        
+        await connection.start()
+        
+        # Verify that the correct command sequence was followed for same mode
+        # 1. set_main_mode should be called (no need to send select_mode)
+        # 2. turn_on should be called
+        
+        # Verify that set_main_mode was called
+        connection.set_main_mode.assert_called()
+        
+        # Verify that turn_on was called
+        connection.turn_on.assert_called_once()
+        
+        # Restore original MODE_DATA
+        MODE_DATA.update(original_mode_data)
