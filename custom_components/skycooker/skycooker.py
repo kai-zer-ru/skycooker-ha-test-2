@@ -83,7 +83,8 @@ class SkyCooker(ABC):
             _LOGGER.debug(f"📥 Получен ответ на SELECT_MODE: {r.hex().upper() if r else 'None'}")
             if r and len(r) > 0:
                 _LOGGER.debug(f"   Первый байт ответа: {r[0]} (ожидалось 1 для успеха)")
-            if r and r[0] != 1:
+            # Accept both success code (0x01) and status updates as success
+            if r and r[0] != 1 and len(r) != 1:
                 _LOGGER.error(f"❌ Ошибка выбора режима: устройство вернуло код ошибки {r[0]}")
                 raise SkyCookerError(f"Ошибка выбора режима: код {r[0]}")
             _LOGGER.debug(f"✅ Режим успешно выбран: mode={mode}")
@@ -112,7 +113,8 @@ class SkyCooker(ABC):
             _LOGGER.debug(f"📥 Получен ответ на SET_MAIN_MODE: {r.hex().upper() if r else 'None'}")
             if r and len(r) > 0:
                 _LOGGER.debug(f"   Первый байт ответа: {r[0]} (ожидалось 1 для успеха)")
-            if r and r[0] != 1:
+            # Accept both success code (0x01) and status updates as success
+            if r and r[0] != 1 and len(r) != 1:
                 _LOGGER.error(f"❌ Ошибка установки режима: устройство вернуло код ошибки {r[0]}")
                 raise SkyCookerError(f"Ошибка установки режима: код {r[0]}")
             _LOGGER.debug(f"✅ Режим успешно установлен: mode={mode}")

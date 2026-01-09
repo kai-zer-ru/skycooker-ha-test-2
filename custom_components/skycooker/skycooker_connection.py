@@ -97,6 +97,15 @@ class SkyCookerConnection(SkyCooker):
                 clean = bytes([0x01])  # Success code
                 _LOGGER.debug(f"📥 Очищенные данные ответа: 01 (успех)")
                 return clean
+            elif command == COMMAND_GET_STATUS and r[2] in [COMMAND_SELECT_MODE, COMMAND_SET_MAIN_MODE]:
+                # If we were expecting a status update but got a command response,
+                # this might be a delayed response from a previous command
+                _LOGGER.info(f"📊 Получен отложенный ответ на команду {r[2]:02x} вместо статуса")
+                _LOGGER.info(f"💡 Вероятно, предыдущая команда была обработана успешно")
+                # Return the response data for processing
+                clean = bytes(r[3:-1])
+                _LOGGER.debug(f"📥 Очищенные данные ответа: {' '.join([f'{c:02x}' for c in clean])}")
+                return clean
             else:
                 _LOGGER.error(f"❌ Некорректная команда ответа: ожидалось {command:02x}, получено {r[2]:02x}")
                 raise IOError("Некорректная команда ответа")
@@ -318,7 +327,13 @@ class SkyCookerConnection(SkyCooker):
                                 _LOGGER.error(f"❌ Режим {target_mode} не поддерживается устройством")
                                 self._target_state = None
                                 return False
-                            
+                             
+                            # Если устройство находится в режиме ожидания (mode=16), нужно сначала его пробудить
+                            if self._status.mode == 16:
+                                _LOGGER.info("🔄 Устройство находится в режиме ожидания, пробуждаем...")
+                                await self.select_mode(target_mode, 0, target_temp, boil_time // 60, boil_time % 60)
+                                await asyncio.sleep(0.5)  # Увеличенная задержка для пробуждения
+                             
                             # Отправляем команду "Выбор режима" перед установкой режима
                             _LOGGER.debug(f"📤 Отправка команды SELECT_MODE для режима {target_mode}")
                             await self.select_mode(target_mode, 0, target_temp, boil_time // 60, boil_time % 60)
@@ -327,7 +342,7 @@ class SkyCookerConnection(SkyCooker):
                             _LOGGER.info("✅ Режим установлен")
                             await self.turn_on()
                             _LOGGER.info("✅ Мультиварка включена")
-                            await asyncio.sleep(0.2)
+                            await asyncio.sleep(0.3)  # Увеличенная задержка между командами
                             self._status = await self.get_status()
                         except Exception as ex:
                             _LOGGER.error(f"❌ Ошибка при установке режима {target_mode}: {str(ex)}")
@@ -343,13 +358,19 @@ class SkyCookerConnection(SkyCooker):
                             await self.turn_off()
                             _LOGGER.info("✅ Мультиварка выключена")
                             await asyncio.sleep(0.2)
-                            
+                             
                             # Проверяем, поддерживается ли режим устройством
                             if not self._is_mode_supported(target_mode):
                                 _LOGGER.error(f"❌ Режим {target_mode} не поддерживается устройством")
                                 self._target_state = None
                                 return False
-                            
+                             
+                            # Если устройство находится в режиме ожидания (mode=16), нужно сначала его пробудить
+                            if self._status.mode == 16:
+                                _LOGGER.info("🔄 Устройство находится в режиме ожидания, пробуждаем...")
+                                await self.select_mode(target_mode, 0, target_temp, boil_time // 60, boil_time % 60)
+                                await asyncio.sleep(0.5)  # Увеличенная задержка для пробуждения
+                             
                             # Отправляем команду "Выбор режима" перед установкой режима
                             _LOGGER.debug(f"📤 Отправка команды SELECT_MODE для режима {target_mode}")
                             await self.select_mode(target_mode, 0, target_temp, boil_time // 60, boil_time % 60)
@@ -358,7 +379,7 @@ class SkyCookerConnection(SkyCooker):
                             _LOGGER.info("✅ Режим установлен")
                             await self.turn_on()
                             _LOGGER.info("✅ Мультиварка включена")
-                            await asyncio.sleep(0.2)
+                            await asyncio.sleep(0.3)  # Увеличенная задержка между командами
                             self._status = await self.get_status()
                         except Exception as ex:
                             _LOGGER.error(f"❌ Ошибка при переключении режима {target_mode}: {str(ex)}")
@@ -726,11 +747,6 @@ class SkyCookerConnection(SkyCooker):
             _LOGGER.error(f"❌ Режим {target_mode} не поддерживается устройством, использую режим 0 (Multi-chef)")
             target_mode = 0
         
-        # Проверяем, поддерживается ли режим устройством
-        if not self._is_mode_supported(target_mode):
-            _LOGGER.error(f"❌ Режим {target_mode} не поддерживается устройством, использую режим 0 (Multi-chef)")
-            target_mode = 0
-        
         # Если текущий режим устройства - 16 (ожидание), и пользователь не выбрал режим,
         # используем режим 0 (Multi-chef) вместо режима 16
         if target_mode == 16:
@@ -771,17 +787,17 @@ class SkyCookerConnection(SkyCooker):
             if is_in_standby:
                 _LOGGER.info("🔄 Устройство находится в режиме ожидания, отправляем команду SELECT_MODE для пробуждения")
                 await self.select_mode(target_mode, 0, target_temp, cook_hours, cook_minutes)
-                await asyncio.sleep(0.2)  # Small delay between commands
+                await asyncio.sleep(0.5)  # Increased delay for standby mode wakeup
             
             # Send SELECT_MODE command to show mode information on device screen
             _LOGGER.debug(f"📤 Отправка команды SELECT_MODE (0x09) для режима {target_mode}")
             await self.select_mode(target_mode, 0, target_temp, cook_hours, cook_minutes)
-            await asyncio.sleep(0.2)  # Small delay between commands
+            await asyncio.sleep(0.3)  # Increased delay between commands
             
             # Send SET_MAIN_MODE command with selected parameters
             _LOGGER.debug(f"📤 Отправка команды SET_MAIN_MODE (0x05) для режима {target_mode}")
             await self.set_main_mode(target_mode, 0, target_temp, cook_hours, cook_minutes)
-            await asyncio.sleep(0.2)  # Small delay between commands
+            await asyncio.sleep(0.3)  # Increased delay between commands
             
             # Send TURN_ON command to start cooking
             _LOGGER.debug(f"📤 Отправка команды TURN_ON (0x03)")
