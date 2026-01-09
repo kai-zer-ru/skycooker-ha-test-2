@@ -385,6 +385,7 @@ SENSOR_TYPE_SW_VERSION = "sw_version"
 
 # Switch types
 SWITCH_TYPE_POWER = "power"
+SWITCH_TYPE_AUTO_WARM = "auto_warm"
 
 # BLE settings
 UUID_SERVICE = "6e400001-b5a3-f393-e0a9-e50e24dcca9e"

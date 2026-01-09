@@ -16,6 +16,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
     """Set up the SkyCooker switches."""
     async_add_entities([
         SkyCookerSwitch(hass, entry, SWITCH_TYPE_POWER),
+        SkyCookerSwitch(hass, entry, SWITCH_TYPE_AUTO_WARM),
     ])
 
 
@@ -73,6 +74,8 @@ class SkyCookerSwitch(SwitchEntity):
         
         if self.switch_type == SWITCH_TYPE_POWER:
             return f"{base_name} {'питание' if is_russian else 'power'}"
+        elif self.switch_type == SWITCH_TYPE_AUTO_WARM:
+            return f"{base_name} {'автоподогрев' if is_russian else 'auto warm'}"
         
         return base_name
 
@@ -81,6 +84,8 @@ class SkyCookerSwitch(SwitchEntity):
         """Return the icon."""
         if self.switch_type == SWITCH_TYPE_POWER:
             return "mdi:power"
+        elif self.switch_type == SWITCH_TYPE_AUTO_WARM:
+            return "mdi:heat-wave"
         return None
 
     @property
@@ -97,6 +102,8 @@ class SkyCookerSwitch(SwitchEntity):
                 return status_code not in [STATUS_OFF, STATUS_FULL_OFF]
             # If status_code is None, assume it's off to prevent switching to unavailable
             return False
+        elif self.switch_type == SWITCH_TYPE_AUTO_WARM:
+            return self.skycooker.auto_warm_enabled
         return False
 
     async def async_turn_on(self, **kwargs):
@@ -104,9 +111,15 @@ class SkyCookerSwitch(SwitchEntity):
         if self.switch_type == SWITCH_TYPE_POWER:
             await self.skycooker.start()
             self.update()
+        elif self.switch_type == SWITCH_TYPE_AUTO_WARM:
+            await self.skycooker.enable_auto_warm()
+            self.update()
 
     async def async_turn_off(self, **kwargs):
         """Turn the switch off."""
         if self.switch_type == SWITCH_TYPE_POWER:
             await self.skycooker.stop()
+            self.update()
+        elif self.switch_type == SWITCH_TYPE_AUTO_WARM:
+            await self.skycooker.disable_auto_warm()
             self.update()

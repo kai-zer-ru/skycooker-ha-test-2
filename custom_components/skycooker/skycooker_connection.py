@@ -814,6 +814,41 @@ class SkyCookerConnection(SkyCooker):
             
         except Exception as ex:
             _LOGGER.error(f"❌ Ошибка при запуске приготовления: {str(ex)}")
+            # Add more detailed error handling
+            if "Некорректный размер данных статуса" in str(ex):
+                _LOGGER.error("💡 Проверьте соединение с устройством и повторите попытку")
+            raise
+        finally:
+            await self._disconnect_if_need()
+
+    async def enable_auto_warm(self):
+        """Enable auto warm mode."""
+        _LOGGER.info("Enabling auto warm mode")
+        try:
+            await self._connect_if_need()
+            # Send command to enable auto warm
+            # This is a placeholder - you'll need to implement the actual command
+            # based on your device's protocol
+            await self.command(0x10, [0x01])  # Example command
+            _LOGGER.info("✅ Auto warm mode enabled")
+        except Exception as ex:
+            _LOGGER.error(f"❌ Ошибка при включении автоподогрева: {str(ex)}")
+            raise
+        finally:
+            await self._disconnect_if_need()
+
+    async def disable_auto_warm(self):
+        """Disable auto warm mode."""
+        _LOGGER.info("Disabling auto warm mode")
+        try:
+            await self._connect_if_need()
+            # Send command to disable auto warm
+            # This is a placeholder - you'll need to implement the actual command
+            # based on your device's protocol
+            await self.command(0x10, [0x00])  # Example command
+            _LOGGER.info("✅ Auto warm mode disabled")
+        except Exception as ex:
+            _LOGGER.error(f"❌ Ошибка при выключении автоподогрева: {str(ex)}")
             raise
         finally:
             await self._disconnect_if_need()
