@@ -229,7 +229,7 @@ class SkyCookerSensor(SensorEntity):
         elif self.sensor_type == SENSOR_TYPE_DELAYED_LAUNCH_TIME:
             status_code = self.skycooker.status_code
             if status_code is not None:
-                return self.skycooker.remaining_time if status_code == STATUS_DELAYED_LAUNCH else 0
+                return self.skycooker.delayed_start_time if status_code == STATUS_DELAYED_LAUNCH else 0
             return 0
         elif self.sensor_type == SENSOR_TYPE_CURRENT_MODE:
             status_code = self.skycooker.status_code

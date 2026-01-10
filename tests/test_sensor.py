@@ -150,6 +150,24 @@ def test_sensor_native_value_delayed_launch_time(hass, entry, skycooker_connecti
     assert sensor.native_value == 0
 
 
+def test_sensor_native_value_delayed_launch_time_with_delayed_start(hass, entry, skycooker_connection):
+    """Test sensor native value for delayed launch time when device is in delayed start mode."""
+    # Set up the connection to simulate delayed start mode
+    skycooker_connection.status_code = STATUS_DELAYED_LAUNCH
+    skycooker_connection.delayed_start_time = 27  # 27 minutes delayed start
+    skycooker_connection.remaining_time = 34  # 27 + 7 minutes cooking
+    skycooker_connection.total_time = 34
+    
+    hass.data[DOMAIN][entry.entry_id] = {
+        DATA_CONNECTION: skycooker_connection,
+        DATA_DEVICE_INFO: lambda: {"name": "Test Device"}
+    }
+    
+    sensor = SkyCookerSensor(hass, entry, SENSOR_TYPE_DELAYED_LAUNCH_TIME)
+    # Should return only the delayed start time (27 minutes), not the total remaining time
+    assert sensor.native_value == 27
+
+
 def test_sensor_native_value_sw_version(hass, entry, skycooker_connection):
     """Test sensor native value for software version."""
     hass.data[DOMAIN][entry.entry_id] = {
