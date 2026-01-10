@@ -13,7 +13,7 @@
   ],
   "version": "0.1.0",
   "supported_diagnostics": true,
-  "fronted": [
+  "frontend": [
     {
       "javascript": "skycooker-card.js",
       "url_path": "skycooker-card"
