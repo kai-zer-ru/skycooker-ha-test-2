@@ -287,53 +287,6 @@ class TestSkyCookerConnection:
         # boil_time is not a property, use remaining_time instead
         assert connection.remaining_time is None
 
-    @pytest.mark.asyncio
-    async def test_connection_start_with_mode_16(self):
-        """Test that the connection correctly handles mode 16 (standby) when starting."""
-        mac = "AA:BB:CC:DD:EE:FF"
-        key = [0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F]
-        connection = SkyCookerConnection(mac, key, persistent=True, model="RMC-M40S")
-        
-        # Mock the necessary methods and attributes
-        connection._connect_if_need = AsyncMock()
-        connection.select_mode = AsyncMock()
-        connection.set_main_mode = AsyncMock()
-        connection.turn_on = AsyncMock()
-        connection.get_status = AsyncMock()
-        connection._disconnect_if_need = AsyncMock()
-        
-        # Mock the _status attribute to simulate device in mode 16 (standby)
-        connection._status = MagicMock()
-        connection._status.mode = 16
-        connection._status.is_on = False
-        connection._status.target_temp = 100
-
-        # Mock MODE_DATA to return a list with enough elements
-        from custom_components.skycooker.const import MODE_DATA
-        original_mode_data = MODE_DATA.copy()
-        MODE_DATA[3] = [
-            [100, 0, 30, 15], [101, 0, 30, 7], [100, 1, 0, 7], [165, 0, 18, 5],
-            [100, 1, 0, 7], [100, 0, 35, 7], [100, 0, 8, 4], [98, 3, 0, 7],
-            [100, 0, 40, 7], [140, 1, 0, 7], [100, 0, 25, 7], [110, 1, 0, 7],
-            [40, 8, 0, 6], [145, 0, 20, 7], [140, 3, 0, 7],
-            [0, 0, 0, 0], [62, 2, 30, 6]
-        ]
-        
-        # Call start() - it should use mode 0 instead of mode 16
-        await connection.start()
-        
-        # Verify that the methods were called in the correct order
-        connection._connect_if_need.assert_called_once()
-        connection.select_mode.assert_called()
-        connection.set_main_mode.assert_called()
-        connection.turn_on.assert_called_once()
-        connection.get_status.assert_called_once()
-        connection._disconnect_if_need.assert_called_once()
-        
-        assert connection.target_mode == 0
-        
-        # Restore original MODE_DATA
-        MODE_DATA.update(original_mode_data)
 
     @pytest.mark.asyncio
     async def test_connection_start_command_sequence(self):

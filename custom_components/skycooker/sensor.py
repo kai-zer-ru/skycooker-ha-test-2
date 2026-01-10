@@ -25,7 +25,6 @@ async def async_setup_entry(hass, entry, async_add_entities):
         SkyCookerSensor(hass, entry, SENSOR_TYPE_AUTO_WARM_TIME),
         SkyCookerSensor(hass, entry, SENSOR_TYPE_SUCCESS_RATE),
         SkyCookerSensor(hass, entry, SENSOR_TYPE_DELAYED_LAUNCH_TIME),
-        SkyCookerSensor(hass, entry, SENSOR_TYPE_SW_VERSION),
         SkyCookerSensor(hass, entry, SENSOR_TYPE_CURRENT_MODE),
     ])
 
@@ -101,8 +100,6 @@ class SkyCookerSensor(SensorEntity):
             return f"{base_name} {'процент успеха' if is_russian else 'success rate'}"
         elif self.sensor_type == SENSOR_TYPE_DELAYED_LAUNCH_TIME:
             return f"{base_name} {'время до отложенного запуска' if is_russian else 'delayed launch time'}"
-        elif self.sensor_type == SENSOR_TYPE_SW_VERSION:
-            return f"{base_name} {'версия ПО' if is_russian else 'software version'}"
         elif self.sensor_type == SENSOR_TYPE_CURRENT_MODE:
             return f"{base_name} {'текущий режим' if is_russian else 'current mode'}"
         
@@ -125,8 +122,6 @@ class SkyCookerSensor(SensorEntity):
             return "mdi:bluetooth-connect"
         elif self.sensor_type == SENSOR_TYPE_DELAYED_LAUNCH_TIME:
             return "mdi:timer-sand"
-        elif self.sensor_type == SENSOR_TYPE_SW_VERSION:
-            return "mdi:information-outline"
         elif self.sensor_type == SENSOR_TYPE_CURRENT_MODE:
             return "mdi:chef-hat"
         return None
@@ -206,8 +201,10 @@ class SkyCookerSensor(SensorEntity):
     def native_value(self):
         """Return the state of the sensor."""
         if self.sensor_type == SENSOR_TYPE_STATUS:
-            status_code = self.skycooker.status_code
-            if status_code is not None:
+            # Получаем статус из self._status.status
+            status = self.skycooker.status
+            if status and hasattr(status, 'status'):
+                status_code = status.status
                 # Определяем индекс языка (0 для английского, 1 для русского)
                 language = self.hass.config.language
                 lang_index = 0 if language == "en" else 1
@@ -234,8 +231,6 @@ class SkyCookerSensor(SensorEntity):
             if status_code is not None:
                 return self.skycooker.remaining_time if status_code == STATUS_DELAYED_LAUNCH else 0
             return 0
-        elif self.sensor_type == SENSOR_TYPE_SW_VERSION:
-            return self.skycooker.sw_version if self.skycooker.sw_version is not None else "Unknown"
         elif self.sensor_type == SENSOR_TYPE_CURRENT_MODE:
             status_code = self.skycooker.status_code
             if status_code == STATUS_OFF:
