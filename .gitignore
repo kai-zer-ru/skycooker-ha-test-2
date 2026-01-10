@@ -35,7 +35,6 @@ htmlcov/
 
 # Build
 build/
-dist/
 
 # Node.js
 node_modules/
@@ -55,3 +54,4 @@ node_modules/
 .roo
 other_source
 scripts
+custom_components/skycooker/skycooker_card/frontend/package-lock.json
