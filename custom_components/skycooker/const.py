@@ -454,7 +454,6 @@ SENSOR_TYPE_TOTAL_TIME = "total_time"
 SENSOR_TYPE_AUTO_WARM_TIME = "auto_warm_time"
 SENSOR_TYPE_SUCCESS_RATE = "success_rate"
 SENSOR_TYPE_DELAYED_LAUNCH_TIME = "delayed_launch_time"
-SENSOR_TYPE_SW_VERSION = "sw_version"
 SENSOR_TYPE_CURRENT_MODE = "current_mode"
 
 # Switch types

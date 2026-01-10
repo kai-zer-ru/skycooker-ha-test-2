@@ -100,6 +100,15 @@ class SkyCookerConnection(SkyCooker):
                 clean = bytes([0x01])  # Success code
                 _LOGGER.debug(f"📥 Очищенные данные ответа: 01 (успех)")
                 return clean
+            # For TURN_ON command, if we get a status update (0x06),
+            # it might mean the device processed the command and sent its current status
+            elif command == COMMAND_TURN_ON and r[2] == COMMAND_GET_STATUS:
+                _LOGGER.info(f"📊 Устройство отправило обновление статуса после команды {command:02x}")
+                _LOGGER.info(f"💡 Вероятно, команда была обработана успешно")
+                # Return a success response for compatibility
+                clean = bytes([0x01])  # Success code
+                _LOGGER.debug(f"📥 Очищенные данные ответа: 01 (успех)")
+                return clean
             elif command == COMMAND_GET_STATUS and r[2] in [COMMAND_SELECT_MODE, COMMAND_SET_MAIN_MODE]:
                 # If we were expecting a status update but got a command response,
                 # this might be a delayed response from a previous command
@@ -617,9 +626,11 @@ class SkyCookerConnection(SkyCooker):
     def delayed_start_time(self):
         if not self._status: return None
         # For delayed start time, we need to calculate based on status
-        # Return delayed start time only if device is in delayed launch mode
-        if self._status.status == STATUS_DELAYED_LAUNCH:
-            return (self._status.target_delayed_start_hours * 60 + self._status.target_delayed_start_minutes)
+        # Return delayed start time if it's set, regardless of current device status
+        # Check if delayed start time is set in the status
+        if hasattr(self._status, 'target_delayed_start_hours') and hasattr(self._status, 'target_delayed_start_minutes'):
+            if self._status.target_delayed_start_hours is not None and self._status.target_delayed_start_minutes is not None:
+                return (self._status.target_delayed_start_hours * 60 + self._status.target_delayed_start_minutes)
         return 0
 
     @property

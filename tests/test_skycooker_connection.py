@@ -2,6 +2,7 @@
 """Tests for SkyCookerConnection class."""
 
 import pytest
+import asyncio
 from unittest.mock import MagicMock, AsyncMock, patch
 from custom_components.skycooker.skycooker_connection import SkyCookerConnection, AuthError, DisposedError
 from custom_components.skycooker.const import STATUS_OFF, STATUS_AUTO_WARM
@@ -716,3 +717,51 @@ class TestSkyCookerConnection:
         
         # Restore original MODE_DATA
         MODE_DATA.update(original_mode_data)
+
+    @pytest.mark.asyncio
+    async def test_connection_command_handles_async_status_after_turn_on(self):
+        """Test that command method correctly handles async status response after TURN_ON command."""
+        mac = "AA:BB:CC:DD:EE:FF"
+        key = [0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F]
+        connection = SkyCookerConnection(mac, key, persistent=True, model="RMC-M40S")
+        
+        # Mock the client and its methods
+        connection._client = MagicMock()
+        connection._client.is_connected = True
+        connection._client.write_gatt_char = AsyncMock()
+        
+        # Mock the _rx_callback to simulate receiving an async status response
+        # after sending TURN_ON command
+        from custom_components.skycooker.const import COMMAND_TURN_ON, COMMAND_GET_STATUS
+        
+        # Set up the response data that simulates the device sending
+        # a status update (0x06) when we expect a TURN_ON response (0x03)
+        # The response should have the correct request ID (0x01) to pass the check
+        response_data = bytes([0x55, 0x01, COMMAND_GET_STATUS, 0x01, 0xAA])
+        
+        # We need to set _iter to 0 so next command will use 1
+        connection._iter = 0
+        
+        # Mock the _rx_callback to set _last_data after a small delay
+        # to simulate async response
+        async def set_response_after_delay():
+            await asyncio.sleep(0.1)  # Small delay to allow command to start
+            connection._last_data = response_data
+        
+        # Start the task to set the response
+        response_task = asyncio.create_task(set_response_after_delay())
+        
+        # Call the command method with TURN_ON command
+        # This should handle the async status response gracefully
+        try:
+            result = await connection.command(COMMAND_TURN_ON)
+            
+            # Cancel the response task
+            response_task.cancel()
+            
+            # Verify that the method returned a success response
+            assert result == bytes([0x01])
+            
+        except Exception as e:
+            response_task.cancel()
+            pytest.fail(f"command method failed to handle async status after TURN_ON: {e}")

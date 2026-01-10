@@ -80,6 +80,25 @@ def test_sensor_native_value_status(hass, entry, skycooker_connection):
         DATA_DEVICE_INFO: lambda: {"name": "Test Device"}
     }
     
+    # Mock the status object
+    from custom_components.skycooker.skycooker import SkyCooker
+    mock_status = SkyCooker.Status(
+        mode=0,
+        subprog=0,
+        target_temp=100,
+        auto_warm=0,
+        is_on=False,
+        sound_enabled=True,
+        parental_control=False,
+        error_code=0,
+        target_boil_hours=0,
+        target_boil_minutes=0,
+        target_delayed_start_hours=0,
+        target_delayed_start_minutes=0,
+        status=STATUS_OFF,
+    )
+    skycooker_connection.status = mock_status
+    
     sensor = SkyCookerSensor(hass, entry, SENSOR_TYPE_STATUS)
     assert sensor.native_value == "Off"
 
@@ -168,17 +187,6 @@ def test_sensor_native_value_delayed_launch_time_with_delayed_start(hass, entry,
     assert sensor.native_value == 27
 
 
-def test_sensor_native_value_sw_version(hass, entry, skycooker_connection):
-    """Test sensor native value for software version."""
-    hass.data[DOMAIN][entry.entry_id] = {
-        DATA_CONNECTION: skycooker_connection,
-        DATA_DEVICE_INFO: lambda: {"name": "Test Device"}
-    }
-    
-    sensor = SkyCookerSensor(hass, entry, SENSOR_TYPE_SW_VERSION)
-    assert sensor.native_value == "1.0"
-
-
 def test_sensor_device_class(hass, entry, skycooker_connection):
     """Test sensor device class."""
     hass.data[DOMAIN][entry.entry_id] = {
@@ -230,6 +238,25 @@ def test_sensor_russian_language(hass, entry, skycooker_connection):
         DATA_CONNECTION: skycooker_connection,
         DATA_DEVICE_INFO: lambda: {"name": "Test Device"}
     }
+    
+    # Mock the status object
+    from custom_components.skycooker.skycooker import SkyCooker
+    mock_status = SkyCooker.Status(
+        mode=0,
+        subprog=0,
+        target_temp=100,
+        auto_warm=0,
+        is_on=False,
+        sound_enabled=True,
+        parental_control=False,
+        error_code=0,
+        target_boil_hours=0,
+        target_boil_minutes=0,
+        target_delayed_start_hours=0,
+        target_delayed_start_minutes=0,
+        status=STATUS_OFF,
+    )
+    skycooker_connection.status = mock_status
     
     sensor = SkyCookerSensor(hass, entry, SENSOR_TYPE_STATUS)
     assert sensor.name == "SkyCooker Test Device статус"
