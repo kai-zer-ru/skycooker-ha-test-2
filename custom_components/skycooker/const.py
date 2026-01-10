@@ -405,6 +405,7 @@ STATUS_FULL_OFF = 0x0A
 STATUS_CODES = [
     {
         STATUS_OFF: "Off",
+        STATUS_WAIT: "Waiting",
         STATUS_COOKING: "Cooking",
         STATUS_WARMING: "Warming",
         STATUS_DELAYED_LAUNCH: "Delayed Launch",
@@ -412,6 +413,7 @@ STATUS_CODES = [
     },
     {
         STATUS_OFF: "Выключена",
+        STATUS_WAIT: "Ожидание",
         STATUS_COOKING: "Готовка",
         STATUS_WARMING: "Разогрев",
         STATUS_DELAYED_LAUNCH: "Отложенный старт",

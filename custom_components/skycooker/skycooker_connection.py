@@ -617,20 +617,23 @@ class SkyCookerConnection(SkyCooker):
         # If device is off, return 0
         if self._status.status == STATUS_OFF:
             return 0
-        # If delayed start is set, include delayed start time in total time
+        # If delayed start is active, include delayed start time in total time
         if self._status.status == STATUS_DELAYED_LAUNCH:
             return (self._status.target_delayed_start_hours * 60 + self._status.target_delayed_start_minutes) + (self._status.target_boil_hours * 60 + self._status.target_boil_minutes)
+        # Otherwise, return only cooking time
         return self._status.target_boil_hours * 60 + self._status.target_boil_minutes
 
     @property
     def delayed_start_time(self):
         if not self._status: return None
         # For delayed start time, we need to calculate based on status
-        # Return delayed start time if it's set, regardless of current device status
-        # Check if delayed start time is set in the status
+        # Return delayed start time only if delayed start is active (STATUS_DELAYED_LAUNCH)
+        # Check if delayed start time is set in the status and device is in delayed launch mode
         if hasattr(self._status, 'target_delayed_start_hours') and hasattr(self._status, 'target_delayed_start_minutes'):
             if self._status.target_delayed_start_hours is not None and self._status.target_delayed_start_minutes is not None:
-                return (self._status.target_delayed_start_hours * 60 + self._status.target_delayed_start_minutes)
+                # Return delayed start time only if device is in delayed launch mode
+                if self._status.status == STATUS_DELAYED_LAUNCH:
+                    return (self._status.target_delayed_start_hours * 60 + self._status.target_delayed_start_minutes)
         return 0
 
     @property

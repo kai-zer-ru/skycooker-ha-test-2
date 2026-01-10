@@ -33,8 +33,8 @@ class TestConstants(unittest.TestCase):
         """Test status codes."""
         # STATUS_CODES is now a list of dictionaries for different languages
         self.assertEqual(len(STATUS_CODES), 2)  # English and Russian
-        self.assertEqual(len(STATUS_CODES[0]), 5)  # English status codes
-        self.assertEqual(len(STATUS_CODES[1]), 5)  # Russian status codes
+        self.assertEqual(len(STATUS_CODES[0]), 6)  # English status codes
+        self.assertEqual(len(STATUS_CODES[1]), 6)  # Russian status codes
         self.assertEqual(STATUS_CODES[0][STATUS_OFF], "Off")
         self.assertEqual(STATUS_CODES[1][STATUS_OFF], "Выключена")
         self.assertEqual(STATUS_CODES[0][STATUS_COOKING], "Cooking")
