@@ -126,6 +126,53 @@ class TestSkyCookerConnection:
 
         assert connection.delayed_start_time is None
 
+    def test_connection_time_calculations_with_delayed_start(self):
+        """Test that the connection correctly calculates time properties when delayed start is set."""
+        mac = "AA:BB:CC:DD:EE:FF"
+        key = [0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F]
+        connection = SkyCookerConnection(mac, key, persistent=True, model="RMC-M40S")
+        
+        # Mock the _status attribute to simulate delayed start scenario
+        from custom_components.skycooker.const import STATUS_DELAYED_LAUNCH
+        connection._status = MagicMock()
+        connection._status.status = STATUS_DELAYED_LAUNCH
+        connection._status.target_delayed_start_hours = 0
+        connection._status.target_delayed_start_minutes = 27
+        connection._status.target_boil_hours = 0
+        connection._status.target_boil_minutes = 7
+        
+        # Test delayed_start_time
+        assert connection.delayed_start_time == 27
+        
+        # Test total_time (should include delayed start time)
+        assert connection.total_time == 34
+        
+        # Test remaining_time (should include delayed start time)
+        assert connection.remaining_time == 34
+
+    def test_connection_time_calculations_without_delayed_start(self):
+        """Test that the connection correctly calculates time properties when delayed start is not set."""
+        mac = "AA:BB:CC:DD:EE:FF"
+        key = [0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F]
+        connection = SkyCookerConnection(mac, key, persistent=True, model="RMC-M40S")
+        
+        # Mock the _status attribute to simulate normal cooking scenario
+        connection._status = MagicMock()
+        connection._status.status = 1  # Some cooking status
+        connection._status.target_delayed_start_hours = 0
+        connection._status.target_delayed_start_minutes = 0
+        connection._status.target_boil_hours = 0
+        connection._status.target_boil_minutes = 7
+        
+        # Test delayed_start_time (should return 0 since no delayed start)
+        assert connection.delayed_start_time == 0
+        
+        # Test total_time (should only include boil time)
+        assert connection.total_time == 7
+        
+        # Test remaining_time (should only include boil time)
+        assert connection.remaining_time == 7
+
     def test_connection_auto_warm_time(self):
         """Test that the connection returns the correct auto warm time."""
         mac = "AA:BB:CC:DD:EE:FF"

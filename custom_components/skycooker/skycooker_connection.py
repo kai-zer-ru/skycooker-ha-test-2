@@ -602,17 +602,17 @@ class SkyCookerConnection(SkyCooker):
     def total_time(self):
         if not self._status: return None
         # For total time, we need to calculate based on status
-        # For now, return target_boil_hours and target_boil_minutes as a placeholder
-        # In a real implementation, this should come from the program settings
+        # If delayed start is set, include delayed start time in total time
+        if self._status.status == STATUS_DELAYED_LAUNCH:
+            return (self._status.target_delayed_start_hours * 60 + self._status.target_delayed_start_minutes) + (self._status.target_boil_hours * 60 + self._status.target_boil_minutes)
         return self._status.target_boil_hours * 60 + self._status.target_boil_minutes
 
     @property
     def delayed_start_time(self):
         if not self._status: return None
         # For delayed start time, we need to calculate based on status
-        # For now, return 0 as a placeholder
-        # In a real implementation, this should come from target_delayed_start_hours and target_delayed_start_minutes
-        return (self._status.target_delayed_start_hours * 60 + self._status.target_delayed_start_minutes) if self._status.status == STATUS_DELAYED_LAUNCH else 0
+        # Return delayed start time if it's set, regardless of status
+        return (self._status.target_delayed_start_hours * 60 + self._status.target_delayed_start_minutes)
 
     @property
     def auto_warm_time(self):

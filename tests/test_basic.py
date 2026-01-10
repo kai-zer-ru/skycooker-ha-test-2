@@ -116,8 +116,9 @@ class TestMulticookerConnection(unittest.TestCase):
         # Test new properties
         self.assertEqual(connection.status_code, 1)
         self.assertEqual(connection.remaining_time, 30)
-        self.assertEqual(connection.total_time, 0)
-        # delayed_start_time should be 30 because target_delayed_start_minutes is 30 and status is STATUS_DELAYED_LAUNCH
+        # total_time should include delayed start time when status is STATUS_DELAYED_LAUNCH
+        self.assertEqual(connection.total_time, 30)
+        # delayed_start_time should be 30 because target_delayed_start_minutes is 30
         self.assertEqual(connection.delayed_start_time, 30)
         self.assertEqual(connection.auto_warm_time, 0)
         self.assertEqual(connection.auto_warm_enabled, False)
