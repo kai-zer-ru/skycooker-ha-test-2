@@ -199,15 +199,10 @@ class SkyCookerConnection(SkyCooker):
                 if not hasattr(self, '_target_temperature') or self._target_temperature is None:
                     self._target_temperature = target_temp_from_mode
                
-            # Устанавливаем время приготовления из MODE_DATA только если пользователь не установил свое
-            mode_boil_hours = mode_data[1]
-            mode_boil_minutes = mode_data[2]
-            # Всегда проверяем, установил ли пользователь свое время, даже если mode_boil_hours и mode_boil_minutes равны 0
-            # Не сбрасываем время, если пользователь уже установил его
-            if self._target_boil_hours is None and self._target_boil_minutes is None:
-                # Устанавливаем время из MODE_DATA только если пользователь не установил свое
-                self._target_boil_hours = mode_boil_hours
-                self._target_boil_minutes = mode_boil_minutes
+            # Always set cooking time from MODE_DATA
+            # This ensures that the default time for the selected mode is always used
+            self._target_boil_hours = mode_data[1]
+            self._target_boil_minutes = mode_data[2]
                
             # Сбрасываем отложенный старт только если пользователь не установил его
             if getattr(self, '_target_delayed_start_hours', None) is None and getattr(self, '_target_delayed_start_minutes', None) is None:
@@ -296,7 +291,8 @@ class SkyCookerConnection(SkyCooker):
                 target_boil_minutes = self._status.target_boil_minutes
                 target_boil_time = (self._target_boil_hours * 60 + self._target_boil_minutes) if (self._target_boil_hours is not None and self._target_boil_minutes is not None) else None
                 current_boil_time = target_boil_hours * 60 + target_boil_minutes
-                if target_boil_time is not None and target_boil_time != current_boil_time:
+                # Always update to target time if it's set
+                if target_boil_time is not None:
                     try:
                         _LOGGER.info(f"🔥 Необходимо обновить время кипения с {current_boil_time} на {target_boil_time}")
                         if not hasattr(self, '_target_mode') or self._target_mode is None:
@@ -312,17 +308,19 @@ class SkyCookerConnection(SkyCooker):
                         target_mode_to_check = self._target_mode if hasattr(self, '_target_mode') else self._status.mode
                         if not self._is_mode_supported(target_mode_to_check):
                             _LOGGER.error(f"❌ Режим {target_mode_to_check} не поддерживается устройством")
-                            self._target_boil_hours = None
-                            self._target_boil_minutes = None
+                            # Don't reset target boil time, keep the default values
                             return False
                             
                         # Отправляем команду "Выбор режима" перед установкой режима
                         # Если устройство находится в режиме ожидания (MODE_STANDBY), используем целевой режим
                         target_mode_for_update = self._target_mode if hasattr(self, '_target_mode') else self._status.mode
                         _LOGGER.debug(f"📤 Отправка команды SELECT_MODE для режима {target_mode_for_update}")
-                        await self.select_mode(target_mode_for_update, 0, self._status.target_temp, target_boil_hours, target_boil_minutes)
+                        # Always use target boil time if it's set
+                        boil_hours = self._target_boil_hours if self._target_boil_hours is not None else target_boil_hours
+                        boil_minutes = self._target_boil_minutes if self._target_boil_minutes is not None else target_boil_minutes
+                        await self.select_mode(target_mode_for_update, 0, self._status.target_temp, boil_hours, boil_minutes)
                         _LOGGER.debug(f"📤 Отправка команды SET_MAIN_MODE для режима {target_mode_for_update}")
-                        await self.set_main_mode(target_mode_for_update, 0, self._status.target_temp, target_boil_hours, target_boil_minutes)
+                        await self.set_main_mode(target_mode_for_update, 0, self._status.target_temp, boil_hours, boil_minutes)
                         _LOGGER.info(f"✅ Время кипения успешно установлено на {target_boil_hours}:{target_boil_minutes:02d}")
                         # После успешной установки времени, получаем актуальный статус
                         self._status = await self.get_status()
@@ -362,9 +360,12 @@ class SkyCookerConnection(SkyCooker):
                                
                             # Отправляем команду "Выбор режима" перед установкой режима
                             _LOGGER.debug(f"📤 Отправка команды SELECT_MODE для режима {target_mode}")
-                            await self.select_mode(target_mode, 0, target_temp, target_boil_hours, target_boil_minutes)
+                            # Always use target boil time if it's set
+                            boil_hours = self._target_boil_hours if self._target_boil_hours is not None else target_boil_hours
+                            boil_minutes = self._target_boil_minutes if self._target_boil_minutes is not None else target_boil_minutes
+                            await self.select_mode(target_mode, 0, target_temp, boil_hours, boil_minutes)
                             _LOGGER.debug(f"📤 Отправка команды SET_MAIN_MODE для режима {target_mode}")
-                            await self.set_main_mode(target_mode, 0, target_temp, target_boil_hours, target_boil_minutes)
+                            await self.set_main_mode(target_mode, 0, target_temp, boil_hours, boil_minutes)
                             _LOGGER.info("✅ Режим установлен")
                             await self.turn_on()
                             _LOGGER.info("✅ Мультиварка включена")
@@ -399,9 +400,12 @@ class SkyCookerConnection(SkyCooker):
                                
                             # Отправляем команду "Выбор режима" перед установкой режима
                             _LOGGER.debug(f"📤 Отправка команды SELECT_MODE для режима {target_mode}")
-                            await self.select_mode(target_mode, 0, target_temp, target_boil_hours, target_boil_minutes)
+                            # Always use target boil time if it's set
+                            boil_hours = self._target_boil_hours if self._target_boil_hours is not None else target_boil_hours
+                            boil_minutes = self._target_boil_minutes if self._target_boil_minutes is not None else target_boil_minutes
+                            await self.select_mode(target_mode, 0, target_temp, boil_hours, boil_minutes)
                             _LOGGER.debug(f"📤 Отправка команды SET_MAIN_MODE для режима {target_mode}")
-                            await self.set_main_mode(target_mode, 0, target_temp, target_boil_hours, target_boil_minutes)
+                            await self.set_main_mode(target_mode, 0, target_temp, boil_hours, boil_minutes)
                             _LOGGER.info("✅ Режим установлен")
                             await self.turn_on()
                             _LOGGER.info("✅ Мультиварка включена")
@@ -728,11 +732,11 @@ class SkyCookerConnection(SkyCooker):
             if model_type and model_type in MODE_DATA and target_mode < len(MODE_DATA[model_type]):
                 target_temp = MODE_DATA[model_type][target_mode][0]
          
-        # If user hasn't set custom cooking time, use default from MODE_DATA
-        if self._target_boil_hours is None and self._target_boil_minutes is None:
-            if model_type and model_type in MODE_DATA and target_mode < len(MODE_DATA[model_type]):
-                target_boil_hours = MODE_DATA[model_type][target_mode][1]
-                target_boil_minutes = MODE_DATA[model_type][target_mode][2]
+        # Always use default cooking time from MODE_DATA
+        # This ensures that the default time for the selected mode is always used
+        if model_type and model_type in MODE_DATA and target_mode < len(MODE_DATA[model_type]):
+            target_boil_hours = MODE_DATA[model_type][target_mode][1]
+            target_boil_minutes = MODE_DATA[model_type][target_mode][2]
          
         # Ensure all values are integers (not None)
         target_boil_hours = target_boil_hours or 0
@@ -911,11 +915,11 @@ class SkyCookerConnection(SkyCooker):
             if model_type and model_type in MODE_DATA and target_mode < len(MODE_DATA[model_type]):
                 target_temp = MODE_DATA[model_type][target_mode][0]
         
-        # If user hasn't set custom cooking time, use default from MODE_DATA
-        if self._target_boil_hours is None and self._target_boil_minutes is None:
-            if model_type and model_type in MODE_DATA and target_mode < len(MODE_DATA[model_type]):
-                target_boil_hours = MODE_DATA[model_type][target_mode][1]
-                target_boil_minutes = MODE_DATA[model_type][target_mode][2]
+        # Always use default cooking time from MODE_DATA
+        # This ensures that the default time for the selected mode is always used
+        if model_type and model_type in MODE_DATA and target_mode < len(MODE_DATA[model_type]):
+            target_boil_hours = MODE_DATA[model_type][target_mode][1]
+            target_boil_minutes = MODE_DATA[model_type][target_mode][2]
         
         # Ensure all values are integers (not None)
         target_boil_hours = target_boil_hours or 0
@@ -1038,8 +1042,11 @@ class SkyCookerConnection(SkyCooker):
                     # Проверяем, поддерживается ли режим устройством
                     if self._is_mode_supported(mode_idx):
                         target_mode = mode_idx
+                        # Always set cooking time from MODE_DATA
+                        self._target_boil_hours = mode_data[1]
+                        self._target_boil_minutes = mode_data[2]
                         break
-             
+              
             # If no exact match found, use the closest mode
             if target_mode is None:
                 closest_diff = float('inf')
@@ -1050,6 +1057,9 @@ class SkyCookerConnection(SkyCooker):
                         if diff < closest_diff:
                             closest_diff = diff
                             target_mode = mode_idx
+                            # Always set cooking time from MODE_DATA
+                            self._target_boil_hours = mode_data[1]
+                            self._target_boil_minutes = mode_data[2]
          
         if target_mode != self.current_mode:
             _LOGGER.info(f"Mode autoswitched to {target_mode}")
@@ -1061,46 +1071,43 @@ class SkyCookerConnection(SkyCooker):
     async def set_target_mode(self, operation_mode):
         if operation_mode == self._target_mode: return
         _LOGGER.info(f"Setting target mode to {operation_mode}")
-          
+           
         # Проверяем, поддерживается ли режим устройством
         if not self._is_mode_supported(operation_mode):
             _LOGGER.error(f"❌ Режим {operation_mode} не поддерживается устройством")
             return
-         
+          
         # Get MODE_DATA values for the selected mode
         model_type = self.model_code
         if model_type and model_type in MODE_DATA and operation_mode < len(MODE_DATA[model_type]):
             mode_data = MODE_DATA[model_type][operation_mode]
             _LOGGER.info(f"Mode {operation_mode} data: temperature={mode_data[0]}, hours={mode_data[1]}, minutes={mode_data[2]}")
-              
+               
             # Set temperature from MODE_DATA only if user hasn't set custom temperature
             target_temp = mode_data[0]
             if hasattr(self, '_target_temperature') and self._target_temperature is not None:
                 target_temp = self._target_temperature
-             
-            # Set cooking time from MODE_DATA only if user hasn't set custom cooking time
+              
+            # Always set cooking time from MODE_DATA, even if user has set custom cooking time
+            # This ensures that the default time for the selected mode is always used
             target_boil_hours = mode_data[1]
             target_boil_minutes = mode_data[2]
-            if self._target_boil_hours is not None and self._target_boil_minutes is not None:
-                target_boil_hours = self._target_boil_hours
-                target_boil_minutes = self._target_boil_minutes
-               
+                
             # Don't reset delayed start values if user has set them
             # Only reset if they are None
             if getattr(self, '_target_delayed_start_hours', None) is None:
                 self._target_delayed_start_hours = None
             if getattr(self, '_target_delayed_start_minutes', None) is None:
                 self._target_delayed_start_minutes = None
-               
+                
             # Set target mode and temperature directly
             self._target_mode = operation_mode
             self._target_temperature = target_temp
             self._last_set_target = monotonic()
-              
-            # Update boil time if user hasn't set custom cooking time
-            if self._target_boil_hours is None and self._target_boil_minutes is None:
-                self._target_boil_hours = target_boil_hours
-                self._target_boil_minutes = target_boil_minutes
+               
+            # Always update boil time to the default values from MODE_DATA
+            self._target_boil_hours = target_boil_hours
+            self._target_boil_minutes = target_boil_minutes
         else:
             # Fallback to old behavior if MODE_DATA is not available
             target_mode = operation_mode
