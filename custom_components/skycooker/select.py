@@ -11,14 +11,21 @@ _LOGGER = logging.getLogger(__name__)
 
 async def async_setup_entry(hass, entry, async_add_entities):
     """Set up the SkyCooker select entities."""
-    async_add_entities([
+    entities = [
         SkyCookerSelect(hass, entry, SELECT_TYPE_MODE),
         SkyCookerSelect(hass, entry, SELECT_TYPE_TEMPERATURE),
         SkyCookerSelect(hass, entry, SELECT_TYPE_COOKING_TIME_HOURS),
         SkyCookerSelect(hass, entry, SELECT_TYPE_COOKING_TIME_MINUTES),
         SkyCookerSelect(hass, entry, SELECT_TYPE_DELAYED_START_HOURS),
         SkyCookerSelect(hass, entry, SELECT_TYPE_DELAYED_START_MINUTES),
-    ])
+    ]
+    
+    # Добавляем селект для подпрограммы только если модель не MODEL_3
+    skycooker = hass.data[DOMAIN][entry.entry_id][DATA_CONNECTION]
+    if skycooker.model_code != MODEL_3:
+        entities.append(SkyCookerSelect(hass, entry, SELECT_TYPE_SUBPROGRAM))
+    
+    async_add_entities(entities)
 
 
 class SkyCookerSelect(SelectEntity):
@@ -51,6 +58,8 @@ class SkyCookerSelect(SelectEntity):
         unique_id = self.entry.entry_id
         if self.select_type == SELECT_TYPE_MODE:
             return f"select.skycooker_mode_{model_name}_{unique_id}"
+        elif self.select_type == SELECT_TYPE_SUBPROGRAM:
+            return f"select.skycooker_subprogram_{model_name}_{unique_id}"
         elif self.select_type == SELECT_TYPE_TEMPERATURE:
             return f"select.skycooker_temperature_{model_name}_{unique_id}"
         elif self.select_type == SELECT_TYPE_COOKING_TIME_HOURS:
@@ -89,6 +98,8 @@ class SkyCookerSelect(SelectEntity):
         
         if self.select_type == SELECT_TYPE_MODE:
             return f"{base_name} {'режим' if is_russian else 'mode'}"
+        elif self.select_type == SELECT_TYPE_SUBPROGRAM:
+            return f"{base_name} {'подпрограмма' if is_russian else 'subprogram'}"
         elif self.select_type == SELECT_TYPE_TEMPERATURE:
             return f"{base_name} {'температура' if is_russian else 'temperature'}"
         elif self.select_type == SELECT_TYPE_COOKING_TIME_HOURS:
@@ -107,6 +118,8 @@ class SkyCookerSelect(SelectEntity):
         """Return the icon."""
         if self.select_type == SELECT_TYPE_MODE:
             return "mdi:chef-hat"
+        elif self.select_type == SELECT_TYPE_SUBPROGRAM:
+            return "mdi:cog-outline"
         elif self.select_type == SELECT_TYPE_TEMPERATURE:
             return "mdi:thermometer"
         elif self.select_type in [SELECT_TYPE_COOKING_TIME_HOURS, SELECT_TYPE_COOKING_TIME_MINUTES]:
@@ -128,21 +141,21 @@ class SkyCookerSelect(SelectEntity):
             mode_id = self.skycooker.current_mode
             if mode_id is None:
                 return None
-               
+                
             # Получаем тип модели из соединения
             model_type = self.skycooker.model_code
             if model_type is None:
                 return f"Unknown ({mode_id})"
-               
+                
             # Получаем названия режимов для текущей модели
             mode_constants = MODE_NAMES.get(model_type, [])
             if not mode_constants or mode_id >= len(mode_constants):
                 return f"Unknown ({mode_id})"
-               
+                
             # Определяем индекс языка (0 для английского, 1 для русского)
             language = self.hass.config.language
             lang_index = 0 if language == "en" else 1
-               
+                
             # Получаем название режима из константы
             mode_constant = mode_constants[mode_id]
             if mode_constant and len(mode_constant) > lang_index:
@@ -151,6 +164,11 @@ class SkyCookerSelect(SelectEntity):
                     return f"Unknown ({mode_id})"
                 return mode_constant[lang_index]
             return f"Unknown ({mode_id})"
+        elif self.select_type == SELECT_TYPE_SUBPROGRAM:
+            # Возвращаем текущую подпрограмму из статуса устройства
+            if self.skycooker.status and self.skycooker.status.subprog is not None:
+                return str(self.skycooker.status.subprog)
+            return "0"
         elif self.select_type == SELECT_TYPE_TEMPERATURE:
             # Возвращаем текущую температуру из пользовательских настроек или статуса
             if hasattr(self.skycooker, '_target_temperature') and self.skycooker._target_temperature is not None:
@@ -196,18 +214,22 @@ class SkyCookerSelect(SelectEntity):
             model_type = self.skycooker.model_code
             if model_type is None:
                 return []
-             
+              
             # Получаем названия режимов для текущей модели
             mode_constants = MODE_NAMES.get(model_type, [])
             if not mode_constants:
                 return []
-             
+              
             # Определяем индекс языка (0 для английского, 1 для русского)
             language = self.hass.config.language
             lang_index = 0 if language == "en" else 1
-             
+              
             # Извлекаем названия режимов на нужном языке
             return [mode_constant[lang_index] for mode_constant in mode_constants if mode_constant and len(mode_constant) > lang_index]
+        elif self.select_type == SELECT_TYPE_SUBPROGRAM:
+            # Опции подпрограмм от 0 до максимального значения
+            # Для большинства моделей это 0-255, но мы ограничим до 0-15 для безопасности
+            return [str(i) for i in range(0, 16)]
         elif self.select_type == SELECT_TYPE_TEMPERATURE:
             # Опции температуры от 40 до 200 с шагом 5
             return [str(temp) for temp in range(40, 201, 5)]
@@ -268,8 +290,8 @@ class SkyCookerSelect(SelectEntity):
                 # If user has already set custom cooking time, respect their choice
                 if (not hasattr(self.skycooker, '_target_boil_hours') or self.skycooker._target_boil_hours is None or
                     not hasattr(self.skycooker, '_target_boil_minutes') or self.skycooker._target_boil_minutes is None):
-                    self.skycooker.target_boil_hours = mode_data[1]
-                    self.skycooker.target_boil_minutes = mode_data[2]
+                    self.skycooker._target_boil_hours = mode_data[1]
+                    self.skycooker._target_boil_minutes = mode_data[2]
                
             # Устанавливаем целевой режим без отправки команд на устройство
             self.skycooker._target_mode = mode_id
@@ -291,7 +313,10 @@ class SkyCookerSelect(SelectEntity):
         elif self.select_type == SELECT_TYPE_DELAYED_START_MINUTES:
             # Устанавливаем минуты отложенного запуска
             self.skycooker._target_delayed_start_minutes = int(option)
-          
+        elif self.select_type == SELECT_TYPE_SUBPROGRAM:
+            # Устанавливаем целевую подпрограмму
+            self.skycooker._target_subprogram = int(option)
+           
         # Планируем обновление для обновления состояния сущности
         self.async_schedule_update_ha_state(True)
 

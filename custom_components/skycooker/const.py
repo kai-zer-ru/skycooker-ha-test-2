@@ -442,6 +442,7 @@ BUTTON_TYPE_START_DELAYED = "skycooker_start_delayed"
 
 # Select types
 SELECT_TYPE_MODE = "skycooker_mode"
+SELECT_TYPE_SUBPROGRAM = "skycooker_subprogram"
 SELECT_TYPE_TEMPERATURE = "skycooker_temperature"
 SELECT_TYPE_COOKING_TIME_HOURS = "skycooker_cooking_time_hours"
 SELECT_TYPE_COOKING_TIME_MINUTES = "skycooker_cooking_time_minutes"
