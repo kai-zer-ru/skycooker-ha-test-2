@@ -245,15 +245,17 @@ class SkyCookerSelect(SelectEntity):
                 if model_type and model_type in MODE_DATA and mode_id < len(MODE_DATA[model_type]):
                     mode_data = MODE_DATA[model_type][mode_id]
                     _LOGGER.info(f"Selected mode {mode_id} for model {model_type}: temperature={mode_data[0]}, hours={mode_data[1]}, minutes={mode_data[2]}")
-                       
+                        
                     # Обновляем температуру и время приготовления данными режима только если пользователь не установил свои значения
                     if not hasattr(self.skycooker, '_target_temperature') or self.skycooker._target_temperature is None:
                         self.skycooker._target_temperature = mode_data[0]
-                       
-                    # Always update target_boil_hours и target_boil_minutes with mode data
-                    # This ensures that the default time for the selected mode is always used
-                    self.skycooker.target_boil_hours = mode_data[1]
-                    self.skycooker.target_boil_minutes = mode_data[2]
+                        
+                    # Update target_boil_hours и target_boil_minutes with mode data only if user hasn't set custom values
+                    # If user has already set custom cooking time, respect their choice
+                    if (not hasattr(self.skycooker, '_target_boil_hours') or self.skycooker._target_boil_hours is None or
+                        not hasattr(self.skycooker, '_target_boil_minutes') or self.skycooker._target_boil_minutes is None):
+                        self.skycooker.target_boil_hours = mode_data[1]
+                        self.skycooker.target_boil_minutes = mode_data[2]
                    
             # Вызываем set_target_mode для отправки команд на устройство при выборе режима
             await self.skycooker.set_target_mode(mode_id)

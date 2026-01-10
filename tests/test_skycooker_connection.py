@@ -240,7 +240,11 @@ class TestSkyCookerConnection:
 
         await connection.set_delayed_start(2, 30)
 
-        connection.update.assert_called_once()
+        # set_delayed_start no longer calls update() - it just sets internal variables
+        # The actual delayed start is handled in start_delayed() method
+        connection.update.assert_not_called()
+        assert connection._target_delayed_start_hours == 2
+        assert connection._target_delayed_start_minutes == 30
 
     @pytest.mark.asyncio
     async def test_connection_start_delayed(self):
@@ -297,7 +301,10 @@ class TestSkyCookerConnection:
 
         await connection.set_target_temp(100)
 
-        connection.update.assert_called_once()
+        # set_target_temp no longer calls update() - it just sets internal variables
+        # The actual temperature setting is handled in start() method
+        connection.update.assert_not_called()
+        assert connection._target_temperature == 100
 
     @pytest.mark.asyncio
     async def test_connection_set_target_mode(self):
