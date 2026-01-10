@@ -202,13 +202,12 @@ class SkyCookerConnection(SkyCooker):
             # Устанавливаем время приготовления из MODE_DATA только если пользователь не установил свое
             mode_boil_hours = mode_data[1]
             mode_boil_minutes = mode_data[2]
-            if mode_boil_hours != 0 or mode_boil_minutes != 0:
-                # Проверяем, установил ли пользователь свое время
-                # Не сбрасываем время, если пользователь уже установил его
-                if self._target_boil_hours is None and self._target_boil_minutes is None:
-                    # Устанавливаем время из MODE_DATA только если пользователь не установил свое
-                    self._target_boil_hours = mode_boil_hours
-                    self._target_boil_minutes = mode_boil_minutes
+            # Всегда проверяем, установил ли пользователь свое время, даже если mode_boil_hours и mode_boil_minutes равны 0
+            # Не сбрасываем время, если пользователь уже установил его
+            if self._target_boil_hours is None and self._target_boil_minutes is None:
+                # Устанавливаем время из MODE_DATA только если пользователь не установил свое
+                self._target_boil_hours = mode_boil_hours
+                self._target_boil_minutes = mode_boil_minutes
                
             # Сбрасываем отложенный старт только если пользователь не установил его
             if getattr(self, '_target_delayed_start_hours', None) is None and getattr(self, '_target_delayed_start_minutes', None) is None:
