@@ -48,8 +48,20 @@ class SkyCookerSelect(SelectEntity):
     def unique_id(self):
         """Return a unique ID."""
         model_name = self.entry.data.get(CONF_FRIENDLY_NAME, "").replace(" ", "_")
-        unique_id = f"{model_name}_{self.entry.entry_id}"
-        return f"select.skycooker_{self.select_type}_{unique_id}"
+        unique_id = self.entry.entry_id
+        if self.select_type == SELECT_TYPE_MODE:
+            return f"select.skycooker_mode_{model_name}_{unique_id}"
+        elif self.select_type == SELECT_TYPE_TEMPERATURE:
+            return f"select.skycooker_temperature_{model_name}_{unique_id}"
+        elif self.select_type == SELECT_TYPE_COOKING_TIME_HOURS:
+            return f"select.skycooker_cooking_time_hours_{model_name}_{unique_id}"
+        elif self.select_type == SELECT_TYPE_COOKING_TIME_MINUTES:
+            return f"select.skycooker_cooking_time_minutes_{model_name}_{unique_id}"
+        elif self.select_type == SELECT_TYPE_DELAYED_START_HOURS:
+            return f"select.skycooker_delayed_start_hours_{model_name}_{unique_id}"
+        elif self.select_type == SELECT_TYPE_DELAYED_START_MINUTES:
+            return f"select.skycooker_delayed_start_minutes_{model_name}_{unique_id}"
+        return f"select.skycooker_{self.select_type}_{model_name}_{unique_id}"
 
     @property
     def device_info(self):

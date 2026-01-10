@@ -56,8 +56,24 @@ class SkyCookerSensor(SensorEntity):
     def unique_id(self):
         """Return a unique ID."""
         model_name = self.entry.data.get(CONF_FRIENDLY_NAME, "").replace(" ", "_")
-        unique_id = f"{model_name}_{self.entry.entry_id}"
-        return f"sensor.skycooker_{self.sensor_type}_{unique_id}"
+        unique_id = self.entry.entry_id
+        if self.sensor_type == SENSOR_TYPE_STATUS:
+            return f"sensor.skycooker_status_{model_name}_{unique_id}"
+        elif self.sensor_type == SENSOR_TYPE_TEMPERATURE:
+            return f"sensor.skycooker_temperature_{model_name}_{unique_id}"
+        elif self.sensor_type == SENSOR_TYPE_REMAINING_TIME:
+            return f"sensor.skycooker_remaining_time_{model_name}_{unique_id}"
+        elif self.sensor_type == SENSOR_TYPE_TOTAL_TIME:
+            return f"sensor.skycooker_total_time_{model_name}_{unique_id}"
+        elif self.sensor_type == SENSOR_TYPE_AUTO_WARM_TIME:
+            return f"sensor.skycooker_auto_warm_time_{model_name}_{unique_id}"
+        elif self.sensor_type == SENSOR_TYPE_SUCCESS_RATE:
+            return f"sensor.skycooker_success_rate_{model_name}_{unique_id}"
+        elif self.sensor_type == SENSOR_TYPE_DELAYED_LAUNCH_TIME:
+            return f"sensor.skycooker_delayed_launch_time_{model_name}_{unique_id}"
+        elif self.sensor_type == SENSOR_TYPE_CURRENT_MODE:
+            return f"sensor.skycooker_current_mode_{model_name}_{unique_id}"
+        return f"sensor.skycooker_{self.sensor_type}_{model_name}_{unique_id}"
 
     @property
     def device_info(self):
