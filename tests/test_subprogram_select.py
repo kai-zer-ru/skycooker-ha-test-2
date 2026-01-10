@@ -191,11 +191,12 @@ async def test_subprogram_select_option_selection():
     hass = MagicMock(spec=HomeAssistant)
     entry = MagicMock(spec=ConfigEntry)
     entry.entry_id = "test_entry_id"
-    
+    entry.data = {"friendly_name": "Test Device"}
+
     # Create a mock SkyCookerConnection
     skycooker_connection = MagicMock(spec=SkyCookerConnection)
     skycooker_connection.model_code = MODEL_1
-    
+
     hass.data = {
         DOMAIN: {
             entry.entry_id: {
@@ -204,13 +205,13 @@ async def test_subprogram_select_option_selection():
             }
         }
     }
-    
+
     # Create subprogram select entity
     subprogram_select = SkyCookerSelect(hass, entry, SELECT_TYPE_SUBPROGRAM)
-    
+
     # Select an option
     await subprogram_select.async_select_option("5")
-    
+
     # Verify that _target_subprogram was set
     assert hasattr(skycooker_connection, '_target_subprogram'), "Should set _target_subprogram attribute"
     assert skycooker_connection._target_subprogram == 5, "Should set correct subprogram value"

@@ -52,6 +52,11 @@ class SkyCookerSwitch(SwitchEntity):
         return f"switch.skycooker_{self.switch_type}_{sanitized_model_name}"
 
     @property
+    def entity_id(self):
+        """Return the entity ID."""
+        return self.unique_id
+
+    @property
     def device_info(self):
         """Return device info."""
         return self.hass.data[DOMAIN][DATA_DEVICE_INFO]()
