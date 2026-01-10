@@ -730,7 +730,7 @@ class SkyCookerConnection(SkyCooker):
                 target_temp = MODE_DATA[model_type][target_mode][0]
          
         # If user hasn't set custom cooking time, use default from MODE_DATA
-        if target_boil_hours == 0 and target_boil_minutes == 0:
+        if self._target_boil_hours is None and self._target_boil_minutes is None:
             if model_type and model_type in MODE_DATA and target_mode < len(MODE_DATA[model_type]):
                 target_boil_hours = MODE_DATA[model_type][target_mode][1]
                 target_boil_minutes = MODE_DATA[model_type][target_mode][2]
@@ -913,7 +913,7 @@ class SkyCookerConnection(SkyCooker):
                 target_temp = MODE_DATA[model_type][target_mode][0]
         
         # If user hasn't set custom cooking time, use default from MODE_DATA
-        if target_boil_hours == 0 and target_boil_minutes == 0:
+        if self._target_boil_hours is None and self._target_boil_minutes is None:
             if model_type and model_type in MODE_DATA and target_mode < len(MODE_DATA[model_type]):
                 target_boil_hours = MODE_DATA[model_type][target_mode][1]
                 target_boil_minutes = MODE_DATA[model_type][target_mode][2]
