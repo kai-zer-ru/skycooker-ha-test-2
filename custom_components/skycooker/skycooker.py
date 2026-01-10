@@ -62,22 +62,16 @@ class SkyCooker(ABC):
         if r[0] != 1: raise SkyCookerError("can't turn off")
         _LOGGER.debug(f"Turned off")
 
-    async def select_mode(self, mode, subprog=0, target_temp=0, target_boil_hours=0, target_boil_minutes=0, target_delayed_start_hours=0, target_delayed_start_minutes=0, auto_warm=0, bit_flags=0):
-        # В текущей реализации битовые флаги берутся из MODE_DATA
-        # Для MODEL_3 битовые флаги не добавляются
-        # В будущем, когда будет понятно, как использовать битовые флаги, этот код будет обновлен
-        # Параметр auto_warm используется для передачи флага автоподогрева
+    async def select_mode(self, mode, subprog=0):
+        # Для MODEL_3 отправляем только mode (1 байт), для остальных - mode и subprog (2 байта)
         if self.model_code == MODEL_3:
-            # Для MODEL_3 используем auto_warm как флаг автоподогрева
-            data = pack("BBBBBBBB", int(mode), int(subprog), int(target_temp), int(target_boil_hours), int(target_boil_minutes), int(target_delayed_start_hours), int(target_delayed_start_minutes), int(auto_warm))
+            data = pack("B", int(mode))
+            _LOGGER.debug(f"📤 Отправка команды SELECT_MODE (0x09) для MODEL_3 с данными: {data.hex().upper()}")
+            _LOGGER.debug(f"   Параметры: mode={mode}")
         else:
-            mode_data = MODE_DATA.get(self.model_code, [])
-            if mode < len(mode_data) and bit_flags == 0:
-                bit_flags = mode_data[mode][3]
-            data = pack("BBBBBBBBB", int(mode), int(subprog), int(target_temp), int(target_boil_hours), int(target_boil_minutes), int(target_delayed_start_hours), int(target_delayed_start_minutes), int(auto_warm), int(bit_flags))
-
-        _LOGGER.debug(f"📤 Отправка команды SELECT_MODE (0x09) с данными: {data.hex().upper()}")
-        _LOGGER.debug(f"   Параметры: mode={mode}, subprog={subprog}, target_temp={target_temp}, target_boil_hours={target_boil_hours}, target_boil_minutes={target_boil_minutes}, target_delayed_start_hours={target_delayed_start_hours}, target_delayed_start_minutes={target_delayed_start_minutes}, auto_warm={auto_warm}, bit_flags={bit_flags}")
+            data = pack("BB", int(mode), int(subprog))
+            _LOGGER.debug(f"📤 Отправка команды SELECT_MODE (0x09) с данными: {data.hex().upper()}")
+            _LOGGER.debug(f"   Параметры: mode={mode}, subprog={subprog}")
 
         try:
             r = await self.command(COMMAND_SELECT_MODE, list(data))

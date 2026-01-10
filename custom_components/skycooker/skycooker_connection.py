@@ -109,7 +109,7 @@ class SkyCookerConnection(SkyCooker):
                 clean = bytes([0x01])  # Success code
                 _LOGGER.debug(f"📥 Очищенные данные ответа: 01 (успех)")
                 return clean
-            elif command == COMMAND_GET_STATUS and r[2] in [COMMAND_SELECT_MODE, COMMAND_SET_MAIN_MODE]:
+            elif command == COMMAND_GET_STATUS and r[2] in [COMMAND_SELECT_MODE, COMMAND_SET_MAIN_MODE, COMMAND_TURN_OFF]:
                 # If we were expecting a status update but got a command response,
                 # this might be a delayed response from a previous command
                 _LOGGER.info(f"📊 Получен отложенный ответ на команду {r[2]:02x} вместо статуса")
@@ -167,13 +167,13 @@ class SkyCookerConnection(SkyCooker):
 
     auth = lambda self: super().auth(self._key)
 
-    async def select_mode(self, mode, subprog=0, target_temp=0, target_boil_hours=0, target_boil_minutes=0, target_delayed_start_hours=0, target_delayed_start_minutes=0, auto_warm=0, bit_flags=0):
+    async def select_mode(self, mode, subprog=0):
         # Проверяем, поддерживается ли режим устройством
         # Режим MODE_STANDBY (ожидание) не может быть установлен напрямую, но может быть получен как текущий статус
         if mode != MODE_STANDBY and not self._is_mode_supported(mode):
             _LOGGER.error(f"❌ Попытка установить неподдерживаемый режим {mode}")
             raise ValueError(f"Режим {mode} не поддерживается устройством")
-        
+         
         # Проверяем, является ли режим MODE_NONE
         model_type = self.model_code
         if model_type and model_type in MODE_NAMES and mode < len(MODE_NAMES[model_type]):
@@ -181,10 +181,10 @@ class SkyCookerConnection(SkyCooker):
             if mode_constant == MODE_NONE:
                 _LOGGER.error(f"❌ Попытка установить режим MODE_NONE (индекс {mode})")
                 raise ValueError(f"Режим {mode} не поддерживается устройством (MODE_NONE)")
-           
+            
         # Вызываем метод базового класса для отправки команды
-        _LOGGER.debug(f"📤 Отправка команды SELECT_MODE для режима {mode} с параметрами: auto_warm={auto_warm}, bit_flags={bit_flags}")
-        await super().select_mode(mode, subprog, target_temp, target_boil_hours, target_boil_minutes, target_delayed_start_hours, target_delayed_start_minutes, auto_warm, bit_flags)
+        _LOGGER.debug(f"📤 Отправка команды SELECT_MODE для режима {mode}")
+        await super().select_mode(mode, subprog)
           
         # При выборе режима устанавливаем Number значения из MODE_DATA для текущего режима
         # ТОЛЬКО ЕСЛИ ПОЛЬЗОВАТЕЛЬ НЕ ИЗМЕНЯЛ ИХ ВРУЧНУЮ
@@ -318,9 +318,17 @@ class SkyCookerConnection(SkyCooker):
                         # Always use target boil time if it's set
                         boil_hours = self._target_boil_hours if self._target_boil_hours is not None else target_boil_hours
                         boil_minutes = self._target_boil_minutes if self._target_boil_minutes is not None else target_boil_minutes
-                        await self.select_mode(target_mode_for_update, 0, self._status.target_temp, boil_hours, boil_minutes)
-                        _LOGGER.debug(f"📤 Отправка команды SET_MAIN_MODE для режима {target_mode_for_update}")
-                        await self.set_main_mode(target_mode_for_update, 0, self._status.target_temp, boil_hours, boil_minutes)
+                        await self.select_mode(target_mode_for_update, 0)
+                        
+                        # Проверяем, нужно ли отправлять SET_MAIN_MODE
+                        # SET_MAIN_MODE должна отправляться только при нажатии "Старт" или "Отложенный старт"
+                        # Если устройство уже в правильном режиме и выключено, не отправляем SET_MAIN_MODE
+                        if not self._status.is_on and self._status.mode == target_mode_for_update:
+                            _LOGGER.debug(f"📊 Нет необходимости отправлять SET_MAIN_MODE, устройство уже в правильном режиме и выключено")
+                        else:
+                            _LOGGER.debug(f"📤 Отправка команды SET_MAIN_MODE для режима {target_mode_for_update}")
+                            await self.set_main_mode(target_mode_for_update, 0, self._status.target_temp, boil_hours, boil_minutes)
+                        
                         _LOGGER.info(f"✅ Время кипения успешно установлено на {target_boil_hours}:{target_boil_minutes:02d}")
                         # После успешной установки времени, получаем актуальный статус
                         self._status = await self.get_status()
@@ -351,21 +359,29 @@ class SkyCookerConnection(SkyCooker):
                                 _LOGGER.error(f"❌ Режим {target_mode} не поддерживается устройством")
                                 self._target_mode = None
                                 return False
-                               
+                                
                             # Если устройство находится в режиме ожидания (MODE_STANDBY), нужно сначала его пробудить
                             if self._status.mode == MODE_STANDBY:
                                 _LOGGER.info("🔄 Устройство находится в режиме ожидания, пробуждаем...")
-                                await self.select_mode(target_mode, 0, target_temp, target_boil_hours, target_boil_minutes)
+                                await self.select_mode(target_mode, 0)
                                 await asyncio.sleep(0.5)  # Увеличенная задержка для пробуждения
-                               
+                                
                             # Отправляем команду "Выбор режима" перед установкой режима
                             _LOGGER.debug(f"📤 Отправка команды SELECT_MODE для режима {target_mode}")
                             # Always use target boil time if it's set
                             boil_hours = self._target_boil_hours if self._target_boil_hours is not None else target_boil_hours
                             boil_minutes = self._target_boil_minutes if self._target_boil_minutes is not None else target_boil_minutes
-                            await self.select_mode(target_mode, 0, target_temp, boil_hours, boil_minutes)
-                            _LOGGER.debug(f"📤 Отправка команды SET_MAIN_MODE для режима {target_mode}")
-                            await self.set_main_mode(target_mode, 0, target_temp, boil_hours, boil_minutes)
+                            await self.select_mode(target_mode, 0)
+                            
+                            # Проверяем, нужно ли отправлять SET_MAIN_MODE
+                            # SET_MAIN_MODE должна отправляться только при нажатии "Старт" или "Отложенный старт"
+                            # Если устройство уже в правильном режиме и выключено, не отправляем SET_MAIN_MODE
+                            if not self._status.is_on and self._status.mode == target_mode:
+                                _LOGGER.debug(f"📊 Нет необходимости отправлять SET_MAIN_MODE, устройство уже в правильном режиме и выключено")
+                            else:
+                                _LOGGER.debug(f"📤 Отправка команды SET_MAIN_MODE для режима {target_mode}")
+                                await self.set_main_mode(target_mode, 0, target_temp, boil_hours, boil_minutes)
+                            
                             _LOGGER.info("✅ Режим установлен")
                             await self.turn_on()
                             _LOGGER.info("✅ Мультиварка включена")
@@ -385,27 +401,35 @@ class SkyCookerConnection(SkyCooker):
                             await self.turn_off()
                             _LOGGER.info("✅ Мультиварка выключена")
                             await asyncio.sleep(0.2)
-                               
+                                
                             # Проверяем, поддерживается ли режим устройством
                             if not self._is_mode_supported(target_mode):
                                 _LOGGER.error(f"❌ Режим {target_mode} не поддерживается устройством")
                                 self._target_mode = None
                                 return False
-                               
+                                
                             # Если устройство находится в режиме ожидания (MODE_STANDBY), нужно сначала его пробудить
                             if self._status.mode == MODE_STANDBY:
                                 _LOGGER.info("🔄 Устройство находится в режиме ожидания, пробуждаем...")
-                                await self.select_mode(target_mode, 0, target_temp, target_boil_hours, target_boil_minutes)
+                                await self.select_mode(target_mode, 0)
                                 await asyncio.sleep(0.5)  # Увеличенная задержка для пробуждения
-                               
+                                
                             # Отправляем команду "Выбор режима" перед установкой режима
                             _LOGGER.debug(f"📤 Отправка команды SELECT_MODE для режима {target_mode}")
                             # Always use target boil time if it's set
                             boil_hours = self._target_boil_hours if self._target_boil_hours is not None else target_boil_hours
                             boil_minutes = self._target_boil_minutes if self._target_boil_minutes is not None else target_boil_minutes
-                            await self.select_mode(target_mode, 0, target_temp, boil_hours, boil_minutes)
-                            _LOGGER.debug(f"📤 Отправка команды SET_MAIN_MODE для режима {target_mode}")
-                            await self.set_main_mode(target_mode, 0, target_temp, boil_hours, boil_minutes)
+                            await self.select_mode(target_mode, 0)
+                            
+                            # Проверяем, нужно ли отправлять SET_MAIN_MODE
+                            # SET_MAIN_MODE должна отправляться только при нажатии "Старт" или "Отложенный старт"
+                            # Если устройство уже в правильном режиме и выключено, не отправляем SET_MAIN_MODE
+                            if not self._status.is_on and self._status.mode == target_mode:
+                                _LOGGER.debug(f"📊 Нет необходимости отправлять SET_MAIN_MODE, устройство уже в правильном режиме и выключено")
+                            else:
+                                _LOGGER.debug(f"📤 Отправка команды SET_MAIN_MODE для режима {target_mode}")
+                                await self.set_main_mode(target_mode, 0, target_temp, boil_hours, boil_minutes)
+                            
                             _LOGGER.info("✅ Режим установлен")
                             await self.turn_on()
                             _LOGGER.info("✅ Мультиварка включена")
@@ -760,7 +784,7 @@ class SkyCookerConnection(SkyCooker):
             if is_in_standby:
                 _LOGGER.info("🔄 Устройство находится в режиме ожидания (MODE_STANDBY статус)")
                 _LOGGER.info("📤 Отправка команды 09 с выбранным режимом")
-                await self.select_mode(target_mode, 0, target_temp, target_boil_hours, target_boil_minutes, 0, 0, auto_warm_flag)
+                await self.select_mode(target_mode, 0)
                 await asyncio.sleep(0.5)
                 
                 _LOGGER.info("📤 Отправка COMMAND_SET_MAIN_MODE = 0x05 с выбранными параметрами")
@@ -787,7 +811,7 @@ class SkyCookerConnection(SkyCooker):
             elif current_device_mode != target_mode:
                 _LOGGER.info(f"🔄 На мультиварке уже выбран режим {current_device_mode}, и он НЕ совпадает с выбранным в интерфейсе ({target_mode})")
                 _LOGGER.info("📤 Отправка команды 09 с выбранным режимом")
-                await self.select_mode(target_mode, 0, target_temp, target_boil_hours, target_boil_minutes, 0, 0, auto_warm_flag)
+                await self.select_mode(target_mode, 0)
                 await asyncio.sleep(0.5)
                 
                 _LOGGER.info("📤 Отправка COMMAND_SET_MAIN_MODE = 0x05 с выбранными параметрами")
@@ -801,10 +825,10 @@ class SkyCookerConnection(SkyCooker):
                 _LOGGER.info("🔄 Неизвестное состояние устройства, отправляем все команды")
                 if is_in_standby:
                     _LOGGER.info("🔄 Устройство находится в режиме ожидания, отправляем команду SELECT_MODE для пробуждения")
-                    await self.select_mode(target_mode, 0, target_temp, target_boil_hours, target_boil_minutes)
+                    await self.select_mode(target_mode, 0)
                     await asyncio.sleep(0.5)
                 
-                await self.select_mode(target_mode, 0, target_temp, target_boil_hours, target_boil_minutes, 0, 0, auto_warm_flag)
+                await self.select_mode(target_mode, 0)
                 await asyncio.sleep(0.3)
                 
                 await self.set_main_mode(target_mode, 0, target_temp, target_boil_hours, target_boil_minutes, 0, 0, auto_warm_flag)
@@ -946,7 +970,7 @@ class SkyCookerConnection(SkyCooker):
             if is_in_standby:
                 _LOGGER.info("🔄 Устройство находится в режиме ожидания (MODE_STANDBY статус)")
                 _LOGGER.info("📤 Отправка команды 09 с выбранным режимом")
-                await self.select_mode(target_mode, 0, target_temp, target_boil_hours, target_boil_minutes, target_delayed_start_hours, target_delayed_start_minutes)
+                await self.select_mode(target_mode, 0)
                 await asyncio.sleep(0.5)
                  
                 _LOGGER.info("📤 Отправка COMMAND_SET_MAIN_MODE = 0x05 с выбранными параметрами")
@@ -973,7 +997,7 @@ class SkyCookerConnection(SkyCooker):
             elif current_device_mode != target_mode:
                 _LOGGER.info(f"🔄 На мультиварке уже выбран режим {current_device_mode}, и он НЕ совпадает с выбранным в интерфейсе ({target_mode})")
                 _LOGGER.info("📤 Отправка команды 09 с выбранным режимом")
-                await self.select_mode(target_mode, 0, target_temp, target_boil_hours, target_boil_minutes, target_delayed_start_hours, target_delayed_start_minutes)
+                await self.select_mode(target_mode, 0)
                 await asyncio.sleep(0.5)
                  
                 _LOGGER.info("📤 Отправка COMMAND_SET_MAIN_MODE = 0x05 с выбранными параметрами")
@@ -987,10 +1011,10 @@ class SkyCookerConnection(SkyCooker):
                 _LOGGER.info("🔄 Неизвестное состояние устройства, отправляем все команды")
                 if is_in_standby:
                     _LOGGER.info("🔄 Устройство находится в режиме ожидания, отправляем команду SELECT_MODE для пробуждения")
-                    await self.select_mode(target_mode, 0, target_temp, target_boil_hours, target_boil_minutes, target_delayed_start_hours, target_delayed_start_minutes)
+                    await self.select_mode(target_mode, 0)
                     await asyncio.sleep(0.5)
                  
-                await self.select_mode(target_mode, 0, target_temp, target_boil_hours, target_boil_minutes, target_delayed_start_hours, target_delayed_start_minutes)
+                await self.select_mode(target_mode, 0)
                 await asyncio.sleep(0.3)
                  
                 await self.set_main_mode(target_mode, 0, target_temp, target_boil_hours, target_boil_minutes, target_delayed_start_hours, target_delayed_start_minutes)
