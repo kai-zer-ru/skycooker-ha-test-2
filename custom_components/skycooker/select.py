@@ -114,23 +114,28 @@ class SkyCookerSelect(SelectEntity):
             mode_id = self.skycooker.current_mode
             if mode_id is None:
                 return None
-              
+               
             # Получаем тип модели из соединения
             model_type = self.skycooker.model_code
             if model_type is None:
                 return f"Unknown ({mode_id})"
-              
+               
             # Получаем названия режимов для текущей модели
-            mode_names = MODE_NAMES.get(model_type, [None, None])
-            if not mode_names or len(mode_names) < 2:
+            mode_constants = MODE_NAMES.get(model_type, [])
+            if not mode_constants or mode_id >= len(mode_constants):
                 return f"Unknown ({mode_id})"
-              
+               
             # Определяем индекс языка (0 для английского, 1 для русского)
             language = self.hass.config.language
             lang_index = 0 if language == "en" else 1
-              
-            if mode_id < len(mode_names[lang_index]):
-                return mode_names[lang_index][mode_id]
+               
+            # Получаем название режима из константы
+            mode_constant = mode_constants[mode_id]
+            if mode_constant and len(mode_constant) > lang_index:
+                # Проверяем, является ли режим MODE_NONE
+                if mode_constant == MODE_NONE:
+                    return f"Unknown ({mode_id})"
+                return mode_constant[lang_index]
             return f"Unknown ({mode_id})"
         elif self.select_type == SELECT_TYPE_TEMPERATURE:
             # Возвращаем текущую температуру из пользовательских настроек или статуса
@@ -177,17 +182,18 @@ class SkyCookerSelect(SelectEntity):
             model_type = self.skycooker.model_code
             if model_type is None:
                 return []
-            
+             
             # Получаем названия режимов для текущей модели
-            mode_names = MODE_NAMES.get(model_type, [None, None])
-            if not mode_names or len(mode_names) < 2:
+            mode_constants = MODE_NAMES.get(model_type, [])
+            if not mode_constants:
                 return []
-            
+             
             # Определяем индекс языка (0 для английского, 1 для русского)
             language = self.hass.config.language
             lang_index = 0 if language == "en" else 1
-            
-            return mode_names[lang_index]
+             
+            # Извлекаем названия режимов на нужном языке
+            return [mode_constant[lang_index] for mode_constant in mode_constants if mode_constant and len(mode_constant) > lang_index]
         elif self.select_type == SELECT_TYPE_TEMPERATURE:
             # Опции температуры от 40 до 200 с шагом 5
             return [str(temp) for temp in range(40, 201, 5)]
@@ -212,23 +218,27 @@ class SkyCookerSelect(SelectEntity):
             model_type = self.skycooker.model_code
             if model_type is None:
                 return
-             
+              
             # Получаем названия режимов для текущей модели
-            mode_names = MODE_NAMES.get(model_type, [None, None])
-            if not mode_names or len(mode_names) < 2:
+            mode_constants = MODE_NAMES.get(model_type, [])
+            if not mode_constants:
                 return
-             
+              
             # Определяем индекс языка (0 для английского, 1 для русского)
             language = self.hass.config.language
             lang_index = 0 if language == "en" else 1
-             
+              
             # Ищем идентификатор режима по названию
             mode_id = None
-            for idx, value in enumerate(mode_names[lang_index]):
-                if value == option:
+            for idx, mode_constant in enumerate(mode_constants):
+                if mode_constant and len(mode_constant) > lang_index and mode_constant[lang_index] == option:
+                    # Проверяем, является ли режим MODE_NONE
+                    if mode_constant == MODE_NONE:
+                        _LOGGER.error(f"❌ Попытка установить режим MODE_NONE (индекс {idx})")
+                        return
                     mode_id = idx
                     break
-                  
+                   
             if mode_id is not None:
                 # Получаем значения MODE_DATA для выбранного режима
                 model_type = self.skycooker.model_code

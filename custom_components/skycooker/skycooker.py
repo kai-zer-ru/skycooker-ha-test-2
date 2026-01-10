@@ -18,7 +18,7 @@ class SkyCooker(ABC):
     Status = namedtuple("Status", ["mode", "subprog", "target_temp",
         "auto_warm", "is_on", "sound_enabled", "parental_control",
         "error_code", "target_boil_hours", "target_boil_minutes",
-        "target_delayed_start_hours", "target_delayed_start_minutes"])
+        "target_delayed_start_hours", "target_delayed_start_minutes", "status"])
 
     def __init__(self, model):
         _LOGGER.info(f"SkyCooker model: {model}")
@@ -142,6 +142,7 @@ class SkyCooker(ABC):
             target_delayed_start_hours = r[5]
             target_delayed_start_minutes = r[6]
             auto_warm = r[7]
+            status = r[8]
             is_on = r[8] != 0
             sound_enabled = r[9] != 0
             
@@ -157,7 +158,8 @@ class SkyCooker(ABC):
                 target_boil_hours=target_boil_hours,
                 target_boil_minutes=target_boil_minutes,
                 target_delayed_start_hours=target_delayed_start_hours,
-                target_delayed_start_minutes=target_delayed_start_minutes
+                target_delayed_start_minutes=target_delayed_start_minutes,
+                status=status,
             )
         except Exception as e:
             _LOGGER.error(f"❌ Ошибка распаковки статуса: {e}")

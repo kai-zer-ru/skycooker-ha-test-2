@@ -246,18 +246,23 @@ class SkyCookerSensor(SensorEntity):
                 model_type = self.skycooker.model_code
                 if model_type is None:
                     return f"Unknown ({current_mode})"
-                 
+                  
                 # Получаем названия режимов для текущей модели
-                mode_names = MODE_NAMES.get(model_type, [None, None])
-                if not mode_names or len(mode_names) < 2:
+                mode_constants = MODE_NAMES.get(model_type, [])
+                if not mode_constants or current_mode >= len(mode_constants):
                     return f"Unknown ({current_mode})"
-                 
+                  
                 # Определяем индекс языка (0 для английского, 1 для русского)
                 language = self.hass.config.language
                 lang_index = 0 if language == "en" else 1
-                 
-                if current_mode < len(mode_names[lang_index]):
-                    return mode_names[lang_index][current_mode]
+                  
+                # Получаем название режима из константы
+                mode_constant = mode_constants[current_mode]
+                if mode_constant and len(mode_constant) > lang_index:
+                    # Проверяем, является ли режим MODE_NONE
+                    if mode_constant == MODE_NONE:
+                        return f"Unknown ({current_mode})"
+                    return mode_constant[lang_index]
                 return f"Unknown ({current_mode})"
             return "Режим ожидания" if self.hass.config.language == "ru" else "Standby Mode"
         

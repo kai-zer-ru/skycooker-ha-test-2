@@ -164,7 +164,15 @@ class SkyCookerConnection(SkyCooker):
         if mode != 16 and not self._is_mode_supported(mode):
             _LOGGER.error(f"❌ Попытка установить неподдерживаемый режим {mode}")
             raise ValueError(f"Режим {mode} не поддерживается устройством")
-          
+        
+        # Проверяем, является ли режим MODE_NONE
+        model_type = self.model_code
+        if model_type and model_type in MODE_NAMES and mode < len(MODE_NAMES[model_type]):
+            mode_constant = MODE_NAMES[model_type][mode]
+            if mode_constant == MODE_NONE:
+                _LOGGER.error(f"❌ Попытка установить режим MODE_NONE (индекс {mode})")
+                raise ValueError(f"Режим {mode} не поддерживается устройством (MODE_NONE)")
+           
         # Вызываем метод базового класса для отправки команды
         _LOGGER.debug(f"📤 Отправка команды SELECT_MODE для режима {mode} с параметрами: auto_warm={auto_warm}, bit_flags={bit_flags}")
         await super().select_mode(mode, subprog, target_temp, target_boil_hours, target_boil_minutes, target_delayed_start_hours, target_delayed_start_minutes, auto_warm, bit_flags)
@@ -588,8 +596,10 @@ class SkyCookerConnection(SkyCooker):
     @property
     def remaining_time(self):
         if not self._status: return None
-        # Return remaining time based on target_boil_hours and target_boil_minutes
-        return (self._status.target_delayed_start_hours * 60 + self._status.target_delayed_start_minutes) + (self._status.target_boil_hours * 60 + self._status.target_boil_minutes)
+        if self._status.status == STATUS_DELAYED_LAUNCH:
+            # Return remaining time based on target_boil_hours and target_boil_minutes
+            return (self._status.target_delayed_start_hours * 60 + self._status.target_delayed_start_minutes) + (self._status.target_boil_hours * 60 + self._status.target_boil_minutes)
+        return self._status.target_boil_hours * 60 + self._status.target_boil_minutes
 
     @property
     def total_time(self):
@@ -605,14 +615,14 @@ class SkyCookerConnection(SkyCooker):
         # For delayed start time, we need to calculate based on status
         # For now, return 0 as a placeholder
         # In a real implementation, this should come from target_delayed_start_hours and target_delayed_start_minutes
-        return (self._status.target_delayed_start_hours * 60 + self._status.target_delayed_start_minutes) if self._status.mode == STATUS_DELAYED_LAUNCH else 0
+        return (self._status.target_delayed_start_hours * 60 + self._status.target_delayed_start_minutes) if self._status.status == STATUS_DELAYED_LAUNCH else 0
 
     @property
     def auto_warm_time(self):
         if not self._status: return None
         # For auto warm time, we need to calculate based on status
         # For now, return target_boil_hours and target_boil_minutes if in auto warm mode, else 0
-        return (self._status.target_delayed_start_hours * 60 + self._status.target_delayed_start_minutes) if self._status.mode == STATUS_AUTO_WARM else 0
+        return (self._status.target_delayed_start_hours * 60 + self._status.target_delayed_start_minutes) if self._status.status == STATUS_AUTO_WARM else 0
 
     @property
     def auto_warm_enabled(self):
@@ -621,7 +631,7 @@ class SkyCookerConnection(SkyCooker):
             return self._auto_warm_enabled
         # Иначе возвращаем значение из статуса устройства
         if not self._status: return None
-        return self._status.mode == STATUS_AUTO_WARM
+        return self._status.status == STATUS_AUTO_WARM
 
     async def set_boil_time(self, target_boil_hours, target_boil_minutes):
         target_boil_hours = int(target_boil_hours)

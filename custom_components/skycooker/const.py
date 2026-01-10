@@ -133,143 +133,218 @@ MODE_DATA = {
     ],
 }
 
+# Constants for mode names
+MODE_STANDBY = [
+    "Standby Mode",
+    "Режим ожидания",
+]
+
+MODE_MULTI_CHEF = [
+    "Multi-chef",
+    "Мультиповар",
+]
+
+MODE_RICE_CEREALS = [
+    "Rice/Cereals",
+    "Рис/Крупы",
+]
+
+MODE_LANGUOR = [
+    "Languor",
+    "Томление",
+]
+
+MODE_PILAF = [
+    "Pilaf",
+    "Плов",
+]
+
+MODE_FRYING = [
+    "Frying",
+    "Жарка",
+]
+
+MODE_STEWING = [
+    "Stewing",
+    "Тушение",
+]
+
+MODE_PASTA = [
+    "Pasta",
+    "Паста/Макароны",
+]
+
+MODE_MILK_PORRIDGE = [
+    "Milk porridge",
+    "Молочная каша",
+]
+
+MODE_SOUP = [
+    "Soup",
+    "Суп",
+]
+
+MODE_YOGURT = [
+    "Yogurt",
+    "Йогурт",
+]
+
+MODE_BAKING = [
+    "Baking",
+    "Выпечка",
+]
+
+MODE_STEAM = [
+    "Steam",
+    "На пару",
+]
+
+MODE_COOKING_LEGUMES = [
+    "Cooking/Legumes",
+    "Варка/Бобовые",
+]
+
+MODE_WILDFOWL = [
+    "Wildfowl",
+    "Дичь",
+]
+
+MODE_PIZZA = [
+    "Pizza",
+    "Пицца",
+]
+
+MODE_BREAD = [
+    "Bread",
+    "Хлеб",
+]
+
+MODE_BABY_FOOD = [
+    "Baby food",
+    "Детское питание",
+]
+
+MODE_SOUS_VIDE = [
+    "Sous-vide",
+    "Вакуум",
+]
+
+MODE_DEEP_FRYING = [
+    "Deep frying",
+    "Фритюр",
+]
+
+MODE_DESSERTS = [
+    "Desserts",
+    "Десерты",
+]
+
+MODE_EXPRESS = [
+    "Express",
+    "Экспресс",
+]
+
+MODE_GALANTINE = [
+    "Galantine",
+    "Холодец",
+]
+
+MODE_YOGURT_DOUGH = [
+    "Yogurt/Dough",
+    "Йогурт/Тесто",
+]
+
+MODE_CHEESECAKE = [
+    "Cheesecake",
+    "Запеканка/Чизкейк",
+]
+
+MODE_SOUS = [
+    "Sous",
+    "Соус",
+]
+
+MODE_WARMING_UP = [
+    "Warming up",
+    "Разогрев",
+]
+
+MODE_WARMING = [
+    "Warming",
+    "Подогрев",
+]
+
+MODE_COOKING = [
+    "Cooking",
+    "Варка",
+]
+
+MODE_NONE = [
+    "None",
+    "Нет"
+]
+
 # Mode names for each model
 MODE_NAMES = {
     MODEL_0: [
-        [
-            "Standby Mode",
-            "Multi-chef", "Rice/Cereals", "Languor", "Pilaf",
-            "Frying", "Stewing", "Pasta", "Milk porridge",
-            "Soup", "Yogurt", "Baking", "Steam",
-            "Cooking/Legumes"
-        ],
-        [
-            "Режим ожидания",
-            "Мультиповар", "Рис/Крупы", "Томление", "Плов",
-            "Жарка", "Тушение", "Паста/Макароны", "Молочная каша",
-            "Суп", "Йогурт", "Выпечка", "На пару",
-            "Варка/Бобовые"
-        ],
+        MODE_STANDBY,
+        MODE_MULTI_CHEF, MODE_RICE_CEREALS, MODE_LANGUOR, MODE_PILAF,
+        MODE_FRYING, MODE_STEWING, MODE_PASTA, MODE_MILK_PORRIDGE,
+        MODE_SOUP, MODE_YOGURT, MODE_BAKING, MODE_STEAM,
+        MODE_COOKING_LEGUMES
     ],
     MODEL_1: [
-        [
-            "Standby Mode",
-            "Multi-chef", "Rice/Cereals", "Soup", "Wildfowl",
-            "Steam", "Cooking", "Stewing", "Languor",
-            "Frying", "Baking", "Pizza", "Pilaf",
-            "Yogurt", "Bread", "Pasta", "Milk porridge",
-            "Baby food", "Sous-vide", "Deep frying", "Desserts",
-            "Express"
-        ],
-        [
-            "Режим ожидания",
-            "Мультиповар", "Рис/Крупы", "Суп", "Дичь",
-            "Пар", "Варка", "Тушение", "Томление",
-            "Жарка", "Выпечка", "Пицца", "Плов",
-            "Йогурт", "Хлеб", "Паста", "Молочная каша",
-            "Детское питание", "Вакуум", "Фритюр", "Десерты",
-            "Экспресс"
-        ],
+        MODE_STANDBY,
+        MODE_MULTI_CHEF, MODE_RICE_CEREALS, MODE_SOUP, MODE_WILDFOWL,
+        MODE_STEAM, MODE_COOKING, MODE_STEWING, MODE_LANGUOR,
+        MODE_FRYING, MODE_BAKING, MODE_PIZZA, MODE_PILAF,
+        MODE_YOGURT, MODE_BREAD, MODE_PASTA, MODE_MILK_PORRIDGE,
+        MODE_BABY_FOOD, MODE_SOUS_VIDE, MODE_DEEP_FRYING, MODE_DESSERTS,
+        MODE_EXPRESS
     ],
     MODEL_2: [
-        [
-            "Standby Mode",
-            "Galantine", "Frying", "Pasta", "Baking",
-            "Stewing", "Yogurt/Dough", "Multi-chef", "Baby food",
-            "Pilaf", "Soup", "Cheesecake", "Milk porridge",
-            "Bread", "Steam", "Rice/Cereals", "Desserts",
-            "Languor", "Sous", "Deep frying", "Cooking",
-            "Express", "Warming up"
-        ],
-        [
-            "Режим ожидания",
-            "Холодец", "Жарка", "Макароны", "Выпечка",
-            "Тушение", "Йогурт/Тесто", "Мультиповар", "Детское питание",
-            "Плов", "Суп", "Запеканка/Чизкейк", "Молочная каша",
-            "Хлеб", "На пару", "Рис/Крупы", "Десерты",
-            "Томление", "Соус", "Фритюр", "Варка",
-            "Экспресс", "Разогрев"
-        ],
+        MODE_STANDBY,
+        MODE_GALANTINE, MODE_FRYING, MODE_PASTA, MODE_BAKING,
+        MODE_STEWING, MODE_YOGURT_DOUGH, MODE_MULTI_CHEF, MODE_BABY_FOOD,
+        MODE_PILAF, MODE_SOUP, MODE_CHEESECAKE, MODE_MILK_PORRIDGE,
+        MODE_BREAD, MODE_STEAM, MODE_RICE_CEREALS, MODE_DESSERTS,
+        MODE_LANGUOR, MODE_SOUS, MODE_DEEP_FRYING, MODE_COOKING,
+        MODE_EXPRESS, MODE_WARMING_UP
     ],
     MODEL_3: [
-        [
-            "Multi-chef", "Milk porridge", "Stewing", "Frying",
-            "Soup", "Steam", "Pasta", "Languor",
-            "Cooking", "Baking", "Rice/Cereals", "Pilaf",
-            "Yogurt", "Pizza", "Bread",
-            "Sous-vide", "Standby Mode"
-        ],
-        [
-            "Мультиповар", "Молочная каша", "Тушение", "Жарка",
-            "Суп", "Пар", "Паста", "Томление",
-            "Варка", "Выпечка", "Рис/Крупы", "Плов",
-            "Йогурт", "Пицца", "Хлеб",
-            "Вакуум", "Ожидание"
-        ],
+        MODE_MULTI_CHEF, MODE_MILK_PORRIDGE, MODE_STEWING, MODE_FRYING,
+        MODE_SOUP, MODE_STEAM, MODE_PASTA, MODE_LANGUOR,
+        MODE_COOKING, MODE_BAKING, MODE_RICE_CEREALS, MODE_PILAF,
+        MODE_YOGURT, MODE_PIZZA, MODE_BREAD, MODE_NONE,
+        MODE_SOUS_VIDE, MODE_STANDBY
     ],
     MODEL_4: [
-        [
-            "Standby Mode",
-            "Rice/Cereals", "Frying", "Steam", "Baking",
-            "Stewing", "Multi-chef", "Pilaf", "Soup",
-            "Milk porridge", "Yogurt", "Express"
-        ],
-        [
-            "Режим ожидания",
-            "Рис/Крупы", "Жарка", "На пару", "Выпечка",
-            "Тушение", "Мультиповар", "Плов", "Суп",
-            "Молочная каша", "Йогурт", "Экспресс"
-        ],
+        MODE_STANDBY,
+        MODE_RICE_CEREALS, MODE_FRYING, MODE_STEAM, MODE_BAKING,
+        MODE_STEWING, MODE_MULTI_CHEF, MODE_PILAF, MODE_SOUP,
+        MODE_MILK_PORRIDGE, MODE_YOGURT, MODE_EXPRESS
     ],
     MODEL_5: [
-        [
-            "Standby Mode",
-            "Multi-chef", "Milk porridge", "Stewing", "Frying",
-            "Soup", "Steam", "Pasta", "Languor",
-            "Cooking", "Baking", "Rice/Cereals", "Pilaf",
-            "Yogurt", "Pizza", "Bread", "Desserts",
-            "Express"
-        ],
-        [
-            "Режим ожидания",
-            "Мультиповар", "Молочная каша", "Тушение", "Жарка",
-            "Суп", "На пару", "Макароны", "Томление",
-            "Варка", "Выпечка", "Крупы", "Плов",
-            "Йогурт", "Пицца", "Хлеб", "Десерты",
-            "Экспресс"
-        ],
+        MODE_STANDBY,
+        MODE_MULTI_CHEF, MODE_MILK_PORRIDGE, MODE_STEWING, MODE_FRYING,
+        MODE_SOUP, MODE_STEAM, MODE_PASTA, MODE_LANGUOR,
+        MODE_COOKING, MODE_BAKING, MODE_RICE_CEREALS, MODE_PILAF,
+        MODE_YOGURT, MODE_PIZZA, MODE_BREAD, MODE_DESSERTS,
+        MODE_EXPRESS
     ],
     MODEL_6: [
-        [
-            "Standby Mode",
-            "Multi-chef", "Milk porridge", "Stewing", "Frying",
-            "Soup", "Steam", "Pasta", "Languor",
-            "Cooking", "Baking", "Rice/Cereals", "Pilaf",
-            "Yogurt", "Pizza", "Bread", "Desserts",
-            "Express", "Warming"
-        ],
-        [
-            "Режим ожидания",
-            "Мультиповар", "Молочная каша", "Тушение", "Жарка",
-            "Суп", "На пару", "Макароны", "Томление",
-            "Варка", "Выпечка", "Крупы", "Плов",
-            "Йогурт", "Пицца", "Хлеб", "Десерты",
-            "Экспресс", "Подогрев"
-        ],
+        MODE_STANDBY,
+        MODE_MULTI_CHEF, MODE_MILK_PORRIDGE, MODE_STEWING, MODE_FRYING,
+        MODE_SOUP, MODE_STEAM, MODE_PASTA, MODE_LANGUOR,
+        MODE_COOKING, MODE_BAKING, MODE_RICE_CEREALS, MODE_PILAF,
+        MODE_YOGURT, MODE_PIZZA, MODE_BREAD, MODE_DESSERTS,
+        MODE_EXPRESS, MODE_WARMING
     ],
     MODEL_7: [
-        [
-            "Standby Mode",
-            "Frying", "Rice/Cereals", "Multi-chef", "Pilaf",
-            "Steam", "Baking", "Stewing", "Soup",
-            "Milk porridge", "Yogurt", "Express", "Warming up"
-        ],
-        [
-            "Режим ожидания",
-            "Жарка", "Рис/Крупы", "Мультиповар", "Плов",
-            "На пару", "Выпечка", "Тушение", "Суп",
-            "Молочная каша", "Йогурт", "Экспресс", "Разогрев"
-        ],
+        MODE_STANDBY,
+        MODE_FRYING, MODE_RICE_CEREALS, MODE_MULTI_CHEF, MODE_PILAF,
+        MODE_STEAM, MODE_BAKING, MODE_STEWING, MODE_SOUP,
+        MODE_MILK_PORRIDGE, MODE_YOGURT, MODE_EXPRESS, MODE_WARMING_UP
     ],
 }
 
@@ -289,8 +364,6 @@ PRODUCT_DATA = {
 }
 
 # Cooking modes
-# @deprecated
-MODES = MODE_NAMES[MODEL_3][1] # DEPRECATED
 
 # Product names for each model
 PRODUCT_NAMES = {

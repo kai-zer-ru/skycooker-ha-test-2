@@ -19,9 +19,15 @@ class TestConstants(unittest.TestCase):
     
     def test_modes(self):
         """Test cooking modes."""
-        self.assertEqual(len(MODES), 17)  # 16 modes + 1 unknown
-        self.assertEqual(MODES[0], "Мультиповар")
-        self.assertEqual(MODES[16], "Ожидание")
+        # MODE_NAMES is now a dictionary with model-specific mode lists
+        # Let's test MODEL_0 as an example
+        self.assertIn(MODEL_0, MODE_NAMES)
+        mode_constants = MODE_NAMES[MODEL_0]
+        self.assertEqual(len(mode_constants), 14)  # 14 modes for MODEL_0
+        # Check first mode constant
+        self.assertEqual(mode_constants[0], MODE_STANDBY)
+        # Check last mode constant
+        self.assertEqual(mode_constants[13], MODE_COOKING_LEGUMES)
     
     def test_status_codes(self):
         """Test status codes."""
@@ -72,21 +78,23 @@ class TestMulticookerConnection(unittest.TestCase):
         """Test status properties."""
         from custom_components.skycooker.skycooker_connection import SkyCookerConnection
         from custom_components.skycooker.skycooker import SkyCooker
-        
+        from custom_components.skycooker.const import STATUS_DELAYED_LAUNCH
+
         # Create a mock status
         mock_status = SkyCooker.Status(
             mode=1,
             subprog=0,
             target_temp=100,
-            target_boil_hours=0,
-            target_boil_minutes=0,
-            target_delayed_start_hours=0,
-            target_delayed_start_minutes=30,
             auto_warm=0,
             is_on=True,
             sound_enabled=True,
             parental_control=False,
             error_code=0,
+            target_boil_hours=0,
+            target_boil_minutes=0,
+            target_delayed_start_hours=0,
+            target_delayed_start_minutes=30,
+            status=STATUS_DELAYED_LAUNCH,
         )
         
         # Mock get_status to return our mock status
@@ -109,7 +117,8 @@ class TestMulticookerConnection(unittest.TestCase):
         self.assertEqual(connection.status_code, 1)
         self.assertEqual(connection.remaining_time, 30)
         self.assertEqual(connection.total_time, 0)
-        self.assertEqual(connection.delayed_start_time, 0)
+        # delayed_start_time should be 30 because target_delayed_start_minutes is 30 and status is STATUS_DELAYED_LAUNCH
+        self.assertEqual(connection.delayed_start_time, 30)
         self.assertEqual(connection.auto_warm_time, 0)
         self.assertEqual(connection.auto_warm_enabled, False)
 
