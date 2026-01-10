@@ -60,7 +60,7 @@ async def test_switch_auto_warm_enable(hass, entry, skycooker_connection):
     }
     
     switch = SkyCookerSwitch(hass, entry, SWITCH_TYPE_AUTO_WARM)
-    assert switch.unique_id == "switch.skycooker_auto_warm_Test_Device_test_entry"
+    assert switch.unique_id == "switch.skycooker_auto_warm_Test_Device"
     
     # Mock the enable_auto_warm method to set the flag
     async def mock_enable_auto_warm():
@@ -84,7 +84,7 @@ async def test_switch_auto_warm_disable(hass, entry, skycooker_connection):
     }
     
     switch = SkyCookerSwitch(hass, entry, SWITCH_TYPE_AUTO_WARM)
-    assert switch.unique_id == "switch.skycooker_auto_warm_Test_Device_test_entry"
+    assert switch.unique_id == "switch.skycooker_auto_warm_Test_Device"
     
     # Mock the disable_auto_warm method to clear the flag
     async def mock_disable_auto_warm():

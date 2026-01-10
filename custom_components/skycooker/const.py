@@ -1,6 +1,17 @@
 # Constants for SkyCooker integration
 DOMAIN = "skycooker"
 
+# Function to sanitize model name for unique_id
+def sanitize_model_name(model_name):
+    """Sanitize model name to contain only Latin letters, numbers, and underscores."""
+    # Replace spaces and hyphens with underscores
+    sanitized = model_name.replace(' ', '_').replace('-', '_')
+    
+    # Remove any non-alphanumeric characters (except underscores)
+    sanitized = ''.join(c for c in sanitized if c.isalnum() or c == '_')
+    
+    return sanitized
+
 MODEL_0 = 0
 MODEL_1 = 1
 MODEL_2 = 2
