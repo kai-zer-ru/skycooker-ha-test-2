@@ -11,7 +11,7 @@ from bleak_retry_connector import establish_connection, BleakClientWithServiceCa
 from homeassistant.components import bluetooth
 
 from .const import *
-from .skycooker import SkyCooker
+from .skycooker import SkyCooker, SkyCookerError
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -559,7 +559,12 @@ class SkyCookerConnection(SkyCooker):
     async def start(self):
         """Start cooking with current settings."""
         _LOGGER.info("Starting cooking with current settings")
-         
+        
+        # Check if device is connected before proceeding
+        if not self.connected:
+            _LOGGER.error("❌ Устройство не подключено. Пожалуйста, проверьте соединение и повторите попытку.")
+            raise SkyCookerError("Устройство не подключено")
+          
         # Get the mode that the user has selected, not the current device mode
         # If user has selected a mode, use that. Otherwise, use current device mode.
         if hasattr(self, '_target_mode') and self._target_mode is not None:
@@ -722,27 +727,28 @@ class SkyCookerConnection(SkyCooker):
     async def stop_cooking(self):
         """Stop cooking."""
         _LOGGER.info("Stopping cooking")
-          
+           
         # Turn off the device
         await self.turn_off()
-          
-        # Reset target state
+           
+        # Reset target state to default values
         self._target_mode = None
         self._target_temperature = None
-        self._target_boil_hours = None
-        self._target_boil_minutes = None
-        if hasattr(self, '_target_delayed_start_hours'):
-            delattr(self, '_target_delayed_start_hours')
-        if hasattr(self, '_target_delayed_start_minutes'):
-            delattr(self, '_target_delayed_start_minutes')
-          
-        # Clear status to force re-read on next start
-        self._status = None
+        self._target_boil_hours = 0  # Стандартное значение для часов приготовления
+        self._target_boil_minutes = 10  # Стандартное значение для минут приготовления
+        self._target_delayed_start_hours = 0  # Стандартное значение для часов отложенного старта
+        self._target_delayed_start_minutes = 0  # Стандартное значение для минут отложенного старта
+        self._auto_warm_enabled = True  # Стандартное значение для автоподгрева
 
     async def start_delayed(self):
         """Start cooking with delayed start."""
         _LOGGER.info("Starting cooking with delayed start")
-         
+        
+        # Check if device is connected before proceeding
+        if not self.connected:
+            _LOGGER.error("❌ Устройство не подключено. Пожалуйста, проверьте соединение и повторите попытку.")
+            raise SkyCookerError("Устройство не подключено")
+          
         # Get the mode that the user has selected, not the current device mode
         # If user has selected a mode, use that. Otherwise, use current device mode.
         if hasattr(self, '_target_mode') and self._target_mode is not None:

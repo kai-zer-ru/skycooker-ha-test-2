@@ -45,7 +45,9 @@ class SkyCookerSwitch(SwitchEntity):
     @property
     def unique_id(self):
         """Return a unique ID."""
-        return f"{self.entry.entry_id}_{self.switch_type}"
+        model_name = self.entry.data.get(CONF_FRIENDLY_NAME, "").replace(" ", "_")
+        unique_id = f"{model_name}_{self.entry.entry_id}"
+        return f"switch.skycooker_{self.switch_type}_{unique_id}"
 
     @property
     def device_info(self):
@@ -99,11 +101,13 @@ class SkyCookerSwitch(SwitchEntity):
     async def async_turn_on(self, **kwargs):
         """Turn the switch on."""
         if self.switch_type == SWITCH_TYPE_AUTO_WARM:
-            await self.skycooker.enable_auto_warm()
+            # Устанавливаем флаг автоподогрева без отправки команд на устройство
+            self.skycooker._auto_warm_enabled = True
             self.update()
 
     async def async_turn_off(self, **kwargs):
         """Turn the switch off."""
         if self.switch_type == SWITCH_TYPE_AUTO_WARM:
-            await self.skycooker.disable_auto_warm()
+            # Сбрасываем флаг автоподогрева без отправки команд на устройство
+            self.skycooker._auto_warm_enabled = False
             self.update()

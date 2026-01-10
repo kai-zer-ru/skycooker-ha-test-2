@@ -28,10 +28,11 @@ class TestSkyCookerButton:
         mock_hass = MagicMock()
         mock_entry = MagicMock()
         mock_entry.entry_id = "test_entry"
+        mock_entry.data = {"friendly_name": "Test Device"}
 
         button = SkyCookerButton(mock_hass, mock_entry, BUTTON_TYPE_START)
 
-        assert button.unique_id == "test_entry_start"
+        assert button.unique_id == "button.skycooker_skycooker_start_Test_Device_test_entry"
 
     def test_button_name(self):
         """Test that the button entity returns the correct name."""

@@ -25,6 +25,10 @@ class TestCookingTimePreservation:
         connection.get_status = AsyncMock()
         connection._disconnect_if_need = AsyncMock()
         
+        # Mock the connected property to return True
+        connection._client = MagicMock()
+        connection._client.is_connected = True
+        
         # Mock the _status attribute
         connection._status = MagicMock()
         connection._status.mode = 16  # MODE_STANDBY

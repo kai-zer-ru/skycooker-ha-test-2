@@ -55,7 +55,9 @@ class SkyCookerSensor(SensorEntity):
     @property
     def unique_id(self):
         """Return a unique ID."""
-        return f"{self.entry.entry_id}_{self.sensor_type}"
+        model_name = self.entry.data.get(CONF_FRIENDLY_NAME, "").replace(" ", "_")
+        unique_id = f"{model_name}_{self.entry.entry_id}"
+        return f"sensor.skycooker_{self.sensor_type}_{unique_id}"
 
     @property
     def device_info(self):

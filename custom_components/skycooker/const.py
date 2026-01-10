@@ -436,30 +436,30 @@ SKYCOOKER_NAME = "SkyCooker"
 MANUFACTORER = "Redmond"
 
 # Button types
-BUTTON_TYPE_START = "start"
-BUTTON_TYPE_STOP = "stop"
-BUTTON_TYPE_START_DELAYED = "start_delayed"
+BUTTON_TYPE_START = "skycooker_start"
+BUTTON_TYPE_STOP = "skycooker_stop"
+BUTTON_TYPE_START_DELAYED = "skycooker_start_delayed"
 
 # Select types
-SELECT_TYPE_MODE = "mode"
-SELECT_TYPE_TEMPERATURE = "temperature"
-SELECT_TYPE_COOKING_TIME_HOURS = "cooking_time_hours"
-SELECT_TYPE_COOKING_TIME_MINUTES = "cooking_time_minutes"
-SELECT_TYPE_DELAYED_START_HOURS = "delayed_start_hours"
-SELECT_TYPE_DELAYED_START_MINUTES = "delayed_start_minutes"
+SELECT_TYPE_MODE = "skycooker_mode"
+SELECT_TYPE_TEMPERATURE = "skycooker_temperature"
+SELECT_TYPE_COOKING_TIME_HOURS = "skycooker_cooking_time_hours"
+SELECT_TYPE_COOKING_TIME_MINUTES = "skycooker_cooking_time_minutes"
+SELECT_TYPE_DELAYED_START_HOURS = "skycooker_delayed_start_hours"
+SELECT_TYPE_DELAYED_START_MINUTES = "skycooker_delayed_start_minutes"
 
 # Sensor types
-SENSOR_TYPE_STATUS = "status"
-SENSOR_TYPE_TEMPERATURE = "temperature"
-SENSOR_TYPE_REMAINING_TIME = "remaining_time"
-SENSOR_TYPE_TOTAL_TIME = "total_time"
-SENSOR_TYPE_AUTO_WARM_TIME = "auto_warm_time"
-SENSOR_TYPE_SUCCESS_RATE = "success_rate"
-SENSOR_TYPE_DELAYED_LAUNCH_TIME = "delayed_launch_time"
-SENSOR_TYPE_CURRENT_MODE = "current_mode"
+SENSOR_TYPE_STATUS = "skycooker_status"
+SENSOR_TYPE_TEMPERATURE = "skycooker_temperature"
+SENSOR_TYPE_REMAINING_TIME = "skycooker_remaining_time"
+SENSOR_TYPE_TOTAL_TIME = "skycooker_total_time"
+SENSOR_TYPE_AUTO_WARM_TIME = "skycooker_auto_warm_time"
+SENSOR_TYPE_SUCCESS_RATE = "skycooker_success_rate"
+SENSOR_TYPE_DELAYED_LAUNCH_TIME = "skycooker_delayed_launch_time"
+SENSOR_TYPE_CURRENT_MODE = "skycooker_current_mode"
 
 # Switch types
-SWITCH_TYPE_AUTO_WARM = "auto_warm"
+SWITCH_TYPE_AUTO_WARM = "skycooker_auto_warm"
 
 # BLE settings
 UUID_SERVICE = "6e400001-b5a3-f393-e0a9-e50e24dcca9e"

@@ -47,7 +47,9 @@ class SkyCookerSelect(SelectEntity):
     @property
     def unique_id(self):
         """Return a unique ID."""
-        return f"{self.entry.entry_id}_{self.select_type}"
+        model_name = self.entry.data.get(CONF_FRIENDLY_NAME, "").replace(" ", "_")
+        unique_id = f"{model_name}_{self.entry.entry_id}"
+        return f"select.skycooker_{self.select_type}_{unique_id}"
 
     @property
     def device_info(self):
@@ -218,16 +220,16 @@ class SkyCookerSelect(SelectEntity):
             model_type = self.skycooker.model_code
             if model_type is None:
                 return
-              
+               
             # Получаем названия режимов для текущей модели
             mode_constants = MODE_NAMES.get(model_type, [])
             if not mode_constants:
                 return
-              
+               
             # Определяем индекс языка (0 для английского, 1 для русского)
             language = self.hass.config.language
             lang_index = 0 if language == "en" else 1
-              
+               
             # Ищем идентификатор режима по названию
             mode_id = None
             for idx, mode_constant in enumerate(mode_constants):
@@ -245,30 +247,23 @@ class SkyCookerSelect(SelectEntity):
                 if model_type and model_type in MODE_DATA and mode_id < len(MODE_DATA[model_type]):
                     mode_data = MODE_DATA[model_type][mode_id]
                     _LOGGER.info(f"Selected mode {mode_id} for model {model_type}: temperature={mode_data[0]}, hours={mode_data[1]}, minutes={mode_data[2]}")
-                        
-                    # Обновляем температуру и время приготовления данными режима только если пользователь не установил свои значения
-                    if not hasattr(self.skycooker, '_target_temperature') or self.skycooker._target_temperature is None:
-                        self.skycooker._target_temperature = mode_data[0]
-                        
-                    # Update target_boil_hours и target_boil_minutes with mode data only if user hasn't set custom values
-                    # If user has already set custom cooking time, respect their choice
-                    if (not hasattr(self.skycooker, '_target_boil_hours') or self.skycooker._target_boil_hours is None or
-                        not hasattr(self.skycooker, '_target_boil_minutes') or self.skycooker._target_boil_minutes is None):
-                        self.skycooker.target_boil_hours = mode_data[1]
-                        self.skycooker.target_boil_minutes = mode_data[2]
-                   
-            # Вызываем set_target_mode для отправки команд на устройство при выборе режима
-            await self.skycooker.set_target_mode(mode_id)
-
-            # Устанавливаем значения по умолчанию для часов и минут отложенного запуска только если пользователь не установил их
-            if getattr(self.skycooker, '_target_delayed_start_hours', None) is None:
-                self.skycooker._target_delayed_start_hours = 0
-            if getattr(self.skycooker, '_target_delayed_start_minutes', None) is None:
-                self.skycooker._target_delayed_start_minutes = 0
+                         
+                # Обновляем температуру и время приготовления данными режима только если пользователь не установил свои значения
+                if not hasattr(self.skycooker, '_target_temperature') or self.skycooker._target_temperature is None:
+                    self.skycooker._target_temperature = mode_data[0]
+                 
+                # Update target_boil_hours и target_boil_minutes with mode data only if user hasn't set custom values
+                # If user has already set custom cooking time, respect their choice
+                if (not hasattr(self.skycooker, '_target_boil_hours') or self.skycooker._target_boil_hours is None or
+                    not hasattr(self.skycooker, '_target_boil_minutes') or self.skycooker._target_boil_minutes is None):
+                    self.skycooker.target_boil_hours = mode_data[1]
+                    self.skycooker.target_boil_minutes = mode_data[2]
                
-                # Запускаем обновление диспетчера для уведомления Number сущностей об изменении режима
-                async_dispatcher_send(self.hass, DISPATCHER_UPDATE)
-                self.update()
+            # Устанавливаем целевой режим без отправки команд на устройство
+            self.skycooker._target_mode = mode_id
+            # Запускаем обновление диспетчера для уведомления Number сущностей об изменении режима
+            async_dispatcher_send(self.hass, DISPATCHER_UPDATE)
+            self.update()
         elif self.select_type == SELECT_TYPE_TEMPERATURE:
             # Помечаем, что пользователь установил собственную температуру
             self.skycooker._target_temperature = int(option)
@@ -284,10 +279,6 @@ class SkyCookerSelect(SelectEntity):
         elif self.select_type == SELECT_TYPE_DELAYED_START_MINUTES:
             # Устанавливаем минуты отложенного запуска
             self.skycooker._target_delayed_start_minutes = int(option)
-        if self.select_type == SELECT_TYPE_DELAYED_START_HOURS and getattr(self.skycooker, '_target_delayed_start_hours', None) is None:
-            self.skycooker._target_delayed_start_hours = 0
-        if self.select_type == SELECT_TYPE_DELAYED_START_MINUTES and getattr(self.skycooker, '_target_delayed_start_minutes', None) is None:
-            self.skycooker._target_delayed_start_minutes = 0
           
         # Планируем обновление для обновления состояния сущности
         self.async_schedule_update_ha_state(True)

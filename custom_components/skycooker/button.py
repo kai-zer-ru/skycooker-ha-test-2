@@ -6,6 +6,7 @@ from homeassistant.const import CONF_FRIENDLY_NAME
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 
 from .const import *
+from .skycooker import SkyCookerError
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -47,7 +48,9 @@ class SkyCookerButton(ButtonEntity):
     @property
     def unique_id(self):
         """Return a unique ID."""
-        return f"{self.entry.entry_id}_{self.button_type}"
+        model_name = self.entry.data.get(CONF_FRIENDLY_NAME, "").replace(" ", "_")
+        unique_id = f"{model_name}_{self.entry.entry_id}"
+        return f"button.skycooker_{self.button_type}_{unique_id}"
 
     @property
     def device_info(self):
@@ -96,11 +99,18 @@ class SkyCookerButton(ButtonEntity):
 
     async def async_press(self) -> None:
         """Press the button."""
-        if self.button_type == BUTTON_TYPE_START:
-            await self.skycooker.start()
-        elif self.button_type == BUTTON_TYPE_STOP:
-            await self.skycooker.stop_cooking()
-        elif self.button_type == BUTTON_TYPE_START_DELAYED:
-            await self.skycooker.start_delayed()
-         
+        try:
+            if self.button_type == BUTTON_TYPE_START:
+                await self.skycooker.start()
+            elif self.button_type == BUTTON_TYPE_STOP:
+                await self.skycooker.stop_cooking()
+            elif self.button_type == BUTTON_TYPE_START_DELAYED:
+                await self.skycooker.start_delayed()
+        except SkyCookerError as e:
+            _LOGGER.error(f"❌ Ошибка при нажатии кнопки: {str(e)}")
+            # Не вызываем raise, чтобы интерфейс не падал
+        except Exception as e:
+            _LOGGER.error(f"❌ Неожиданная ошибка при нажатии кнопки: {str(e)}")
+            # Не вызываем raise, чтобы интерфейс не падал
+          
         self.update()

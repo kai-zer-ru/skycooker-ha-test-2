@@ -211,12 +211,16 @@ class TestSkyCookerConnection:
         connection.get_status = AsyncMock()
         connection._disconnect_if_need = AsyncMock()
         
+        # Mock the connected property to return True
+        connection._client = MagicMock()
+        connection._client.is_connected = True
+        
         # Mock the _status attribute to avoid IndexError
         connection._status = MagicMock()
         connection._status.mode = 1
         connection._status.is_on = False
         connection._status.target_temp = 100
-
+        
         # Mock MODE_DATA to return a list with enough elements
         from custom_components.skycooker.const import MODE_DATA
         original_mode_data = MODE_DATA[3].copy()
