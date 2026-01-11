@@ -58,22 +58,22 @@ class SkyCookerSensor(SensorEntity):
         model_name = self.entry.data.get(CONF_FRIENDLY_NAME, "")
         sanitized_model_name = sanitize_model_name(model_name)
         if self.sensor_type == SENSOR_TYPE_STATUS:
-            return f"sensor.skycooker_status_{sanitized_model_name}"
+            return f"sensor.skycooker_status_{sanitized_model_name}_{self.entry.entry_id}"
         elif self.sensor_type == SENSOR_TYPE_TEMPERATURE:
-            return f"sensor.skycooker_temperature_{sanitized_model_name}"
+            return f"sensor.skycooker_temperature_{sanitized_model_name}_{self.entry.entry_id}"
         elif self.sensor_type == SENSOR_TYPE_REMAINING_TIME:
-            return f"sensor.skycooker_remaining_time_{sanitized_model_name}"
+            return f"sensor.skycooker_remaining_time_{sanitized_model_name}_{self.entry.entry_id}"
         elif self.sensor_type == SENSOR_TYPE_TOTAL_TIME:
-            return f"sensor.skycooker_total_time_{sanitized_model_name}"
+            return f"sensor.skycooker_total_time_{sanitized_model_name}_{self.entry.entry_id}"
         elif self.sensor_type == SENSOR_TYPE_AUTO_WARM_TIME:
-            return f"sensor.skycooker_auto_warm_time_{sanitized_model_name}"
+            return f"sensor.skycooker_auto_warm_time_{sanitized_model_name}_{self.entry.entry_id}"
         elif self.sensor_type == SENSOR_TYPE_SUCCESS_RATE:
-            return f"sensor.skycooker_success_rate_{sanitized_model_name}"
+            return f"sensor.skycooker_success_rate_{sanitized_model_name}_{self.entry.entry_id}"
         elif self.sensor_type == SENSOR_TYPE_DELAYED_LAUNCH_TIME:
-            return f"sensor.skycooker_delayed_launch_time_{sanitized_model_name}"
+            return f"sensor.skycooker_delayed_launch_time_{sanitized_model_name}_{self.entry.entry_id}"
         elif self.sensor_type == SENSOR_TYPE_CURRENT_MODE:
-            return f"sensor.skycooker_current_mode_{sanitized_model_name}"
-        return f"sensor.skycooker_{self.sensor_type}_{sanitized_model_name}"
+            return f"sensor.skycooker_current_mode_{sanitized_model_name}_{self.entry.entry_id}"
+        return f"sensor.skycooker_{self.sensor_type}_{sanitized_model_name}_{self.entry.entry_id}"
 
     @property
     def entity_id(self):

@@ -48,8 +48,8 @@ class SkyCookerSwitch(SwitchEntity):
         model_name = self.entry.data.get(CONF_FRIENDLY_NAME, "")
         sanitized_model_name = sanitize_model_name(model_name)
         if self.switch_type == SWITCH_TYPE_AUTO_WARM:
-            return f"switch.skycooker_auto_warm_{sanitized_model_name}"
-        return f"switch.skycooker_{self.switch_type}_{sanitized_model_name}"
+            return f"switch.skycooker_auto_warm_{sanitized_model_name}_{self.entry.entry_id}"
+        return f"switch.skycooker_{self.switch_type}_{sanitized_model_name}_{self.entry.entry_id}"
 
     @property
     def entity_id(self):

@@ -57,20 +57,20 @@ class SkyCookerSelect(SelectEntity):
         model_name = self.entry.data.get(CONF_FRIENDLY_NAME, "")
         sanitized_model_name = sanitize_model_name(model_name)
         if self.select_type == SELECT_TYPE_MODE:
-            return f"select.skycooker_mode_{sanitized_model_name}"
+            return f"select.skycooker_mode_{sanitized_model_name}_{self.entry.entry_id}"
         elif self.select_type == SELECT_TYPE_SUBPROGRAM:
-            return f"select.skycooker_subprogram_{sanitized_model_name}"
+            return f"select.skycooker_subprogram_{sanitized_model_name}_{self.entry.entry_id}"
         elif self.select_type == SELECT_TYPE_TEMPERATURE:
-            return f"select.skycooker_temperature_{sanitized_model_name}"
+            return f"select.skycooker_temperature_{sanitized_model_name}_{self.entry.entry_id}"
         elif self.select_type == SELECT_TYPE_COOKING_TIME_HOURS:
-            return f"select.skycooker_cooking_time_hours_{sanitized_model_name}"
+            return f"select.skycooker_cooking_time_hours_{sanitized_model_name}_{self.entry.entry_id}"
         elif self.select_type == SELECT_TYPE_COOKING_TIME_MINUTES:
-            return f"select.skycooker_cooking_time_minutes_{sanitized_model_name}"
+            return f"select.skycooker_cooking_time_minutes_{sanitized_model_name}_{self.entry.entry_id}"
         elif self.select_type == SELECT_TYPE_DELAYED_START_HOURS:
-            return f"select.skycooker_delayed_start_hours_{sanitized_model_name}"
+            return f"select.skycooker_delayed_start_hours_{sanitized_model_name}_{self.entry.entry_id}"
         elif self.select_type == SELECT_TYPE_DELAYED_START_MINUTES:
-            return f"select.skycooker_delayed_start_minutes_{sanitized_model_name}"
-        return f"select.skycooker_{self.select_type}_{sanitized_model_name}"
+            return f"select.skycooker_delayed_start_minutes_{sanitized_model_name}_{self.entry.entry_id}"
+        return f"select.skycooker_{self.select_type}_{sanitized_model_name}_{self.entry.entry_id}"
 
     @property
     def entity_id(self):
