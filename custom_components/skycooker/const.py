@@ -10,6 +10,9 @@ def sanitize_model_name(model_name):
     # Remove any non-alphanumeric characters (except underscores)
     sanitized = ''.join(c for c in sanitized if c.isalnum() or c == '_')
     
+    # Convert to lowercase to ensure consistent entity IDs
+    sanitized = sanitized.lower()
+    
     return sanitized
 
 MODEL_0 = 0

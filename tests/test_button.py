@@ -32,7 +32,7 @@ class TestSkyCookerButton:
 
         button = SkyCookerButton(mock_hass, mock_entry, BUTTON_TYPE_START)
     
-        assert button.unique_id == "button.skycooker_start_Test_Device_test_entry"
+        assert button.unique_id == "button.skycooker_start_test_device_test_entry"
 
     def test_button_name(self):
         """Test that the button entity returns the correct name."""
