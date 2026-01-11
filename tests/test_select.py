@@ -61,7 +61,7 @@ def test_select_initialization(hass, entry, skycooker_connection):
     }
     
     select = SkyCookerSelect(hass, entry, SELECT_TYPE_MODE)
-    assert select.unique_id == "select.skycooker_mode_test_device_test_entry"
+    assert select.unique_id == "skycooker_mode_test_device_test_entry"
     assert select.name == "SkyCooker Test Device mode"
     assert select.icon == "mdi:chef-hat"
 
@@ -161,7 +161,7 @@ def test_temperature_select_initialization(hass, entry, skycooker_connection):
     }
     
     select = SkyCookerSelect(hass, entry, SELECT_TYPE_TEMPERATURE)
-    assert select.unique_id == "select.skycooker_temperature_test_device_test_entry"
+    assert select.unique_id == "skycooker_temperature_test_device_test_entry"
     assert select.name == "SkyCooker Test Device temperature"
     assert select.icon == "mdi:thermometer"
 
@@ -174,7 +174,7 @@ def test_cooking_time_hours_select_initialization(hass, entry, skycooker_connect
     }
     
     select = SkyCookerSelect(hass, entry, SELECT_TYPE_COOKING_TIME_HOURS)
-    assert select.unique_id == "select.skycooker_cooking_time_hours_test_device_test_entry"
+    assert select.unique_id == "skycooker_cooking_time_hours_test_device_test_entry"
     assert select.name == "SkyCooker Test Device cooking time (hours)"
     assert select.icon == "mdi:timer"
 
@@ -187,7 +187,7 @@ def test_cooking_time_minutes_select_initialization(hass, entry, skycooker_conne
     }
     
     select = SkyCookerSelect(hass, entry, SELECT_TYPE_COOKING_TIME_MINUTES)
-    assert select.unique_id == "select.skycooker_cooking_time_minutes_test_device_test_entry"
+    assert select.unique_id == "skycooker_cooking_time_minutes_test_device_test_entry"
     assert select.name == "SkyCooker Test Device cooking time (minutes)"
     assert select.icon == "mdi:timer"
 
@@ -200,7 +200,7 @@ def test_delayed_start_hours_select_initialization(hass, entry, skycooker_connec
     }
     
     select = SkyCookerSelect(hass, entry, SELECT_TYPE_DELAYED_START_HOURS)
-    assert select.unique_id == "select.skycooker_delayed_start_hours_test_device_test_entry"
+    assert select.unique_id == "skycooker_delayed_start_hours_test_device_test_entry"
     assert select.name == "SkyCooker Test Device delayed start (hours)"
     assert select.icon == "mdi:timer-sand"
 
@@ -213,7 +213,7 @@ def test_delayed_start_minutes_select_initialization(hass, entry, skycooker_conn
     }
     
     select = SkyCookerSelect(hass, entry, SELECT_TYPE_DELAYED_START_MINUTES)
-    assert select.unique_id == "select.skycooker_delayed_start_minutes_test_device_test_entry"
+    assert select.unique_id == "skycooker_delayed_start_minutes_test_device_test_entry"
     assert select.name == "SkyCooker Test Device delayed start (minutes)"
     assert select.icon == "mdi:timer-sand"
 

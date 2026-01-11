@@ -57,7 +57,7 @@ def test_sensor_initialization(hass, entry, skycooker_connection):
     }
     
     sensor = SkyCookerSensor(hass, entry, SENSOR_TYPE_STATUS)
-    assert sensor.unique_id == "sensor.skycooker_status_test_device_test_entry"
+    assert sensor.unique_id == "skycooker_status_test_device_test_entry"
     assert sensor.name == "SkyCooker Test Device status"
     assert sensor.icon == "mdi:information"
 

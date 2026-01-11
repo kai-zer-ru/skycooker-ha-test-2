@@ -245,7 +245,7 @@ async def test_subprogram_select_unique_id():
     
     # Test unique ID
     unique_id = subprogram_select.unique_id
-    assert unique_id == "select.skycooker_subprogram_test_device_test_entry_id", "Should have correct unique ID"
+    assert unique_id == "skycooker_subprogram_test_device_test_entry_id", "Should have correct unique ID"
 
 
 @pytest.mark.asyncio
