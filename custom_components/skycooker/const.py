@@ -24,16 +24,21 @@ def sanitize_entry_id(entry_id):
     # Remove any non-alphanumeric characters (except underscores)
     sanitized = ''.join(c for c in sanitized if c.isalnum() or c == '_')
     
-    # Ensure the ID doesn't start with a number (Home Assistant requirement)
-    if sanitized and sanitized[0].isdigit():
-        # Prepend 'e' (for entry) if it starts with a number
-        sanitized = 'e' + sanitized
+    # Remove all digits - Home Assistant entity IDs cannot contain numbers in the object_id part
+    sanitized = ''.join(c for c in sanitized if not c.isdigit())
+    
+    # If the result is empty after removing digits, use a default value
+    if not sanitized:
+        sanitized = 'skycooker'
+    
+    # Ensure the ID doesn't start with an underscore
+    if sanitized and sanitized[0] == '_':
+        sanitized = 'e' + sanitized[1:]
     
     # Limit length to 16 characters to prevent overly long entity IDs
-    # This ensures the final entity ID stays within Home Assistant limits
     if len(sanitized) > 16:
-        # Use first 8 and last 8 characters to maintain uniqueness
-        sanitized = sanitized[:8] + sanitized[-8:]
+        # Use only the first 16 characters (remove the tail)
+        sanitized = sanitized[:16]
     
     return sanitized
 
