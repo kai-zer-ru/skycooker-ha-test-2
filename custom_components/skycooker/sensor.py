@@ -17,7 +17,7 @@ _LOGGER = logging.getLogger(__name__)
 
 async def async_setup_entry(hass, entry, async_add_entities):
     """Set up the SkyCooker sensors."""
-    async_add_entities([
+    entities = [
         SkyCookerSensor(hass, entry, SENSOR_TYPE_STATUS),
         SkyCookerSensor(hass, entry, SENSOR_TYPE_TEMPERATURE),
         SkyCookerSensor(hass, entry, SENSOR_TYPE_REMAINING_TIME),
@@ -26,7 +26,14 @@ async def async_setup_entry(hass, entry, async_add_entities):
         SkyCookerSensor(hass, entry, SENSOR_TYPE_SUCCESS_RATE),
         SkyCookerSensor(hass, entry, SENSOR_TYPE_DELAYED_LAUNCH_TIME),
         SkyCookerSensor(hass, entry, SENSOR_TYPE_CURRENT_MODE),
-    ])
+    ]
+    
+    # Добавляем сенсор для подпрограммы только если модель не MODEL_3
+    skycooker = hass.data[DOMAIN][entry.entry_id][DATA_CONNECTION]
+    if skycooker.model_code != MODEL_3:
+        entities.append(SkyCookerSensor(hass, entry, SENSOR_TYPE_SUBPROGRAM))
+    
+    async_add_entities(entities)
 
 
 class SkyCookerSensor(SensorEntity):
@@ -73,6 +80,8 @@ class SkyCookerSensor(SensorEntity):
             return f"sensor.skycooker_delayed_launch_time_{sanitized_model_name}_{self.entry.entry_id}"
         elif self.sensor_type == SENSOR_TYPE_CURRENT_MODE:
             return f"sensor.skycooker_current_mode_{sanitized_model_name}_{self.entry.entry_id}"
+        elif self.sensor_type == SENSOR_TYPE_SUBPROGRAM:
+            return f"sensor.skycooker_subprogram_{sanitized_model_name}_{self.entry.entry_id}"
         return f"sensor.skycooker_{self.sensor_type}_{sanitized_model_name}_{self.entry.entry_id}"
 
     @property
@@ -120,7 +129,9 @@ class SkyCookerSensor(SensorEntity):
             return f"{base_name} delayed launch time"
         elif self.sensor_type == SENSOR_TYPE_CURRENT_MODE:
             return f"{base_name} current mode"
-         
+        elif self.sensor_type == SENSOR_TYPE_SUBPROGRAM:
+            return f"{base_name} subprogram"
+          
         return base_name
 
     @property
@@ -142,6 +153,8 @@ class SkyCookerSensor(SensorEntity):
             return "mdi:timer-sand"
         elif self.sensor_type == SENSOR_TYPE_CURRENT_MODE:
             return "mdi:chef-hat"
+        elif self.sensor_type == SENSOR_TYPE_SUBPROGRAM:
+            return "mdi:cog-outline"
         return None
 
     @property
@@ -150,11 +163,15 @@ class SkyCookerSensor(SensorEntity):
         # Если skycooker недоступен, возвращаем False
         if not self.skycooker.available:
             return False
-          
+           
         # Для датчиков успеха, времени отложенного запуска и версии ПО всегда возвращаем True, если skycooker доступен
         if self.sensor_type in [SENSOR_TYPE_SUCCESS_RATE, SENSOR_TYPE_DELAYED_LAUNCH_TIME]:
             return True
-          
+           
+        # Для датчика подпрограммы проверяем, есть ли данные о подпрограмме
+        if self.sensor_type == SENSOR_TYPE_SUBPROGRAM:
+            return self.skycooker.status and self.skycooker.status.subprog is not None
+           
         # Для других датчиков проверяем, есть ли данные из статуса устройства
         # Датчики должны использовать только данные из статуса устройства, а не из пользовательских настроек
         if self.sensor_type == SENSOR_TYPE_STATUS:
@@ -171,7 +188,7 @@ class SkyCookerSensor(SensorEntity):
             # For current mode, we should return True if we have a status code
             # even if current_mode is None, as we can show "Standby Mode" or "Режим ожидания"
             return self.skycooker.status_code is not None
-          
+           
         return False
 
     @property
@@ -263,16 +280,16 @@ class SkyCookerSensor(SensorEntity):
                 model_type = self.skycooker.model_code
                 if model_type is None:
                     return f"Unknown ({current_mode})"
-                   
+                
                 # Получаем названия режимов для текущей модели
                 mode_constants = MODE_NAMES.get(model_type, [])
                 if not mode_constants or current_mode >= len(mode_constants):
                     return f"Unknown ({current_mode})"
-                   
+                
                 # Определяем индекс языка (0 для английского, 1 для русского)
                 language = self.hass.config.language
                 lang_index = 0 if language == "en" else 1
-                   
+                
                 # Получаем название режима из константы
                 mode_constant = mode_constants[current_mode]
                 if mode_constant and len(mode_constant) > lang_index:
@@ -282,5 +299,10 @@ class SkyCookerSensor(SensorEntity):
                     return mode_constant[lang_index]
                 return f"Unknown ({current_mode})"
             return "Режим ожидания" if self.hass.config.language == "ru" else "Standby Mode"
-         
+        elif self.sensor_type == SENSOR_TYPE_SUBPROGRAM:
+            # Возвращаем текущую подпрограмму из статуса устройства
+            if self.skycooker.status and self.skycooker.status.subprog is not None:
+                return str(self.skycooker.status.subprog)
+            return "0"
+          
         return None

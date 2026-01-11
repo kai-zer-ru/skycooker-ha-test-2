@@ -469,6 +469,7 @@ SENSOR_TYPE_AUTO_WARM_TIME = "skycooker_auto_warm_time"
 SENSOR_TYPE_SUCCESS_RATE = "skycooker_success_rate"
 SENSOR_TYPE_DELAYED_LAUNCH_TIME = "skycooker_delayed_launch_time"
 SENSOR_TYPE_CURRENT_MODE = "skycooker_current_mode"
+SENSOR_TYPE_SUBPROGRAM = "skycooker_subprogram"
 
 # Switch types
 SWITCH_TYPE_AUTO_WARM = "skycooker_auto_warm"
