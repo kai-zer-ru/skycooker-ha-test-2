@@ -56,44 +56,44 @@ class SkyCookerSelect(SelectEntity):
         """Return a unique ID."""
         model_name = self.entry.data.get(CONF_FRIENDLY_NAME, "")
         sanitized_model_name = sanitize_model_name(model_name)
-        entry_id_lower = self.entry.entry_id.lower()
+        sanitized_entry_id = sanitize_entry_id(self.entry.entry_id)
         if self.select_type == SELECT_TYPE_MODE:
-            return f"skycooker_mode_{sanitized_model_name}_{entry_id_lower}"
+            return f"skycooker_mode_{sanitized_model_name}_{sanitized_entry_id}"
         elif self.select_type == SELECT_TYPE_SUBPROGRAM:
-            return f"skycooker_subprogram_{sanitized_model_name}_{entry_id_lower}"
+            return f"skycooker_subprogram_{sanitized_model_name}_{sanitized_entry_id}"
         elif self.select_type == SELECT_TYPE_TEMPERATURE:
-            return f"skycooker_temperature_{sanitized_model_name}_{entry_id_lower}"
+            return f"skycooker_temperature_{sanitized_model_name}_{sanitized_entry_id}"
         elif self.select_type == SELECT_TYPE_COOKING_TIME_HOURS:
-            return f"skycooker_cooking_time_hours_{sanitized_model_name}_{entry_id_lower}"
+            return f"skycooker_cooking_time_hours_{sanitized_model_name}_{sanitized_entry_id}"
         elif self.select_type == SELECT_TYPE_COOKING_TIME_MINUTES:
-            return f"skycooker_cooking_time_minutes_{sanitized_model_name}_{entry_id_lower}"
+            return f"skycooker_cooking_time_minutes_{sanitized_model_name}_{sanitized_entry_id}"
         elif self.select_type == SELECT_TYPE_DELAYED_START_HOURS:
-            return f"skycooker_delayed_start_hours_{sanitized_model_name}_{entry_id_lower}"
+            return f"skycooker_delayed_start_hours_{sanitized_model_name}_{sanitized_entry_id}"
         elif self.select_type == SELECT_TYPE_DELAYED_START_MINUTES:
-            return f"skycooker_delayed_start_minutes_{sanitized_model_name}_{entry_id_lower}"
-        return f"skycooker_{self.select_type}_{sanitized_model_name}_{entry_id_lower}"
+            return f"skycooker_delayed_start_minutes_{sanitized_model_name}_{sanitized_entry_id}"
+        return f"skycooker_{self.select_type}_{sanitized_model_name}_{sanitized_entry_id}"
 
     @property
     def entity_id(self):
         """Return the entity ID."""
         model_name = self.entry.data.get(CONF_FRIENDLY_NAME, "")
         sanitized_model_name = sanitize_model_name(model_name)
-        entry_id_lower = self.entry.entry_id.lower()
+        sanitized_entry_id = sanitize_entry_id(self.entry.entry_id)
         if self.select_type == SELECT_TYPE_MODE:
-            return f"skycooker_mode_{sanitized_model_name}_{entry_id_lower}"
+            return f"skycooker_mode_{sanitized_model_name}_{sanitized_entry_id}"
         elif self.select_type == SELECT_TYPE_SUBPROGRAM:
-            return f"skycooker_subprogram_{sanitized_model_name}_{entry_id_lower}"
+            return f"skycooker_subprogram_{sanitized_model_name}_{sanitized_entry_id}"
         elif self.select_type == SELECT_TYPE_TEMPERATURE:
-            return f"skycooker_temperature_{sanitized_model_name}_{entry_id_lower}"
+            return f"skycooker_temperature_{sanitized_model_name}_{sanitized_entry_id}"
         elif self.select_type == SELECT_TYPE_COOKING_TIME_HOURS:
-            return f"skycooker_cooking_time_hours_{sanitized_model_name}_{entry_id_lower}"
+            return f"skycooker_cooking_time_hours_{sanitized_model_name}_{sanitized_entry_id}"
         elif self.select_type == SELECT_TYPE_COOKING_TIME_MINUTES:
-            return f"skycooker_cooking_time_minutes_{sanitized_model_name}_{entry_id_lower}"
+            return f"skycooker_cooking_time_minutes_{sanitized_model_name}_{sanitized_entry_id}"
         elif self.select_type == SELECT_TYPE_DELAYED_START_HOURS:
-            return f"skycooker_delayed_start_hours_{sanitized_model_name}_{entry_id_lower}"
+            return f"skycooker_delayed_start_hours_{sanitized_model_name}_{sanitized_entry_id}"
         elif self.select_type == SELECT_TYPE_DELAYED_START_MINUTES:
-            return f"skycooker_delayed_start_minutes_{sanitized_model_name}_{entry_id_lower}"
-        return f"skycooker_{self.select_type}_{sanitized_model_name}_{entry_id_lower}"
+            return f"skycooker_delayed_start_minutes_{sanitized_model_name}_{sanitized_entry_id}"
+        return f"skycooker_{self.select_type}_{sanitized_model_name}_{sanitized_entry_id}"
 
     @property
     def device_info(self):

@@ -50,28 +50,28 @@ class SkyCookerButton(ButtonEntity):
         """Return a unique ID."""
         model_name = self.entry.data.get(CONF_FRIENDLY_NAME, "")
         sanitized_model_name = sanitize_model_name(model_name)
-        entry_id_lower = self.entry.entry_id.lower()
+        sanitized_entry_id = sanitize_entry_id(self.entry.entry_id)
         if self.button_type == BUTTON_TYPE_START:
-            return f"skycooker_start_{sanitized_model_name}_{entry_id_lower}"
+            return f"skycooker_start_{sanitized_model_name}_{sanitized_entry_id}"
         elif self.button_type == BUTTON_TYPE_STOP:
-            return f"skycooker_stop_{sanitized_model_name}_{entry_id_lower}"
+            return f"skycooker_stop_{sanitized_model_name}_{sanitized_entry_id}"
         elif self.button_type == BUTTON_TYPE_START_DELAYED:
-            return f"skycooker_start_delayed_{sanitized_model_name}_{entry_id_lower}"
-        return f"skycooker_{self.button_type}_{sanitized_model_name}_{entry_id_lower}"
+            return f"skycooker_start_delayed_{sanitized_model_name}_{sanitized_entry_id}"
+        return f"skycooker_{self.button_type}_{sanitized_model_name}_{sanitized_entry_id}"
 
     @property
     def entity_id(self):
         """Return the entity ID."""
         model_name = self.entry.data.get(CONF_FRIENDLY_NAME, "")
         sanitized_model_name = sanitize_model_name(model_name)
-        entry_id_lower = self.entry.entry_id.lower()
+        sanitized_entry_id = sanitize_entry_id(self.entry.entry_id)
         if self.button_type == BUTTON_TYPE_START:
-            return f"skycooker_start_{sanitized_model_name}_{entry_id_lower}"
+            return f"skycooker_start_{sanitized_model_name}_{sanitized_entry_id}"
         elif self.button_type == BUTTON_TYPE_STOP:
-            return f"skycooker_stop_{sanitized_model_name}_{entry_id_lower}"
+            return f"skycooker_stop_{sanitized_model_name}_{sanitized_entry_id}"
         elif self.button_type == BUTTON_TYPE_START_DELAYED:
-            return f"skycooker_start_delayed_{sanitized_model_name}_{entry_id_lower}"
-        return f"skycooker_{self.button_type}_{sanitized_model_name}_{entry_id_lower}"
+            return f"skycooker_start_delayed_{sanitized_model_name}_{sanitized_entry_id}"
+        return f"skycooker_{self.button_type}_{sanitized_model_name}_{sanitized_entry_id}"
 
     @property
     def device_info(self):
