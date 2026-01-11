@@ -31,7 +31,7 @@ class TestSkyCookerButton:
         mock_entry.data = {"friendly_name": "Test Device"}
 
         button = SkyCookerButton(mock_hass, mock_entry, BUTTON_TYPE_START)
-
+    
         assert button.unique_id == "button.skycooker_start_Test_Device"
 
     def test_button_name(self):
@@ -44,10 +44,10 @@ class TestSkyCookerButton:
         button_start = SkyCookerButton(mock_hass, mock_entry, BUTTON_TYPE_START)
         button_stop = SkyCookerButton(mock_hass, mock_entry, BUTTON_TYPE_STOP)
         button_delayed = SkyCookerButton(mock_hass, mock_entry, BUTTON_TYPE_START_DELAYED)
-
-        assert button_start.name == "SkyCooker Test Device запуск"
-        assert button_stop.name == "SkyCooker Test Device стоп"
-        assert button_delayed.name == "SkyCooker Test Device запуск с отложенным стартом"
+    
+        assert button_start.name == "SkyCooker Test Device start"
+        assert button_stop.name == "SkyCooker Test Device stop"
+        assert button_delayed.name == "SkyCooker Test Device start delayed"
 
     def test_button_icon(self):
         """Test that the button entity returns the correct icon."""

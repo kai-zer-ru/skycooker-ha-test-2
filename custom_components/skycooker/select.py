@@ -96,26 +96,21 @@ class SkyCookerSelect(SelectEntity):
     def name(self):
         """Return the name of the select entity."""
         base_name = (SKYCOOKER_NAME + " " + self.entry.data.get(CONF_FRIENDLY_NAME, "")).strip()
-        
-        # Определяем индекс языка (0 для английского, 1 для русского)
-        language = self.hass.config.language
-        is_russian = language == "ru"
-        
         if self.select_type == SELECT_TYPE_MODE:
-            return f"{base_name} {'режим' if is_russian else 'mode'}"
+            return f"{base_name} mode"
         elif self.select_type == SELECT_TYPE_SUBPROGRAM:
-            return f"{base_name} {'подпрограмма' if is_russian else 'subprogram'}"
+            return f"{base_name} subprogram"
         elif self.select_type == SELECT_TYPE_TEMPERATURE:
-            return f"{base_name} {'температура' if is_russian else 'temperature'}"
+            return f"{base_name} temperature"
         elif self.select_type == SELECT_TYPE_COOKING_TIME_HOURS:
-            return f"{base_name} {'время приготовления' if is_russian else 'cooking time'} {'(часы)' if is_russian else '(hours)'}"
+            return f"{base_name} cooking time (hours)"
         elif self.select_type == SELECT_TYPE_COOKING_TIME_MINUTES:
-            return f"{base_name} {'время приготовления' if is_russian else 'cooking time'} {'(минуты)' if is_russian else '(minutes)'}"
+            return f"{base_name} cooking time (minutes)"
         elif self.select_type == SELECT_TYPE_DELAYED_START_HOURS:
-            return f"{base_name} {'отложенный старт' if is_russian else 'delayed start'} {'(часы)' if is_russian else '(hours)'}"
+            return f"{base_name} delayed start (hours)"
         elif self.select_type == SELECT_TYPE_DELAYED_START_MINUTES:
-            return f"{base_name} {'отложенный старт' if is_russian else 'delayed start'} {'(минуты)' if is_russian else '(minutes)'}"
-        
+            return f"{base_name} delayed start (minutes)"
+         
         return base_name
 
     @property

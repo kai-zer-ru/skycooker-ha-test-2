@@ -82,14 +82,13 @@ class SkyCookerButton(ButtonEntity):
     def name(self):
         """Return the name of the button entity."""
         base_name = (SKYCOOKER_NAME + " " + self.entry.data.get(CONF_FRIENDLY_NAME, "")).strip()
-        
         if self.button_type == BUTTON_TYPE_START:
-            return f"{base_name} запуск"
+            return f"{base_name} start"
         elif self.button_type == BUTTON_TYPE_STOP:
-            return f"{base_name} стоп"
+            return f"{base_name} stop"
         elif self.button_type == BUTTON_TYPE_START_DELAYED:
-            return f"{base_name} запуск с отложенным стартом"
-        
+            return f"{base_name} start delayed"
+         
         return base_name
 
     @property

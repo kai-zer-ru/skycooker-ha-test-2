@@ -75,14 +75,9 @@ class SkyCookerSwitch(SwitchEntity):
     def name(self):
         """Return the name of the switch."""
         base_name = (SKYCOOKER_NAME + " " + self.entry.data.get(CONF_FRIENDLY_NAME, "")).strip()
-        
-        # Определяем индекс языка (0 для английского, 1 для русского)
-        language = self.hass.config.language
-        is_russian = language == "ru"
-        
         if self.switch_type == SWITCH_TYPE_AUTO_WARM:
-            return f"{base_name} {'автоподогрев' if is_russian else 'auto warm'}"
-        
+            return f"{base_name} auto warm"
+         
         return base_name
 
     @property

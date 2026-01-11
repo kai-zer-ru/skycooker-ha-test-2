@@ -259,7 +259,7 @@ def test_sensor_russian_language(hass, entry, skycooker_connection):
     skycooker_connection.status = mock_status
     
     sensor = SkyCookerSensor(hass, entry, SENSOR_TYPE_STATUS)
-    assert sensor.name == "SkyCooker Test Device статус"
+    assert sensor.name == "SkyCooker Test Device status"
     assert sensor.native_value == "Выключена"
 
 

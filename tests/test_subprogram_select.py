@@ -285,7 +285,7 @@ async def test_subprogram_select_name():
     # Test name (Russian)
     hass.config.language = "ru"
     name = subprogram_select.name
-    assert "подпрограмма" in name.lower(), "Should contain 'подпрограмма' in Russian"
+    assert "subprogram" in name.lower(), "Should contain 'subprogram' in English"
 
 
 @pytest.mark.asyncio
