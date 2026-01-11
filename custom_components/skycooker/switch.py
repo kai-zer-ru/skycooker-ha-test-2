@@ -47,9 +47,10 @@ class SkyCookerSwitch(SwitchEntity):
         """Return a unique ID."""
         model_name = self.entry.data.get(CONF_FRIENDLY_NAME, "")
         sanitized_model_name = sanitize_model_name(model_name)
+        entry_id_lower = self.entry.entry_id.lower()
         if self.switch_type == SWITCH_TYPE_AUTO_WARM:
-            return f"switch.skycooker_auto_warm_{sanitized_model_name}_{self.entry.entry_id}"
-        return f"switch.skycooker_{self.switch_type}_{sanitized_model_name}_{self.entry.entry_id}"
+            return f"switch.skycooker_auto_warm_{sanitized_model_name}_{entry_id_lower}"
+        return f"switch.skycooker_{self.switch_type}_{sanitized_model_name}_{entry_id_lower}"
 
     @property
     def entity_id(self):

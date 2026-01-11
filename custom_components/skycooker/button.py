@@ -50,13 +50,14 @@ class SkyCookerButton(ButtonEntity):
         """Return a unique ID."""
         model_name = self.entry.data.get(CONF_FRIENDLY_NAME, "")
         sanitized_model_name = sanitize_model_name(model_name)
+        entry_id_lower = self.entry.entry_id.lower()
         if self.button_type == BUTTON_TYPE_START:
-            return f"button.skycooker_start_{sanitized_model_name}_{self.entry.entry_id}"
+            return f"button.skycooker_start_{sanitized_model_name}_{entry_id_lower}"
         elif self.button_type == BUTTON_TYPE_STOP:
-            return f"button.skycooker_stop_{sanitized_model_name}_{self.entry.entry_id}"
+            return f"button.skycooker_stop_{sanitized_model_name}_{entry_id_lower}"
         elif self.button_type == BUTTON_TYPE_START_DELAYED:
-            return f"button.skycooker_start_delayed_{sanitized_model_name}_{self.entry.entry_id}"
-        return f"button.skycooker_{self.button_type}_{sanitized_model_name}_{self.entry.entry_id}"
+            return f"button.skycooker_start_delayed_{sanitized_model_name}_{entry_id_lower}"
+        return f"button.skycooker_{self.button_type}_{sanitized_model_name}_{entry_id_lower}"
 
     @property
     def entity_id(self):
